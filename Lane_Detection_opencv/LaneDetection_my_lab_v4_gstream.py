@@ -2,17 +2,16 @@ import cv2
 import numpy as np
 import warnings
 
-Ignorar avisos de RankWarning do np.polyfit
+#Ignorar avisos de RankWarning do np.polyfit
 warnings.filterwarnings("ignore", category=np.RankWarning)
 
-Configurações de vídeo
+#Configurações de vídeo
 fps = 30
 width, height = 800, 600
 
 # alterar <IP_RECEIVER> para o IP da máquina que receberá o stream.
 gst_str = (
-    "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=ultrafast ! "digo42
-    
+    "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=ultrafast ! "    
     "rtph264pay config-interval=1 pt=96 ! udpsink host=localhost port=5000"
 )
 
