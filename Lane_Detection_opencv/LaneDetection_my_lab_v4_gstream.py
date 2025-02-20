@@ -190,7 +190,7 @@ while True:
         
         # Derivada dy/dx no ponto do carro (y=599)
         slope = 2 * A * car_y + B  # dx/dy
-        theta_desejado = np.arctan(slope)
+        theta_desejado = np.arctan(-slope)
         
         # Ângulo do carro (assumindo alinhamento com a estrada)
         theta_carro = 0  # Em radianos (alinhado com eixo y negativo)
@@ -213,7 +213,7 @@ while True:
     # Cálculo do offset 
     lane_center = (left_base + right_base) / 2
     car_position = 400  # Assumindo que o carro está centralizado na imagem
-    lane_offset = (car_position - lane_center) * 0.2 / 800  # Conversão de pixels para metros
+    lane_offset = (car_position - lane_center) * 0.26 / 800  # Conversão de pixels para metros
 
     # Cálculo do ângulo de direção
     steering_angle = np.arctan(lane_offset / curvature) * 180 / np.pi
