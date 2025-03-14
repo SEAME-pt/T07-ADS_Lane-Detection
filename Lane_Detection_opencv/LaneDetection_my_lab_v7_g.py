@@ -234,7 +234,7 @@ while True:
 
     # Cálculo do offset
     lane_center = (left_base + right_base) / 2
-    lane_offset = (car_x - lane_center) * 3.7 / 800  # Ajustado para 3.7m (largura típica de faixa)
+    lane_offset = (car_x - lane_center) * 0.26 / 800  # Ajustado para 3.7m (largura típica de faixa)
 
     # Cálculo do ângulo de direção
     steering_angle = np.arctan(lane_offset / curvature) * 180 / np.pi
