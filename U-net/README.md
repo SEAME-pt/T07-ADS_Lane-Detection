@@ -5,6 +5,13 @@
 
 Implementation of a U-Net based deep learning model for lane segmentation in autonomous driving scenarios. Combines advanced techniques for handling class imbalance and data augmentation.
 
+## Model Architecture
+For details about the model structure, view the Netron-generated graph:
+
+```plaintext
+(assets/model.onnx.svg)
+```
+
 ## Features 
 
 -  Custom U-Net with dropout and batch normalization
