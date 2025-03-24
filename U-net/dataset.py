@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import numpy as np
+import cv2
 
 class LaneDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None, num_augmentations=2):
@@ -16,9 +17,10 @@ class LaneDataset(Dataset):
         self.images = os.listdir(image_dir)
         self.total_samples = len(self.images) * (1 + self.num_augmentations if transform else 1)
 
-        # Transformação básica para garantir tamanho fixo mesmo sem augmentações
+        # Transformação base para garantir tamanho fixo mesmo sem augmentações
         self.base_transform = A.Compose([
-            A.Resize(height=160, width=240),
+            # A.Resize(height=160, width=240),
+            A.Resize(height=128, width=256),
             A.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0], max_pixel_value=255.0),
             ToTensorV2()
         ])
@@ -67,7 +69,8 @@ class LaneDataset(Dataset):
 
 
 train_transforms = A.Compose([
-    A.Resize(height=160, width=240),  # Redimensiona
+    # A.Resize(height=160, width=240),  # Redimensiona
+    A.Resize(height=128, width=256, interpolation=cv2.INTER_CUBIC),  # Redimensiona
     A.HorizontalFlip(p=0.5),  # Espelha horizontalmente
     A.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0], max_pixel_value=255.0),  # Normaliza
     # A.RGBShift(r_shift_limit=25, g_shift_limit=25, b_shift_limit=25, p=0.9),
@@ -83,7 +86,8 @@ train_transforms = A.Compose([
 
 # Transformações para validação
 val_transforms = A.Compose([
-    A.Resize(height=160, width=240),  # Redimensiona
+    # A.Resize(height=160, width=240),  # Redimensiona
+    A.Resize(height=128, width=256, interpolation=cv2.INTER_CUBIC),  # Redimensiona
     A.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0], max_pixel_value=255.0),  # Normaliza
     ToTensorV2(),  # Converte para tensor
 ])
@@ -118,10 +122,14 @@ val_loader_test = DataLoader(
     )
 
 
+
 def test():
     # Cria imagem e máscara como tensores PyTorch
     img_tensor = torch.randint(0, 256, (572, 572, 3), dtype=torch.uint8)  # Imagem RGB
     mask_tensor = torch.randint(0, 2, (572, 572), dtype=torch.uint8)       # Máscara binária
+    
+    print("Data:", img_tensor.shape, img_tensor.dtype)
+    print("Targets:", mask_tensor.shape, mask_tensor.dtype)
     
     # Converte para arrays NumPy
     img = img_tensor.numpy()
@@ -163,10 +171,10 @@ def teste_2():
         print(f"Batch {batch_idx}: Imagens {images.shape}, Máscaras {masks.shape}")
 
 if __name__ == "__main__":
-    # test()
+    test()
     # print("\n")
     # print('Com o loader \n')
-    test_1(train_loader_test)
+    # test_1(train_loader_test)
     # print(f'tamanho dataset: {len(train_ds_test)}')
     # teste_2()
     

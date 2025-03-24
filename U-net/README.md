@@ -1,16 +1,9 @@
-# Lane Segmentation with U-Net 🚗🔍
+# Lane Segmentation with U-Net
 
 ![Architecture Diagram](https://miro.medium.com/max/1400/1*f7YOaE4TWubwaFF7Z1fzNw.png)
 *U-Net Architecture Diagram (Reference)*
 
 Implementation of a U-Net based deep learning model for lane segmentation in autonomous driving scenarios. Combines advanced techniques for handling class imbalance and data augmentation.
-
-## Model Architecture
-For details about the model structure, view the Netron-generated graph:
-
-```plaintext
-(assets/model.onnx.svg)
-```
 
 ## Features 
 
@@ -126,14 +119,14 @@ class DiceLoss(nn.Module):
 ```plaintext
 | Metric          | Validation |
 |-----------------|:----------:|
-| Accuracy        | 99.46%     |
-| Dice Score      | 0.815      |
-| loss      	  | 0.129      |
+| Accuracy        | 99.66%     |
+| Dice Score      | 0.8815     |
+| loss      	  | 0.1280     |
 ```
 *Tested on NVIDIA GeForce GTX 1050Ti GPU*
 
 
-![Results Preview](./saved_images_1/result.png)  
+![Results Preview](./saved_images/combined_epoch9_batch20.png)  
 *Input | Binary Prediction | Raw Prediction*
 
 

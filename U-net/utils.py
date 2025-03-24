@@ -1,9 +1,12 @@
 import torch
 import torchvision
-import os
-import random
 from dataset import LaneDataset
 from torch.utils.data import DataLoader
+import logging
+import os
+
+logging.basicConfig(filename='training_log.log', level=logging.INFO, 
+                    format='%(asctime)s - %(message)s')
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -75,12 +78,14 @@ def check_accuracy(loader, model, device = "cuda"):
             dice_score += (2 * (preds * y).sum()) / (
                 (preds + y).sum() + 1e-8
             )
+            mean_dice = dice_score / len(loader)
 
-    print(
-        f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}"
-    )
-    print(f"Dice score: {dice_score/len(loader)}")
+    print(f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}")
+    print(f"Dice score: {mean_dice:.4f}")
+    logging.info(f"Dice Score: {mean_dice:.4f}")
+    
     model.train()
+    return mean_dice
 
 
 def save_predictions_as_imgs(
@@ -99,36 +104,75 @@ def save_predictions_as_imgs(
         torchvision.utils.save_image(y, f"{folder}{idx}.png")
 
     model.train()
-    
 
-def save_prediction_visualization(model, loader, folder="saved_images/", device="cuda"):
+
+def save_predictions_as_imgs_1(loader, model, epoch, folder="saved_images/", device="cuda"):
     model.eval()
-    os.makedirs(folder, exist_ok=True)
     
-    # Seleciona uma imagem aleatória do loader
-    x, y = random.choice(loader.dataset)
-    x = x.unsqueeze(0).to(device=device)  # Adiciona dimensão de batch
-    y = y.unsqueeze(0)
+    # Cria o diretório se não existir
+    if not os.path.exists(folder):
+        os.makedirs(folder)
     
-    with torch.no_grad():
-        preds = torch.sigmoid(model(x))
-        preds_binary = (preds > 0.5).float()
-    
-    # Expandir os canais para garantir compatibilidade
-    if preds_binary.shape[1] == 1:
-        preds_binary = preds_binary.expand(-1, 3, -1, -1)
-    if preds.shape[1] == 1:
-        preds = preds.expand(-1, 3, -1, -1)
-    if y.shape[1] == 1:
-        y = y.expand(-1, 3, -1, -1)
-    
-    # Criar grid de imagens lado a lado
-    images = torch.cat([x.cpu(), preds_binary.cpu(), preds.cpu()], dim=3)  # Concatena ao longo da largura
-    
-    # Salvar a imagem resultante
-    torchvision.utils.save_image(images, f"{folder}/result.png")
+    for idx, (x, y) in enumerate(loader):
+        # Salva apenas a cada 10 batches
+        print("")
+        if idx % 10 == 0:
+            x = x.to(device=device)
+            y = y.to(device=device).float()
+            
+            with torch.no_grad():
+                preds = torch.sigmoid(model(x))
+                preds = (preds > 0.5).float()
+            
+            # Pega a primeira amostra do batch
+            img_original = x[0]  # [3, H, W]
+            # print(f"Image: {img_original.shape}, tipo: {img_original.dtype}")
+            
+            # Ground truth (1 canal) -> converte para 3 canais
+            mask = y[0]  # [1, H, W] ou [H, W]
+            # print(f"Máscara before: {mask.shape}, tipo: {mask.dtype}")
+            if mask.dim() == 2:  # Se for [H, W], adiciona dimensão de canal
+                mask = mask.unsqueeze(0)  # [1, H, W]
+                # print(f"Máscara after: {mask.shape}, tipo: {mask.dtype}")
+            mask_rgb = mask.repeat(3, 1, 1)  # [3, H, W]
+            
+            # Previsão (1 canal) -> converte para 3 canais
+            pred = preds[0]  # [1, H, W]
+            # print(f"Máscara before: {pred.shape}, tipo: {pred.dtype}")
+            if pred.dim() == 2:  # Se for [H, W], adiciona dimensão de canal
+                pred = pred.unsqueeze(0)  # [1, H, W]
+                # print(f"Máscara before: {pred.shape}, tipo: {pred.dtype}")
+            pred_rgb = pred.repeat(3, 1, 1)  # [3, H, W]
+            
+            # Define o espaço (faixa preta de 5 pixels de largura)
+            space_width = 10
+            # space = torch.zeros(3, img_original.size(1), space_width, device=device)  # [3, H, 5]
+            space = torch.ones(3, img_original.size(1), space_width, device=device)
+            
+            # Concatena horizontalmente com espaços: original | espaço | máscara | espaço | previsão
+            combined = torch.cat(
+                (img_original, space, mask_rgb, space, pred_rgb), dim=2
+            )  # [3, H, 3*W + 2*space_width]
+            
+            # Salva a imagem combinada
+            torchvision.utils.save_image(
+                combined, f"{folder}/combined_epoch{epoch}_batch{idx}.png"
+            )
     
     model.train()
-
-
+    
+# Calculo do alpha a utilizar no Focal loss
+def calculate_alpha(dataset_loader):
+    total_pixels = 0
+    positive_pixels = 0
+    
+    for _, targets in dataset_loader:
+        total_pixels += targets.numel()  # Número total de pixels
+        positive_pixels += targets.sum().item()  # Soma de pixels positivos
+    
+    pos_ratio = positive_pixels / total_pixels
+    neg_ratio = 1 - pos_ratio
+    alpha = neg_ratio  # Peso para a classe positiva = proporção da classe negativa
+    print(f"Proporção de positivos: {pos_ratio:.4f}, Alpha sugerido: {alpha:.4f}")
+    return alpha
 

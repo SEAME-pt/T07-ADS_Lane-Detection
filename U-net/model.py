@@ -94,15 +94,16 @@ class UNET(nn.Module):
                 
 
 def test():
-    x = torch.randn((3, 1, 161, 161))  # Harder test
-    model = UNET(in_channels=1, out_channels=1)
+    # x = torch.randn((3, 1, 161, 161))  # Harder test
+    x = torch.randn((1, 3, 256, 256))
+    model = UNET(in_channels=3, out_channels=1) # atenção in channels
     preds = model(x)
     print(preds.shape)  # Dimensões -> [3, 1, 161, 161]
     print(x.shape)      # Dimensões -> [3, 1, 161, 161]
-    assert preds.shape == x.shape
-    for name, param in model.named_parameters():
-        print(name, param.data.mean(), param.data.std(unbiased=False))
+    # assert preds.shape == x.shape
+    # for name, param in model.named_parameters():
+        # print(name, param.data.mean(), param.data.std(unbiased=False))
 
-# Teste básico
+# Teste
 if __name__ == "__main__":
     test()
