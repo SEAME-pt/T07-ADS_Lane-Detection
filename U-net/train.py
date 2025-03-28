@@ -29,6 +29,7 @@ IMAGE_HEIGHT = 128 #160  # 1280 originally
 IMAGE_WIDTH = 256 #240  # 1918 originally
 PIN_MEMORY = True
 LOAD_MODEL = False
+# PATIENCE = 5  # Para Early Stopping
 TRAIN_IMG_DIR = "data/train_little/"
 TRAIN_MASK_DIR = "data/train_masks_little/"
 VAL_IMG_DIR = "data/val_little/"
@@ -94,6 +95,11 @@ class FocalLoss(nn.Module):
 
     def forward(self, inputs, targets):
         # Verifica valores inválidos nos dados
+        # if torch.isnan(inputs).any() or torch.isinf(inputs).any():
+        #     raise ValueError("Inputs contêm NaN ou Inf!")
+        # if torch.isnan(targets).any() or torch.isinf(targets).any():
+        #     raise ValueError("Targets contêm NaN ou Inf!")
+
         if torch.isnan(inputs).any() or torch.isinf(inputs).any():
             logging.warning("Inputs contêm NaN ou Inf.")
         if torch.isnan(targets).any() or torch.isinf(targets).any():
@@ -128,7 +134,7 @@ class FocalLoss(nn.Module):
         else:
             return focal_loss
 
-# Dice Loss
+# Dice Loss (já definida anteriormente)
 class DiceLoss(nn.Module):
     def __init__(self):
         super(DiceLoss, self).__init__()
@@ -142,7 +148,7 @@ class DiceLoss(nn.Module):
         return 1 - dice
 
 
-# Função principal
+# Função principal ajustada
 def main():
     
     model = UNET(in_channels=3, out_channels=1).to(DEVICE)
@@ -150,7 +156,7 @@ def main():
     loss_fn_dice = DiceLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     
-    # Adiciona Learning Rate Scheduler - não usado
+    # Adicionando Learning Rate Scheduler
     # scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
     # scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=3)
     
@@ -185,13 +191,13 @@ def main():
         # Treinamento
         train_loss = train_fn(train_loader, model, optimizer, loss_fn_focal, loss_fn_dice, scaler, epoch)
         
-        # Validação a cada época
+        # Validação a cada época (ou a cada X batches, se preferir)
         dice_score= check_accuracy(val_loader, model, device=DEVICE)
         
-        # Atualiza o scheduler com base na perda de validação - não usado
+        # Atualiza o scheduler com base na perda de validação
         # scheduler.step(dice_score)
         
-		# Obtém o lr atual - não usado
+		# Obtém a taxa de aprendizado atual
         # current_lr = scheduler.get_last_lr()
         # current_lr = scheduler.get_last_lr()[0]
         
@@ -201,12 +207,19 @@ def main():
         
         print(f"Epoch {epoch}: Dice Score = {dice_score:.4f}" )
         
+        # Early Stopping
         if dice_score > best_dice_score:
             best_dice_score = dice_score
+            # patience_counter = 0
             checkpoint = {"state_dict": model.state_dict(), "optimizer": optimizer.state_dict()}
             save_checkpoint(checkpoint, filename="model.pth.tar")
             print("Modelo salvo (melhor validação)!")
-        
+        # else:
+        #     patience_counter += 1
+        #     print(f"Patience: {patience_counter}/{PATIENCE}")
+        #     if patience_counter >= PATIENCE:
+        #         print("Early Stopping ativado!")
+        #         break
         
         # Salva predições como imagens
         save_predictions_as_imgs_1(val_loader, model, epoch, folder="saved_images/", device=DEVICE)

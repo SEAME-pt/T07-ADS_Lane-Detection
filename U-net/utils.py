@@ -161,7 +161,7 @@ def save_predictions_as_imgs_1(loader, model, epoch, folder="saved_images/", dev
     
     model.train()
     
-# Calculo do alpha a utilizar no Focal loss
+
 def calculate_alpha(dataset_loader):
     total_pixels = 0
     positive_pixels = 0

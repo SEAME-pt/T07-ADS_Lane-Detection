@@ -17,7 +17,7 @@ class LaneDataset(Dataset):
         self.images = os.listdir(image_dir)
         self.total_samples = len(self.images) * (1 + self.num_augmentations if transform else 1)
 
-        # Transformação base para garantir tamanho fixo mesmo sem augmentações
+        # Transformação básica para garantir tamanho fixo mesmo sem augmentações
         self.base_transform = A.Compose([
             # A.Resize(height=160, width=240),
             A.Resize(height=128, width=256),
@@ -68,19 +68,48 @@ class LaneDataset(Dataset):
         return image, mask
 
 
+# train_transforms = A.Compose([
+#     # A.Resize(height=160, width=240),  # Redimensiona
+#     A.Resize(height=128, width=256, interpolation=cv2.INTER_CUBIC),  # Redimensiona
+#     A.HorizontalFlip(p=0.5),  # Espelha horizontalmente
+#     A.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0], max_pixel_value=255.0),  # Normaliza
+#     # A.RGBShift(r_shift_limit=25, g_shift_limit=25, b_shift_limit=25, p=0.9),
+#     #     A.OneOf([
+#     #         A.Blur(blur_limit=3, p=0.5),
+#     #         A.ColorJitter(p=0.5),
+#     #     ], p=1.0),
+#     A.RandomBrightnessContrast(p=0.5),  # Ajusta brilho/contraste
+#     A.RandomGamma(p=0.5),  # Ajusta gama para destacar linhas
+#     ToTensorV2(),  # Converte para tensor
+# ])
+
+
+
 train_transforms = A.Compose([
-    # A.Resize(height=160, width=240),  # Redimensiona
-    A.Resize(height=128, width=256, interpolation=cv2.INTER_CUBIC),  # Redimensiona
-    A.HorizontalFlip(p=0.5),  # Espelha horizontalmente
-    A.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0], max_pixel_value=255.0),  # Normaliza
-    # A.RGBShift(r_shift_limit=25, g_shift_limit=25, b_shift_limit=25, p=0.9),
-    #     A.OneOf([
-    #         A.Blur(blur_limit=3, p=0.5),
-    #         A.ColorJitter(p=0.5),
-    #     ], p=1.0),
-    A.RandomBrightnessContrast(p=0.5),  # Ajusta brilho/contraste
-    A.RandomGamma(p=0.5),  # Ajusta gama para destacar linhas
-    ToTensorV2(),  # Converte para tensor
+    A.Resize(height=128, width=256, interpolation=cv2.INTER_CUBIC),
+    A.HorizontalFlip(p=0.5),
+    A.RandomBrightnessContrast(p=0.5),
+    A.RandomGamma(p=0.5),
+    A.RandomShadow(
+        shadow_roi=(0.2, 0.2, 0.8, 0.8),
+        num_shadows_limit=(2, 4),
+        shadow_dimension=8,
+        shadow_intensity_range=(0.3, 0.7),
+        p=0.5
+    ),
+    A.RandomRain(
+        slant_range=(-15, 15),
+        drop_length=30,
+        drop_width=2,
+        drop_color=(180, 180, 180),
+        blur_value=5,
+        brightness_coefficient=0.8,
+        p=0.3
+    ),
+    A.GaussNoise(std_range=(0.1, 0.2), p=0.3),
+    A.RandomFog(fog_coef_range=(0.2, 0.5), alpha_coef=0.1, p=0.3),  # Atualizado conforme os docs
+    A.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0], max_pixel_value=255.0),
+    ToTensorV2(),
 ])
 
 
@@ -124,18 +153,18 @@ val_loader_test = DataLoader(
 
 
 def test():
-    # Cria imagem e máscara como tensores PyTorch
+    # Criando imagem e máscara como tensores PyTorch
     img_tensor = torch.randint(0, 256, (572, 572, 3), dtype=torch.uint8)  # Imagem RGB
     mask_tensor = torch.randint(0, 2, (572, 572), dtype=torch.uint8)       # Máscara binária
     
     print("Data:", img_tensor.shape, img_tensor.dtype)
     print("Targets:", mask_tensor.shape, mask_tensor.dtype)
     
-    # Converte para arrays NumPy
+    # Convertendo para arrays NumPy
     img = img_tensor.numpy()
     mask = mask_tensor.numpy()
     
-    # Aplica as transformações
+    # Aplicando as transformações
     transformed = train_transforms(image=img, mask=mask)
     dataset = [(transformed["image"], transformed["mask"]) for _ in range(4)]
     loader = DataLoader(dataset, batch_size=4)

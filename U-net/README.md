@@ -28,7 +28,7 @@ Implementation of a U-Net based deep learning model for lane segmentation in aut
 ├── train.py                  # Training script
 ├── utils.py                  # Helper functions
 ├── saved_images/             # Prediction samples
-├── my_checkpoint.pth.tar     # Trained model weights
+├── model.pth.tar             # Trained model weights
 └── README.md
 ```
 
