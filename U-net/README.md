@@ -117,7 +117,7 @@ To view the graph:
 
 ## Documentation
 
-[![Docs](https://img.shields.io/badge/Doxygen-Documentation-blue?style=plastic)](https://github.com/SEAME-pt/T07-ADS_Lane-Detection/blob/24---lane-detection-ML/U-net/assets/refman.pdf)
+[![Docs](https://img.shields.io/badge/Doxygen-Documentation-blue?style=plastic)](https://github.com/SEAME-pt/T07-ADS_Lane-Detection/blob/24---lane-detection-ML/U-net/docs/refman.pdf)
 
 Comprehensive documentation for the codebase has been generated using Doxygen. The documentation includes detailed descriptions of classes, functions, and modules, making it easier to understand the implementation details of the U-Net model, dataset handling, and training pipeline.
 
