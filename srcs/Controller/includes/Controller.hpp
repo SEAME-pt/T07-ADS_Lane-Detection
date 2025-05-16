@@ -10,6 +10,8 @@
 #include "JetCar.hpp"
 #include <Eigen/Dense>
 #include "TimeTracker.hpp"
+#include "SpeedPIDController.hpp"
+#include "SpeedSubscriber.hpp"
 
 
 #define BTN_A 0
@@ -58,6 +60,9 @@ public:
     int _currentMode;
     cv::Mat frame, output_frame;
     cv::VideoWriter video_writer;
+    SpeedPIDController *speedPIDController;  // Initialize with min and max PWM values
+    std::atomic<float> currentSpeed;
+    SpeedSubscriber speed;
 
     // MPC Structures and Functions
     struct State {

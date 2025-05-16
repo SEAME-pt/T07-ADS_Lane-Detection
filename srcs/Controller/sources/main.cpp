@@ -22,7 +22,6 @@ void handleSteering(int value) {
 void handleMotors(int value) {
     value *= -1;
     int motorSpeed = static_cast<int>((value / 32768.0) * 100);
-    std::cout << "Velocidade do motor: " << motorSpeed << std::endl;
     jetCar.set_motor_speed(motorSpeed);
 }
 

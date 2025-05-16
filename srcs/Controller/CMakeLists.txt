@@ -3,6 +3,8 @@ project(Controller)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 # Otimização e warnings
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -Wall -Wextra")
@@ -47,6 +49,7 @@ find_library(OpenCV_CUDAWARPING opencv_cudawarping PATHS /opt/jetson-sysroot/usr
 # Fontes do projeto
 set(SOURCES
     sources/Controller.cpp
+    sources/SpeedPIDController.cpp
     sources/JetCar.cpp
     sources/devices.cpp
     sources/LaneDetector.cpp
@@ -73,4 +76,5 @@ target_link_libraries(ControllerExec
     ${OpenCV_VIDEOIO}
     ${OpenCV_VIDEO}
     ${OpenCV_CUDAWARPING}
+    Threads::Threads
 )

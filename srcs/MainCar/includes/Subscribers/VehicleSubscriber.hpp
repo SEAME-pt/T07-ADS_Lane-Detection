@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iomanip>
 #include <fstream>
+#include <mutex>
 #include "vehicle.h"
 
 using json = nlohmann::json;
@@ -13,6 +14,7 @@ using namespace Cpp::Vehicle;
 class vehicleSensors : public IVehicleSubscriber {
 private:
     zmq::socket_t& publisher; // Referência para o socket do ZeroMQ
+    std::mutex sendMutex;
 
     // Helper para enviar mensagens via ZeroMQ
     void sendMessage(const std::string& key, const std::string& value) {
@@ -21,14 +23,15 @@ private:
 
         zmq::message_t zmqMessage(message.str().size());
         memcpy(zmqMessage.data(), message.str().c_str(), message.str().size());
-        publisher.send(zmqMessage, zmq::send_flags::none);
+
+        std::lock_guard<std::mutex> lock(sendMutex);  // <--- protege o socket
+        publisher.send(zmqMessage, zmq::send_flags::dontwait);
     }
 
 public:
     explicit vehicleSensors(zmq::socket_t& pub) : publisher(pub) {}
 
     void onSpeedChanged(float speed) override {
-        std::cout << "Speed changed: " << speed << std::endl;
         sendMessage("speed", std::to_string(speed));
     }
 

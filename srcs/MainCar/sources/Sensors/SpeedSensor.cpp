@@ -17,7 +17,7 @@ int SpeedSensor::readData() {
 
     if (canBus.receiveMessage(id, data)) {
         if (id == canId) {
-            if (data.size() >= 4) {  // Agora são 4 bytes
+            if (data.size() >= 4) {
                 union {
                     float f;
                     uint8_t b[4];
@@ -26,17 +26,16 @@ int SpeedSensor::readData() {
                 for (int i = 0; i < 4; ++i) {
                     speedData.b[i] = data[i];
                 }
-
                 _lastSpeed = speedData.f;
                 return 0;
             } else {
-                return -1;  // Dados insuficientes
+                return -1;
             }
         } else {
-            return -1;  // ID diferente
+            return -1;
         }
     } else {
-        return -1;  // Nenhuma mensagem
+        return -1;
     }
 }
 

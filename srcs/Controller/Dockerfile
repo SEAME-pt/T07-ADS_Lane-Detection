@@ -1,6 +1,8 @@
 # Base image
 FROM nvidia/cuda:11.8.0-devel-ubuntu20.04
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Atualiza os pacotes e instala dependências necessárias
 RUN apt update && apt-get install -y \
     gcc-aarch64-linux-gnu \

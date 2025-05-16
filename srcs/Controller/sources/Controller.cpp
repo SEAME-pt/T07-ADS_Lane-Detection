@@ -1,4 +1,5 @@
 #include <Controller.hpp>
+#include "SpeedSubscriber.hpp"
 #include <iostream>
 
 Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK) {
@@ -6,6 +7,9 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0) {
         throw std::runtime_error("Failed to initialize SDL2 Joystick: " + std::string(SDL_GetError()));
     }
+
+    // initialize speedController
+    speedPIDController = new SpeedPIDController();
 
     int joystickCount = SDL_NumJoysticks();
     std::cout << "Number of joysticks connected: " << joystickCount << std::endl;
@@ -23,9 +27,13 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
         throw std::runtime_error("No joystick detected.");
     }
 
+    speed.start([this](float speed) {
+        currentSpeed.store(speed, std::memory_order_relaxed);
+    });
+
     // Setup video streaming pipeline
     std::string pipeline = "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
-                          "rtph264pay ! udpsink host=192.168.43.190 port=5000 sync=false";
+                          "rtph264pay ! udpsink host=10.21.221.29 port=5000 sync=false";
     video_writer.open(pipeline, cv::CAP_GSTREAMER, 0, 30.0, cv::Size(640, 360), true);
     if (!video_writer.isOpened()) {
         throw std::runtime_error("Failed to open VideoWriter for streaming!");
@@ -233,7 +241,17 @@ void Controller::autonomous() {
     std::cout << "Delta: " << tracker.delta() << " microseconds" << std::endl;
     // Apply controls to JetCar
     jetCar->set_servo_angle(steering * (180.0f / CV_PI));  // Convert radians to degrees for JetCar
-    jetCar->set_motor_speed(throttle * 25);  // Scale throttle to match expected range
+
+    // v_target = vcurrent + throttle * dt
+    float v_current = currentSpeed.load(std::memory_order_relaxed);
+    float v_target = v_current + throttle * DT;
+
+    // std::cout << "Current Speed: " << v_current << " m/s, Target Speed: " << v_target << " m/s" << std::endl;
+    float output_mps = speedPIDController->update(v_current, v_target, DT);
+    float pwm = output_mps * (70.0f / 2.78704f);
+    pwm = std::clamp(pwm + 20.0f, 20.0f, 70.0f);
+    std::cout << "PWM: " << pwm << std::endl;
+    jetCar->set_motor_speed(pwm);
 
     // Output control values
     //std::cout << "Steering: " << steering << " rad (" << (steering * 180.0f / CV_PI) << " deg), Throttle: " << throttle << std::endl;

@@ -3,7 +3,6 @@
 #include "vehicle/generated/core/vehicle.publisher.h"
 #include <algorithm>
 
-
 using namespace Cpp::Vehicle;
 
 void VehiclePublisher::subscribeToAllChanges(IVehicleSubscriber& subscriber)

@@ -29,6 +29,9 @@ public:
     void infer();
     void findLaneEdges(int& left_edge, int& right_edge);
     void calculateSteeringParams(int left_edge, int right_edge, int& lane_center, float& offset, float& angle);
+    void calculateDualOffsets(int left_edge, int right_edge,
+                                int& lane_center_top, float& offset_top, float& angle_top,
+                                int& lane_center_bottom, float& offset_bottom, float& angle_bottom);
 
     // TensorRT
     std::unique_ptr<nvinfer1::IRuntime> runtime_;

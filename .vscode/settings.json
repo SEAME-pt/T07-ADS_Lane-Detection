@@ -68,6 +68,10 @@
         "set": "cpp",
         "optional": "cpp",
         "cfenv": "cpp",
-        "__nullptr": "cpp"
+        "__nullptr": "cpp",
+        "complex": "cpp",
+        "unordered_set": "cpp",
+        "hash_map": "cpp",
+        "valarray": "cpp"
     }
 }
