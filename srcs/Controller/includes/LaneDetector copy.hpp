@@ -28,9 +28,11 @@ public:
     void loadEngine(const std::string& trt_model_path);
     void preprocess(const cv::Mat& frame);
     void infer();
-
+    void findLaneEdges(int& left_edge, int& right_edge);
     void calculateSteeringParams(int left_edge, int right_edge, int& lane_center, float& offset, float& angle);
-    void calculateLaneGeometry(float& offset, float& angle, cv::Mat& debug_img);
+    void calculateDualOffsets(int left_edge, int right_edge,
+                                int& lane_center_top, float& offset_top, float& angle_top,
+                                int& lane_center_bottom, float& offset_bottom, float& angle_bottom);
 
     // TensorRT
     std::unique_ptr<nvinfer1::IRuntime> runtime_;

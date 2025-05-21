@@ -16,19 +16,13 @@ void SpeedPIDController::reset() {
 
 float SpeedPIDController::update(float v_current, float v_target, float dt) {
 
-    std::cout << "Current Speed: " << v_current << " m/s, Target Speed: " << v_target << " m/s" << std::endl;
     float error = v_target - v_current;
-    std::cout << "Error: " << error << std::endl;
-    std::cout << "dt: " << dt << std::endl;
+
 
     integral_ = integral_ + error * dt;
-    std::cout << "Integral: " << integral_ << std::endl;
     float derivative = (error - prev_error_) / dt;
-    std::cout << "Derivative: " << derivative << std::endl;
     prev_error_ = error;
-    std::cout << "Error: " << error << ", Integral: " << integral_ << ", Derivative: " << derivative << std::endl;
-    float output = kp_ * error + ki_ * integral_ + kd_ * derivative;
-    std::cout << "PID Output: " << output << std::endl;
+    float output = v_target + (kp_ * error + ki_ * integral_ + kd_ * derivative);
     return std::clamp(output, pwm_min_, pwm_max_);
 }
 

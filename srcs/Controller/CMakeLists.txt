@@ -13,7 +13,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -Wall -Wextra")
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/includes
     ${CMAKE_CURRENT_SOURCE_DIR}/eigen
-
     /opt/jetson-sysroot/usr/include
     /opt/jetson-sysroot/usr/include/aarch64-linux-gnu
     /opt/jetson-sysroot/usr/local/cuda/include
@@ -21,7 +20,6 @@ include_directories(
     /opt/jetson-sysroot/usr/local/include/opencv4/opencv2
     /opt/jetson-sysroot/usr/src/tensorrt/include
     /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/tegra
-
     /opt/jetson-sysroot/usr/include/SDL2
 )
 
@@ -38,13 +36,14 @@ find_library(ZMQ                zmq              PATHS /opt/jetson-sysroot/usr/l
 find_library(SDL2_LIB           SDL2             PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 find_library(NVMEDIA            nvmedia          PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/tegra)
 
-# OpenCV módulos principais
+# OpenCV módulos
 find_library(OpenCV_CORE        opencv_core      PATHS /opt/jetson-sysroot/usr/local/lib)
 find_library(OpenCV_IMGPROC     opencv_imgproc   PATHS /opt/jetson-sysroot/usr/local/lib)
 find_library(OpenCV_HIGHGUI     opencv_highgui   PATHS /opt/jetson-sysroot/usr/local/lib)
 find_library(OpenCV_VIDEOIO     opencv_videoio   PATHS /opt/jetson-sysroot/usr/local/lib)
-find_library(OpenCV_VIDEO       opencv_video     PATHS /opt/jetson-sysroot/usr/local/lib)       # Para KalmanFilter
-find_library(OpenCV_CUDAWARPING opencv_cudawarping PATHS /opt/jetson-sysroot/usr/local/lib)     # Para cv::cuda::resize
+find_library(OpenCV_VIDEO       opencv_video     PATHS /opt/jetson-sysroot/usr/local/lib)
+find_library(OpenCV_CUDAWARPING opencv_cudawarping PATHS /opt/jetson-sysroot/usr/local/lib)
+find_library(OpenCV_IMGCODECS   opencv_imgcodecs PATHS /opt/jetson-sysroot/usr/local/lib)  # Added for cv::imwrite
 
 # Fontes do projeto
 set(SOURCES
@@ -69,12 +68,12 @@ target_link_libraries(ControllerExec
     ${ZMQ}
     ${SDL2_LIB}
     ${NVMEDIA}
-
     ${OpenCV_CORE}
     ${OpenCV_IMGPROC}
     ${OpenCV_HIGHGUI}
     ${OpenCV_VIDEOIO}
     ${OpenCV_VIDEO}
     ${OpenCV_CUDAWARPING}
+    ${OpenCV_IMGCODECS}  # Added for cv::imwrite
     Threads::Threads
 )

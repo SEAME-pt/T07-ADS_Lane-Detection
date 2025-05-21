@@ -1,6 +1,10 @@
 #include <Controller.hpp>
 #include "SpeedSubscriber.hpp"
 #include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <chrono>
+#include <sstream>
 
 Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK) {
     // Initialize SDL for joystick input
@@ -8,7 +12,7 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
         throw std::runtime_error("Failed to initialize SDL2 Joystick: " + std::string(SDL_GetError()));
     }
 
-    // initialize speedController
+    // Initialize speedController
     speedPIDController = new SpeedPIDController();
 
     int joystickCount = SDL_NumJoysticks();
@@ -39,6 +43,14 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
         throw std::runtime_error("Failed to open VideoWriter for streaming!");
     }
     std::cout << "Streaming started at udp://0.0.0.0:5000" << std::endl;
+
+    // Initialize CSV file
+    csv_file_.open("lane_detection_log.csv", std::ios::out | std::ios::app);
+    if (!csv_file_.is_open()) {
+        throw std::runtime_error("Failed to open CSV file for writing!");
+    }
+    // Write CSV header
+    csv_file_ << "Timestamp,CurrentSpeed,SteeringAngle,LaneAngle,Offset,ImageFilename\n";
 }
 
 Controller::~Controller() {
@@ -46,6 +58,10 @@ Controller::~Controller() {
         SDL_JoystickClose(joystick);
     }
     SDL_Quit();
+    // Close CSV file
+    if (csv_file_.is_open()) {
+        csv_file_.close();
+    }
 }
 
 void Controller::setButtonAction(int button, Actions actions) {
@@ -57,6 +73,7 @@ void Controller::setAxisAction(int axis, std::function<void(int)> action) {
 }
 
 void Controller::processEvent(const SDL_Event& event) {
+    // Unchanged from original
     if (event.type == SDL_JOYBUTTONDOWN || event.type == SDL_JOYBUTTONUP) {
         bool isPressed = (event.type == SDL_JOYBUTTONDOWN);
         int button = event.jbutton.button;
@@ -140,7 +157,7 @@ void Controller::listen() {
 }
 
 Controller::State Controller::kinematicModel(const State& state, float delta, float a) {
-    // Kinematic bicycle model to predict next state
+    // Unchanged from original
     State next;
     next.x = state.x + state.v * std::cos(state.theta) * DT;
     next.y = state.y + state.v * std::sin(state.theta) * DT;
@@ -150,11 +167,10 @@ Controller::State Controller::kinematicModel(const State& state, float delta, fl
 }
 
 void Controller::setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref) {
-    // Initialize cost matrices
+    // Unchanged from original
     H.setZero();
     f.setZero();
 
-    // Populate cost function for QP problem
     for (int i = 0; i < N; ++i) {
         H(i, i) = Q_y;                // Penalize lateral offset
         H(N + i, N + i) = Q_theta;    // Penalize heading error
@@ -164,7 +180,6 @@ void Controller::setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const
         f(N + i) = -Q_theta * theta_ref[i]; // Linear term for angle
     }
 
-    // Add penalty for steering rate of change
     for (int i = 1; i < N; ++i) {
         H(2 * N + i, 2 * N + i) += R_d_delta;
         H(2 * N + i - 1, 2 * N + i - 1) += R_d_delta;
@@ -172,19 +187,17 @@ void Controller::setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const
 }
 
 Eigen::VectorXd Controller::solveMPC(const State& initial_state, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref) {
-    int n_vars = 4 * N;  // Variables: y, theta, delta, a for each timestep
+    // Unchanged from original
+    int n_vars = 4 * N;
     Eigen::MatrixXd H(n_vars, n_vars);
     Eigen::VectorXd f(n_vars);
 
     setupCostFunction(H, f, y_ref, theta_ref);
 
-    // Temporary proportional control until OSQP is integrated
     Eigen::VectorXd control_sequence(2);
-    // Steering: Use offset and average predicted angle for curve anticipation
     float steering = (0.5f * y_ref[0]) + (2.0f * theta_ref.mean());
     control_sequence[0] = steering;
 
-    // Throttle: Base speed adjusted by predicted curvature
     float base_throttle = 0.8f;
     float throttle = base_throttle - 0.05f * fabs(theta_ref.mean());
     control_sequence[1] = throttle;
@@ -204,9 +217,6 @@ void Controller::autonomous() {
     float offset, angle;
     tracker.mark();
     laneDetector->processFrame(frame, offset, angle, output_frame, true);
-    
-    //tracker.mark();
-    
 
     // Calculate rate of change of angle to predict curve
     float angle_rate = (angle - prev_angle) / DT;  // deg/s
@@ -221,7 +231,7 @@ void Controller::autonomous() {
     Eigen::VectorXd theta_ref_vec(N);
     for (int i = 0; i < N; ++i) {
         float t = i * DT;
-        y_ref_vec[i] = y_ref;  // Assume constant offset for simplicity (can add offset_rate if desired)
+        y_ref_vec[i] = y_ref;  // Assume constant offset for simplicity
         theta_ref_vec[i] = theta_ref + (angle_rate * (CV_PI / 180.0f) * t);  // Linear extrapolation of angle
     }
 
@@ -237,24 +247,38 @@ void Controller::autonomous() {
     // Update vehicle state
     current_state_ = kinematicModel(current_state_, steering, throttle);
 
+    // Log data to CSV
+    auto now = std::chrono::system_clock::now();
+    auto timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    std::stringstream image_filename;
+    image_filename << "frame_" << timestamp_ms << ".jpg";
+    cv::imwrite(image_filename.str(), output_frame);  // Save the output frame
+
+    float v_current = currentSpeed.load(std::memory_order_relaxed);
+    float v_target = 0.9f;
+    float output_mps = speedPIDController->update(v_current, v_target, DT);
+    float pwm = output_mps * (100.0f / 2.6f);
+
+    // Write to CSV
+    {
+        std::lock_guard<std::mutex> lock(csv_mutex_);  // Ensure thread-safe CSV writing
+        csv_file_ << timestamp_ms << ","
+                  << std::fixed << std::setprecision(2) << v_current << ","
+                  << (steering * 180.0f / CV_PI) << ","
+                  << angle << ","
+                  << offset << ","
+                  << image_filename.str() << "\n";
+        csv_file_.flush();  // Ensure data is written immediately
+    }
+
     tracker.mark();
     std::cout << "Delta: " << tracker.delta() << " microseconds" << std::endl;
+
     // Apply controls to JetCar
     jetCar->set_servo_angle(steering * (180.0f / CV_PI));  // Convert radians to degrees for JetCar
-
-    // v_target = vcurrent + throttle * dt
-    float v_current = currentSpeed.load(std::memory_order_relaxed);
-    float v_target = v_current + throttle * DT;
-
-    // std::cout << "Current Speed: " << v_current << " m/s, Target Speed: " << v_target << " m/s" << std::endl;
-    float output_mps = speedPIDController->update(v_current, v_target, DT);
-    float pwm = output_mps * (70.0f / 2.78704f);
-    pwm = std::clamp(pwm + 20.0f, 20.0f, 70.0f);
+    std::cout << "Current Speed: " << v_current << " m/s, Target Speed: " << v_target << " m/s" << std::endl;
     std::cout << "PWM: " << pwm << std::endl;
     jetCar->set_motor_speed(pwm);
-
-    // Output control values
-    //std::cout << "Steering: " << steering << " rad (" << (steering * 180.0f / CV_PI) << " deg), Throttle: " << throttle << std::endl;
 
     video_writer.write(output_frame);  // Stream the output frame
 }
