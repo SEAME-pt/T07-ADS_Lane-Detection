@@ -11,6 +11,17 @@
 #include <vector>
 #include <numeric>
 
+enum KalmanStateIndex { OFFSET = 0, OFFSET_VEL = 1, ANGLE = 2 };
+enum KalmanMeasurementIndex { MEASUREMENT_OFFSET = 0, MEASUREMENT_ANGLE = 1 };
+enum KalmanPredictionIndex { PREDICTION_OFFSET = 0, PREDICTION_ANGLE = 1 };
+enum KalmanPredictionCovIndex { PREDICTION_COV_OFFSET = 0, PREDICTION_COV_ANGLE = 1 };
+enum KalmanMeasurementCovIndex { MEASUREMENT_COV_OFFSET = 0, MEASUREMENT_COV_ANGLE = 1 };
+enum KalmanErrorCovIndex { ERROR_COV_OFFSET = 0, ERROR_COV_ANGLE = 1 };
+enum KalmanProcessCovIndex { PROCESS_COV_OFFSET = 0, PROCESS_COV_ANGLE = 1 };
+enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITION_ANGLE = 2 };
+enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
+
+
 class Logger : public nvinfer1::ILogger {
 public:
     void log(Severity severity, const char* msg) noexcept override {
@@ -28,11 +39,9 @@ public:
     void loadEngine(const std::string& trt_model_path);
     void preprocess(const cv::Mat& frame);
     void infer();
-    void findLaneEdges(int& left_edge, int& right_edge);
+
     void calculateSteeringParams(int left_edge, int right_edge, int& lane_center, float& offset, float& angle);
-    void calculateDualOffsets(int left_edge, int right_edge,
-                                int& lane_center_top, float& offset_top, float& angle_top,
-                                int& lane_center_bottom, float& offset_bottom, float& angle_bottom);
+    void calculateLaneGeometry(float& offset, float& angle, cv::Mat& debug_img);
 
     // TensorRT
     std::unique_ptr<nvinfer1::IRuntime> runtime_;

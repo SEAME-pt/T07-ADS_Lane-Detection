@@ -128,14 +128,84 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
     );
 }
 
+/// @brief		Run inference on the input data
+/// @details	Uses the TensorRT context to perform inference on the input data.
+/// @throws		std::runtime_error if the inference fails
+/// @note		Checks that the context has been created and is ready for use.
+/// @note		Checks that the input and output buffers have been allocated and are ready for use.
+/// @note		Checks that the inference context has been successfully created.
+/// @note		Copies the input data from the host to the GPU device.
+/// @note		Copies the output data from the GPU device back to the host.
+/// @note		Assumes that the input data has been preprocessed and is in the correct format.
+/// @note		Assumes that the output data has been allocated and is ready to receive the results.
+/// @note		Assumes that the CUDA stream has been created and is ready for use.
+/// @note		Assumes that the input data is in the correct format and size for the model.
 void LaneDetector::infer() {
-    cudaMemcpyAsync(buffers_[0], input_data_.data(), input_data_.size() * sizeof(float), cudaMemcpyHostToDevice, stream_);
-    context_->enqueueV2(buffers_, stream_, nullptr);
-    cudaMemcpyAsync(output_data_.data(), buffers_[1], output_data_.size() * sizeof(float), cudaMemcpyDeviceToHost, stream_);
+	// Check if context and buffers are initialized
+    if (!context_ || !buffers_[0] || !buffers_[1]) {
+        throw std::runtime_error("Inference context or buffers not initialized.");
+    }
+	// copy the input data from the host to the GPU device
+	cudaMemcpyAsync(
+		buffers_[0],
+		input_data_.data(),
+		input_data_.size() * sizeof(float),
+		cudaMemcpyHostToDevice,
+		stream_
+	);
+	// run inference
+    bool success = context_->enqueueV2(
+								buffers_,
+								stream_,
+								nullptr
+							);
+	if (!success) {
+		throw std::runtime_error("Inference failed!");
+	}
+	// copy the output data from GPU device back to the host
+    cudaMemcpyAsync(
+		output_data_.data(),
+		buffers_[1],
+		output_data_.size() * sizeof(float),
+		cudaMemcpyDeviceToHost,
+		stream_
+	);
+	// Waits for it all to finish
     cudaStreamSynchronize(stream_);
 }
 
-// Substitui a função findLaneEdges e calculateDualOffsets
+/// @brief				Calculate the lane geometry based on the lane mask
+/// @param	offset		Estimated offset of the lane center from the camera center
+/// @param	angle		Estimated angle of the lane center with respect to the camera
+/// @param	debug_img	Image for debugging purposes
+/// @return true if lane geometry was successfully estimated, false otherwise
+/// @return true if lane geometry was successfully estimated, false otherwise
+/// @details
+/// - Calculates the lane geometry by finding the left and right edges of the lane
+/// - Uses a dense sampling approach to find the left and right edges of the lane
+/// - Uses a weighted linear regression to estimate the lane geometry
+/// - Uses a Kalman filter to smooth the estimated offset and angle
+/// @note
+/// - Uses a fixed :
+/// -	 maximum distance to search for lane edges
+/// -	 camera center based on the frame width
+/// -	 camera tilt is 17 degrees and height is 15cm
+/// -	 ROI height based on the input image height
+/// -	 ROI width based on the input image width
+/// -	 ROI start and end y-coordinates based on the input image height
+/// -	 ROI aspect ratio based on the input image width and height
+/// - Assumes that the lane mask is :
+/// -	 a binary image with values in the range [0, 1]
+/// -	 a single channel image
+/// - Assumes that the Kalman filter is initialized with the correct :
+/// -	 state transition matrix
+/// - 	 measurement matrix
+/// - 	 error covariance matrix
+/// - 	 measurement noise covariance matrix
+/// - 	 process noise covariance matrix
+/// - 	 state vector
+/// - 	 measurement vector
+/// - 	 prediction vector
 void LaneDetector::calculateLaneGeometry(float& offset, float& angle, cv::Mat& debug_img) {
     const int camera_center = frame_width_ / 2;
     const int max_distance = 350;
@@ -143,7 +213,14 @@ void LaneDetector::calculateLaneGeometry(float& offset, float& angle, cv::Mat& d
     std::vector<float> weights;
 
     cv::Mat mask_8u;
-    lane_mask_.convertTo(mask_8u, CV_8U, 255.0);
+	    cv::Mat mask_8u;
+    if (lane_mask_.type() != CV_8U) {
+        lane_mask_.convertTo(mask_8u, CV_8U, 255.0);
+    } else {
+        mask_8u = lane_mask_;
+    }
+    // lane_mask_.convertTo(mask_8u, CV_8U, 255.0);//revisar esta linha
+	// cv::Mat mask_8u = lane_mask_.clone();
 
     // Amostragem densa a cada 10 pixels da parte inferior da ROI
     for (int y = roi_end_y_ - 10; y >= roi_start_y_ + 30; y -= 10) {
@@ -163,7 +240,8 @@ void LaneDetector::calculateLaneGeometry(float& offset, float& angle, cv::Mat& d
             }
         }
 
-        if (left != camera_center && right != camera_center) {
+        // if (left != camera_center && right != camera_center) {
+        if (left < right) {
             float cx = (left + right) / 2.0f;
             centers.emplace_back(cx, y);
 
