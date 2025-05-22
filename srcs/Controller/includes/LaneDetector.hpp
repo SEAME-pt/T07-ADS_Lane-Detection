@@ -2,14 +2,11 @@
 #define LANE_DETECTOR_HPP
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/core/cuda.hpp>
-#include <opencv2/cudawarping.hpp>
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
 #include <memory>
 #include <string>
 #include <vector>
-#include <numeric>
 
 class Logger : public nvinfer1::ILogger {
 public:
@@ -23,14 +20,14 @@ public:
     LaneDetector(const std::string& trt_model_path);
     ~LaneDetector();
     bool initialize();
-    void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask = true);
+    void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask = false);
+    cv::VideoCapture cap_;
 
+private:
     void loadEngine(const std::string& trt_model_path);
     void preprocess(const cv::Mat& frame);
     void infer();
-
-    void calculateSteeringParams(int left_edge, int right_edge, int& lane_center, float& offset, float& angle);
-    void calculateLaneGeometry(float& offset, float& angle, cv::Mat& debug_img);
+    void calculateLaneGeometry(float& offset, float& angle);
 
     // TensorRT
     std::unique_ptr<nvinfer1::IRuntime> runtime_;
@@ -43,9 +40,6 @@ public:
     std::vector<float> output_data_;
 
     // OpenCV
-    cv::VideoCapture cap_;
-    cv::cuda::GpuMat gpu_frame_;
-    cv::cuda::GpuMat gpu_resized_;
     cv::Mat lane_mask_;
 
     // Kalman Filter
@@ -56,17 +50,17 @@ public:
     float angle_kalman_;
 
     // Dimensões
-    int input_width_;
-    int input_height_;
+    int input_width_ = 256;
+    int input_height_ = 128;
     int frame_width_ = 640;
     int frame_height_ = 360;
-    int roi_start_y_;
-    int roi_end_y_;
+    int roi_start_y_ = 40; // Top of ROI (bottom 320 pixels)
+    int roi_end_y_ = 360;  // Bottom of frame
+    float last_left_edge_;  // Store last known left edge position
+    float last_right_edge_; // Store last known right edge position
 
     // Valores
-    float estimated_lane_width_;
-    int prev_left_edge_;
-    int prev_right_edge_;
+    float estimated_lane_width_ = 200.0f;
 };
 
 #endif // LANE_DETECTOR_HPP

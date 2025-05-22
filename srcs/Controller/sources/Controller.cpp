@@ -80,7 +80,7 @@ void Controller::processEvent(const SDL_Event& event) {
         int button = event.jbutton.button;
 
         if (button < static_cast<int>(buttonStates.size())) {
-            std::cout << "Button " << button << " " << (isPressed ? "pressed" : "released") << std::endl;
+            // std::cout << "Button " << button << " " << (isPressed ? "pressed" : "released") << std::endl;
             buttonStates[button] = isPressed;
             if (buttonActions.find(button) != buttonActions.end()) {
                 if (isPressed && buttonActions[button].onPress) {
@@ -93,14 +93,14 @@ void Controller::processEvent(const SDL_Event& event) {
     } else if (event.type == SDL_JOYAXISMOTION && _currentMode != MODE_AUTONOMOUS) {
         int axis = event.jaxis.axis;
         int value = event.jaxis.value;
-        std::cout << "Axis " << axis << " moved to " << value << std::endl;
+        // std::cout << "Axis " << axis << " moved to " << value << std::endl;
         if (axisActions.find(axis) != axisActions.end()) {
             axisActions[axis](value);
         }
     } else if (event.type == SDL_JOYAXISMOTION && _currentMode == MODE_AUTONOMOUS) {
         int axis = event.jaxis.axis;
         int value = event.jaxis.value;
-        std::cout << "Axis " << axis << " moved to " << value << std::endl;
+        // std::cout << "Axis " << axis << " moved to " << value << std::endl;
         if (axisActions.find(axis) != axisActions.end() && axis == 3) {
             axisActions[axis](value);
         }
@@ -140,7 +140,6 @@ void Controller::listen() {
         }
 
         if (_currentMode == MODE_AUTONOMOUS) {
-            std::cout << "Autonomous mode activated!" << std::endl;
             autonomous();
         }
 
@@ -224,15 +223,17 @@ void Controller::autonomous() {
     prev_angle = angle;
 
     // Convert to MPC inputs
-    float y_ref = offset * (1.0f/640.0f);  // Convert pixels to meters (adjust scale if needed)
-    float theta_ref = angle * (CV_PI / 180.0f);  // Convert degrees to radians
+    float y_ref = offset * (1.0f / 640.0f);  // Convert pixels to meters (adjust scale if needed)
+    float theta_ref = -angle * (CV_PI / 180.0f);  // Invert angle to correct for possible detection error
 
-    // Predict future trajectory over horizon
+    // Predict future trajectory over horizon with dynamic offset
     Eigen::VectorXd y_ref_vec(N);
     Eigen::VectorXd theta_ref_vec(N);
     for (int i = 0; i < N; ++i) {
         float t = i * DT;
-        y_ref_vec[i] = y_ref;  // Assume constant offset for simplicity
+        // Extrapolate offset based on current offset and angle (assuming constant speed and curvature)
+        float dy = (current_state_.v * t * std::sin(theta_ref)) / 640.0f;  // Approximate lateral shift in meters
+        y_ref_vec[i] = y_ref + dy;  // Update offset over time
         theta_ref_vec[i] = theta_ref + (angle_rate * (CV_PI / 180.0f) * t);  // Linear extrapolation of angle
     }
 
@@ -243,47 +244,28 @@ void Controller::autonomous() {
 
     // Apply constraints
     float steering = std::max(-MAX_DELTA, std::min(MAX_DELTA, delta));  // Limit to ±90 deg in radians
-    float throttle = std::max(0.2f, std::min(0.8f, a));  // Throttle range adjusted
+    std::cout << "Final steering calculation " << (steering * (180.0f / CV_PI)) << std::endl;
+    jetCar->set_servo_angle(static_cast<int>(steering * (180.0f / CV_PI)));  // Convert radians to degrees
 
     // Update vehicle state
-    current_state_ = kinematicModel(current_state_, steering, throttle);
+    current_state_ = kinematicModel(current_state_, steering, a);
 
-    // Log data to CSV
+    // Log data to CSV (unchanged)
     auto now = std::chrono::system_clock::now();
     auto timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-    std::stringstream image_filename;
-    image_filename << "frame_" << timestamp_ms << ".jpg";
-    cv::imwrite(image_filename.str(), output_frame);  // Save the output frame
-
-    float v_current = currentSpeed.load(std::memory_order_relaxed);
-    float v_target = 0.9f;
-    float output_mps = speedPIDController->update(v_current, v_target, DT);
-    float pwm = output_mps * (100.0f / 2.6f);
-
-    // Write to CSV
     {
-        std::lock_guard<std::mutex> lock(csv_mutex_);  // Ensure thread-safe CSV writing
+        std::lock_guard<std::mutex> lock(csv_mutex_);
         csv_file_ << timestamp_ms << ","
-                  << std::fixed << std::setprecision(2) << v_current << ","
+                  << std::fixed << std::setprecision(2) << currentSpeed.load(std::memory_order_relaxed) << ","
                   << (steering * 180.0f / CV_PI) << ","
                   << angle << ","
-                  << offset << ","
-                  << image_filename.str() << "\n";
-        csv_file_.flush();  // Ensure data is written immediately
+                  << offset << "\n";
+        csv_file_.flush();
     }
 
-    tracker.mark(); 
-    std::cout << "Delta: " << tracker.delta() << " microseconds" << std::endl;
-
-    // Apply controls to JetCar
-    jetCar->set_servo_angle(steering * (180.0f / CV_PI));  // Convert radians to degrees for JetCar
-    // std::cout << "Current Speed: " << v_current << " m/s, Target Speed: " << v_target << " m/s" << std::endl;
-    // std::cout << "PWM: " << pwm << std::endl;
-    jetCar->set_motor_speed(pwm);
-
-    video_writer.write(output_frame);  // Stream the output frame
+    tracker.mark();
+    video_writer.write(output_frame);
 }
-
 void Controller::setLaneDetector(std::unique_ptr<LaneDetector> detector) {
     laneDetector = std::move(detector);
 }
