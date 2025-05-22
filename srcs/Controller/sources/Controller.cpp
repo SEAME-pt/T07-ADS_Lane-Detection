@@ -43,6 +43,7 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
         throw std::runtime_error("Failed to open VideoWriter for streaming!");
     }
     std::cout << "Streaming started at udp://0.0.0.0:5000" << std::endl;
+    std::cout << '<gst-launch-1.0 -v udpsrc udpsrc address=239.255.0.1 port=5000 caps="application/x-rtp, payload=96, encoding-name=H264" ! rtph264depay ! decodebin ! videoconvert ! autovideosink sync=false< std::endl;' << std::endl;
 
     // Initialize CSV file
     csv_file_.open("lane_detection_log.csv", std::ios::out | std::ios::app);
@@ -271,13 +272,13 @@ void Controller::autonomous() {
         csv_file_.flush();  // Ensure data is written immediately
     }
 
-    tracker.mark();
+    tracker.mark(); 
     std::cout << "Delta: " << tracker.delta() << " microseconds" << std::endl;
 
     // Apply controls to JetCar
     jetCar->set_servo_angle(steering * (180.0f / CV_PI));  // Convert radians to degrees for JetCar
-    std::cout << "Current Speed: " << v_current << " m/s, Target Speed: " << v_target << " m/s" << std::endl;
-    std::cout << "PWM: " << pwm << std::endl;
+    // std::cout << "Current Speed: " << v_current << " m/s, Target Speed: " << v_target << " m/s" << std::endl;
+    // std::cout << "PWM: " << pwm << std::endl;
     jetCar->set_motor_speed(pwm);
 
     video_writer.write(output_frame);  // Stream the output frame

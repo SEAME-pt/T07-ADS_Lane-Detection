@@ -20,9 +20,12 @@ LaneDetector::LaneDetector(const std::string& trt_model_path) {
 
     input_height_ = 128;
     input_width_ = 256;
-    frame_height_ = 360;
-    frame_width_ = 640;
-    roi_start_y_ = frame_height_ / 2;
+    frame_height_ = 128;
+    frame_width_ = 256;
+    // frame_height_ = 360;
+    // frame_width_ = 640;
+    roi_start_y_ = 0;
+    // roi_start_y_ = frame_height_ / 2;
     roi_end_y_ = frame_height_ - 10;
 
     offset_kalman_ = 0.0f;
@@ -45,6 +48,7 @@ bool LaneDetector::initialize() {
                            "format=(string)NV12, framerate=30/1 ! nvvidconv ! video/x-raw, format=BGRx ! "
                            "videoconvert ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=1";
     cap_.open(pipeline, cv::CAP_GSTREAMER);
+
     return cap_.isOpened();
 }
 
@@ -68,35 +72,48 @@ void LaneDetector::loadEngine(const std::string& trt_model_path) {
     output_data_.resize(1 * 1 * input_height_ * input_width_);
 }
 
+// void LaneDetector::preprocess(const cv::Mat& frame) {
+//     cv::Rect roi(0, roi_start_y_, frame_width_, roi_end_y_ - roi_start_y_);
+//     cv::Mat cropped_frame = frame(roi);
+
+//     float model_aspect = static_cast<float>(input_width_) / input_height_;
+//     float crop_aspect = static_cast<float>(cropped_frame.cols) / cropped_frame.rows;
+
+//     int resize_width, resize_height;
+//     if (crop_aspect > model_aspect) {
+//         resize_width = input_width_;
+//         resize_height = static_cast<int>(input_width_ / crop_aspect);
+//     } else {
+//         resize_height = input_height_;
+//         resize_width = static_cast<int>(input_height_ * crop_aspect);
+//     }
+
+//     gpu_frame_.upload(cropped_frame);
+//     cv::cuda::resize(gpu_frame_, gpu_resized_, cv::Size(resize_width, resize_height));
+//     cv::Mat resized;
+//     gpu_resized_.download(resized);
+
+//     cv::Mat padded = cv::Mat::zeros(input_height_, input_width_, resized.type());
+//     int pad_top = (input_height_ - resize_height) / 2;
+//     int pad_left = (input_width_ - resize_width) / 2;
+//     resized.copyTo(padded(cv::Rect(pad_left, pad_top, resize_width, resize_height)));
+
+//     padded.convertTo(padded, CV_32F, 1.0 / 255.0);
+//     std::vector<cv::Mat> channels;
+//     cv::split(padded, channels);
+//     for (int c = 0; c < 3; ++c) {
+//         memcpy(input_data_.data() + c * input_height_ * input_width_, channels[c].data, input_height_ * input_width_ * sizeof(float));
+//     }
+// }
+
 void LaneDetector::preprocess(const cv::Mat& frame) {
-    cv::Rect roi(0, roi_start_y_, frame_width_, roi_end_y_ - roi_start_y_);
-    cv::Mat cropped_frame = frame(roi);
-
-    float model_aspect = static_cast<float>(input_width_) / input_height_;
-    float crop_aspect = static_cast<float>(cropped_frame.cols) / cropped_frame.rows;
-
-    int resize_width, resize_height;
-    if (crop_aspect > model_aspect) {
-        resize_width = input_width_;
-        resize_height = static_cast<int>(input_width_ / crop_aspect);
-    } else {
-        resize_height = input_height_;
-        resize_width = static_cast<int>(input_height_ * crop_aspect);
-    }
-
-    gpu_frame_.upload(cropped_frame);
-    cv::cuda::resize(gpu_frame_, gpu_resized_, cv::Size(resize_width, resize_height));
     cv::Mat resized;
-    gpu_resized_.download(resized);
+    cv::resize(frame, resized, cv::Size(input_width_, input_height_)); // resize to input size
 
-    cv::Mat padded = cv::Mat::zeros(input_height_, input_width_, resized.type());
-    int pad_top = (input_height_ - resize_height) / 2;
-    int pad_left = (input_width_ - resize_width) / 2;
-    resized.copyTo(padded(cv::Rect(pad_left, pad_top, resize_width, resize_height)));
-
-    padded.convertTo(padded, CV_32F, 1.0 / 255.0);
+    resized.convertTo(resized, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
+    
     std::vector<cv::Mat> channels;
-    cv::split(padded, channels);
+    cv::split(resized, channels);
     for (int c = 0; c < 3; ++c) {
         memcpy(input_data_.data() + c * input_height_ * input_width_, channels[c].data, input_height_ * input_width_ * sizeof(float));
     }
@@ -217,46 +234,42 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     cv::exp(-lane_mask_, lane_mask_);
     lane_mask_ = 1.0 / (1.0 + lane_mask_);
 
-    // Debug: mostrar saída bruta da rede antes de threshold
-    if (visualize_mask) {
-        cv::Mat raw_mask_display;
-        lane_mask_.convertTo(raw_mask_display, CV_8U, 255.0);
-        cv::resize(raw_mask_display, raw_mask_display, cv::Size(frame_width_ / 4, frame_height_ / 4));
-        cv::cvtColor(raw_mask_display, raw_mask_display, cv::COLOR_GRAY2BGR);
-        raw_mask_display.copyTo(frame(cv::Rect(0, 0, raw_mask_display.cols, raw_mask_display.rows)));
-    }
-
     // Resize e ajuste de ROI
-    int roi_height = roi_end_y_ - roi_start_y_;
-    float model_aspect = static_cast<float>(input_width_) / input_height_;
-    float roi_aspect = static_cast<float>(frame_width_) / roi_height;
+    // int roi_height = roi_end_y_ - roi_start_y_;
+    // float model_aspect = static_cast<float>(input_width_) / input_height_;
+    // float roi_aspect = static_cast<float>(frame_width_) / roi_height;
 
-    int resize_width, resize_height;
-    if (roi_aspect > model_aspect) {
-        resize_width = frame_width_;
-        resize_height = static_cast<int>(frame_width_ / model_aspect);
-    } else {
-        resize_height = roi_height;
-        resize_width = static_cast<int>(roi_height * model_aspect);
-    }
+    // int resize_width, resize_height;
+    // if (roi_aspect > model_aspect) {
+    //     resize_width = frame_width_;
+    //     resize_height = static_cast<int>(frame_width_ / model_aspect);
+    // } else {
+    //     resize_height = roi_height;
+    //     resize_width = static_cast<int>(roi_height * model_aspect);
+    // }
 
-    cv::resize(lane_mask_, lane_mask_, cv::Size(resize_width, resize_height));
+    // cv::resize(lane_mask_, lane_mask_, cv::Size(resize_width, resize_height));
 
-    cv::Mat resized_mask;
-    if (resize_height > roi_height) {
-        int crop_top = (resize_height - roi_height) / 2;
-        resized_mask = lane_mask_(cv::Rect(0, crop_top, frame_width_, roi_height));
-    } else {
-        resized_mask = cv::Mat::zeros(roi_height, frame_width_, lane_mask_.type());
-        int pad_top = (roi_height - resize_height) / 2;
-        lane_mask_.copyTo(resized_mask(cv::Rect(0, pad_top, frame_width_, resize_height)));
-    }
+    // cv::Mat resized_mask;
+    // if (resize_height > roi_height) {
+    //     int crop_top = (resize_height - roi_height) / 2;
+    //     resized_mask = lane_mask_(cv::Rect(0, crop_top, frame_width_, roi_height));
+    // } else {
+    //     resized_mask = cv::Mat::zeros(roi_height, frame_width_, lane_mask_.type());
+    //     int pad_top = (roi_height - resize_height) / 2;
+    //     lane_mask_.copyTo(resized_mask(cv::Rect(0, pad_top, frame_width_, resize_height)));
+    // }
 
-    lane_mask_ = cv::Mat::zeros(frame_height_, frame_width_, lane_mask_.type());
-    resized_mask.copyTo(lane_mask_(cv::Rect(0, roi_start_y_, frame_width_, roi_height)));
+    // lane_mask_ = cv::Mat::zeros(frame_height_, frame_width_, lane_mask_.type());
+    // resized_mask.copyTo(lane_mask_(cv::Rect(0, roi_start_y_, frame_width_, roi_height)));
 
     // Aplica threshold final
     lane_mask_ = (lane_mask_ > 0.3);
+
+    // Resize da máscara para o tamanho do frame original
+    cv::Mat resized_mask;
+    cv::resize(lane_mask_, resized_mask, cv::Size(frame.cols, frame.rows), 0, 0, cv::INTER_NEAREST);
+    lane_mask_ = resized_mask;
 
     // Prepare output
     output_frame = frame.clone();
