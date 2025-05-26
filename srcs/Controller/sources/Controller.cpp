@@ -244,7 +244,7 @@ void Controller::autonomous() {
 
     // Apply constraints
     float steering = std::max(-MAX_DELTA, std::min(MAX_DELTA, delta));  // Limit to ±90 deg in radians
-    std::cout << "Final steering calculation " << (steering * (180.0f / CV_PI)) << std::endl;
+    //std::cout << "Final steering calculation " << (steering * (180.0f / CV_PI)) << std::endl;
     jetCar->set_servo_angle(static_cast<int>(steering * (180.0f / CV_PI)));  // Convert radians to degrees
 
     // Update vehicle state
