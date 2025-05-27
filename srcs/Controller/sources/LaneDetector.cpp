@@ -173,7 +173,7 @@ void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_interc
     // angle = angle_image - static_cast<float>(CAMERA_TILT);
     angle = angle_image;
     //std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
-
+    
 }
 
 void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle,

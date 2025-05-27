@@ -24,6 +24,8 @@ enum KalmanProcessCovIndex { PROCESS_COV_OFFSET = 0, PROCESS_COV_ANGLE = 1 };
 enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITION_ANGLE = 2 };
 enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
 
+static constexpr int ROI_X_BORDER = 20; // Pixels from the left and right edges to avoid noise
+
 class Logger : public nvinfer1::ILogger {
 public:
     void log(Severity severity, const char* msg) noexcept override {
@@ -75,7 +77,7 @@ private:
     // OpenCV
     cv::Mat lane_mask_;
 
-    // Kalman Filter    
+    // Kalman Filter
     cv::KalmanFilter kf_;         // Kalman filter for smoothing offset and angle
     // cv::KalmanFilter kalman_;
     cv::Mat measurement_;
