@@ -17,18 +17,22 @@ LaneDetector::LaneDetector(const std::string& trt_model_path) {
     input_width_ = 256;
     frame_height_ = 360; // Corrected to match input frame
     frame_width_ = 640;  // Corrected to match input frame
-    roi_start_y_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252
-    roi_end_y_ = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
+    roi_sy_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252
+    roi_ey_ = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
 
     offset_kalman_ = 0.0f;
     angle_kalman_ = 0.0f;
     estimated_lane_width_ = 200.0f;
+
     prev_left_edge_ = frame_width_ / 2;  // 320
     prev_right_edge_ = frame_width_ / 2; // 320
     last_left_edge_ = frame_width_ / 2;  // 320
     last_right_edge_ = frame_width_ / 2; // 320
 
+	defineROI();
+
     loadEngine(trt_model_path);
+	std::cout << "LaneDetector created with model: " << trt_model_path << std::endl;
 }
 
 LaneDetector::~LaneDetector() {
@@ -42,6 +46,16 @@ bool LaneDetector::initialize() {
                            "format=(string)NV12, framerate=30/1 ! nvvidconv ! video/x-raw, format=BGRx ! "
                            "videoconvert ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=1";
     cap_.open(pipeline, cv::CAP_GSTREAMER);
+	if (!cap_.isOpened()) {
+		std::cerr << "Failed to open camera pipeline!" << std::endl;
+		return false;
+	}
+	std::cout << "[" << __func__ << "] "
+				<< "Camera pipeline opened successfully: \n"
+				<< pipeline << std::endl;
+	std::cout << "[" << __func__ << "] "
+				<< "LaneDetector initialization concluded!"
+				<< std::endl;
     return cap_.isOpened();
 }
 
@@ -52,13 +66,14 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     }
 
     // Step 1: Define the Region of Interest (ROI)
-    int start_y, end_y, start_x, end_x;
-    defineROI(start_y, end_y, start_x, end_x);
-    cv::Rect roi(start_x, start_y, end_x - start_x, end_y - start_y);
+    //int start_y, end_y, start_x, end_x;
+   // defineROI(start_y, end_y, start_x, end_x);
+    cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
 
     // Step 2: Find left and right lane edges using dense sampling
     std::vector<cv::Point> left_edges, right_edges;
     if (!findLaneEdges(lane_mask_, roi, left_edges, right_edges)) {
+		std::cerr << "Not enough edge points detected in ROI!" << std::endl;
         return false; // Not enough edge points detected
     }
 
@@ -71,7 +86,7 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     // Step 4: Calculate offset and angle from the fitted lines
     float measured_offset, measured_angle;
     calculateOffsetAndAngle(left_slope, left_intercept, right_slope, right_intercept,
-                            end_y - 1, measured_offset, measured_angle);
+                            roi_ey_ - 1, measured_offset, measured_angle);
 
     // Step 5: Apply Kalman filter to smooth the estimates
     float smoothed_offset, smoothed_angle;
@@ -84,11 +99,18 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     return true;
 }
 
-void LaneDetector::defineROI(int& start_y, int& end_y, int& start_x, int& end_x) const {
-    start_y = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252 for 360
-    end_y = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
-    start_x = 0;
-    end_x = frame_width_; // 640
+void LaneDetector::defineROI() {
+		std::cout << "Defining ROI..." << std::endl;
+		roi_sy_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252 for 360
+		roi_ey_ = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
+		roi_sx_ = ROI_X_BORDER;
+		roi_ex_ = frame_width_ - ROI_X_BORDER; // 640
+		std::cout << "ROI: "
+					<< "sy = " << roi_sy_
+					<< ", ey = " << roi_ey_
+					<< ", sx = " << roi_sx_
+					<< ", ex = " << roi_ex_
+					<< std::endl;
 }
 
 bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
@@ -173,7 +195,7 @@ void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_interc
     // angle = angle_image - static_cast<float>(CAMERA_TILT);
     angle = angle_image;
     //std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
-    
+
 }
 
 void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle,
@@ -263,7 +285,7 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
                                  std::to_string(frame_height_) + " CV_8UC3");
     }
 
-    cv::Rect roi(0, roi_start_y_, frame_width_, roi_end_y_ - roi_start_y_); // 640x108
+    cv::Rect roi(0, roi_sy_, frame_width_, roi_ey_ - roi_sy_); // 640x108
     cv::Mat cropped = frame(roi);
 
     cv::Mat gray;
@@ -338,7 +360,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 
     std::vector<int> left_edges, right_edges;
     std::vector<int> valid_y;
-    for (int y = roi_end_y_ - 10; y >= roi_start_y_; y -= 10) {
+    for (int y = roi_ey_ - 10; y >= roi_sy_; y -= 10) {
         uchar* row = mask_vis.ptr<uchar>(y);
         int left = camera_center, right = camera_center;
 
@@ -377,8 +399,8 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     if (left_edges.empty() || right_edges.empty()) {
         float x_ref = camera_center + offset_kalman_;
         float lane_angle_rad = angle_kalman_ * CV_PI / 180.0f;
-        for (int y = roi_end_y_ - 10; y >= roi_start_y_; y -= 10) {
-            float dy = (y - (roi_end_y_ - 10));
+        for (int y = roi_ey_ - 10; y >= roi_sy_; y -= 10) {
+            float dy = (y - (roi_ey_ - 10));
             float dx = dy * tan(lane_angle_rad);
             int estimated_center = static_cast<int>(x_ref + dx);
             left_edges.push_back(std::max(0, estimated_center - static_cast<int>(avg_lane_width / 2)));
@@ -394,7 +416,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
                 } else {
                     float x_ref = camera_center + offset_kalman_;
                     float lane_angle_rad = angle_kalman_ * CV_PI / 180.0f;
-                    float dy = (valid_y[i] - (roi_end_y_ - 10));
+                    float dy = (valid_y[i] - (roi_ey_ - 10));
                     float dx = dy * tan(lane_angle_rad);
                     int estimated_center = static_cast<int>(x_ref + dx);
                     left_edges[i] = std::max(0, estimated_center - static_cast<int>(avg_lane_width / 2));
@@ -409,7 +431,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
                 } else {
                     float x_ref = camera_center + offset_kalman_;
                     float lane_angle_rad = angle_kalman_ * CV_PI / 180.0f;
-                    float dy = (valid_y[i] - (roi_end_y_ - 10));
+                    float dy = (valid_y[i] - (roi_ey_ - 10));
                     float dx = dy * tan(lane_angle_rad);
                     int estimated_center = static_cast<int>(x_ref + dx);
                     right_edges[i] = std::min(frame_width_ - 1, estimated_center + static_cast<int>(avg_lane_width / 2));
@@ -465,7 +487,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
         if (right - left > 50) {
             float cx = (left + right) / 2.0f;
             centers.emplace_back(cx, y);
-            float w = static_cast<float>(y - roi_start_y_) / (roi_end_y_ - roi_start_y_);
+            float w = static_cast<float>(y - roi_sy_) / (roi_ey_ - roi_sy_);
             weights.push_back(w * w);
         }
     }
@@ -488,15 +510,15 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
         if (std::abs(denom) > 1e-5f) {
             float a = (sum_w * sum_yx - sum_y * sum_x) / denom;
             float b = (sum_x * sum_yy - sum_y * sum_yx) / denom;
-            int y_top = roi_end_y_ - 100;
+            int y_top = roi_ey_ - 100;
             cv::Point pt1(a * y_top + b, y_top);
-            cv::Point pt2(a * (roi_end_y_ - 10) + b, roi_end_y_ - 10);
+            cv::Point pt2(a * (roi_ey_ - 10) + b, roi_ey_ - 10);
             cv::line(output_frame, pt1, pt2, cv::Scalar(255, 0, 255), 2);
         }
     }
 
     int lane_center = frame_width_ / 2 + static_cast<int>(offset);
-    int line_y = (roi_start_y_ + roi_end_y_) / 2;
+    int line_y = (roi_sy_ + roi_ey_) / 2;
     cv::line(output_frame, cv::Point(lane_center, line_y), cv::Point(lane_center, line_y - 50), cv::Scalar(0, 0, 255), 3);
     int frame_center = frame_width_ / 2;
     int distance = std::abs(static_cast<int>(offset));
@@ -512,7 +534,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     std::string width_text_bottom = "Lane Width (Bottom): " + std::to_string(lane_width_bottom) + " px";
     cv::putText(output_frame, width_text_bottom, cv::Point(left_edge_bottom + (right_edge_bottom - left_edge_bottom) / 2 - 50, frame_height_ - 25), cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 2);
 
-    int center_y = (roi_start_y_ + roi_end_y_) / 2;
+    int center_y = (roi_sy_ + roi_ey_) / 2;
     int left_edge_center = camera_center;
     int right_edge_center = camera_center;
     float t = 0.0f;

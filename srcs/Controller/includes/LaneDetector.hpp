@@ -25,6 +25,16 @@ enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITI
 enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
 
 static constexpr int ROI_X_BORDER = 20; // Pixels from the left and right edges to avoid noise
+static constexpr int I_W = 256;
+static constexpr int I_H = 128;
+static constexpr int F_W = 640; // Frame width
+static constexpr int F_H = 360; // Frame height
+static constexpr float ROI_SY_PERCENT = 0.7f; // ROI starts at 70% of image height
+static constexpr float ROI_EY_PERCENT = 1.0f;   // ROI ends at 100% of image height
+static constexpr double METER_PER_PIXEL = 0.0005556; // Example scale factor, should be calibrated [m/pixel]
+static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
+static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
+
 
 class Logger : public nvinfer1::ILogger {
 public:
@@ -48,7 +58,7 @@ private:
     // void calculateLaneGeometry(float& offset, float& angle);
     bool calculateLaneGeometry(float& offset, float& angle);
     // Helper functions
-    void defineROI(int& start_y, int& end_y, int& start_x, int& end_x) const;
+    void defineROI() ;
     bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
                        std::vector<cv::Point>& left_edges,
                        std::vector<cv::Point>& right_edges) const;
@@ -91,14 +101,33 @@ private:
     int prev_right_edge_;
 
     // Dimensões
-    int input_width_ = 256;
-    int input_height_ = 128;
-    int frame_width_ = 640;
-    int frame_height_ = 360;
-    int roi_start_y_ = 40; // Top of ROI (bottom 320 pixels)
-    int roi_end_y_ = 360;  // Bottom of frame
-    float last_left_edge_;  // Store last known left edge position
-    float last_right_edge_; // Store last known right edge position
+    int input_width_ = I_W;
+    int input_height_ = I_H;
+    int frame_width_ = F_W;
+    int frame_height_ = F_H;
+
+	// Region of Interest (ROI) parameters
+	// These parameters define the area of the image where lane detection will be performed.
+	// The ROI is defined to focus on the bottom part of the image where lanes are typically located.
+	// The ROI is set to start 20 pixels from the left edge and end 20 pixels from the right edge.
+	// The vertical ROI starts at 40 pixels from the top and extends to the bottom of the frame.
+	int roi_sx_, roi_ex_, roi_sy_, roi_ey_;
+
+
+	// Store last known edge positions for smoothing
+	// These will be used to maintain continuity in edge detection
+	// This helps in cases where edges are not detected in every frame
+	// and prevents sudden jumps in detected edge positions.
+	// This is particularly useful in dynamic environments where lane edges may not be consistently visible.
+	// The last known positions help to provide a reference point for the next frame's edge detection.
+	// This is important for maintaining a smooth driving experience and avoiding abrupt steering corrections.
+	// These values are updated only when valid edges are detected.
+	// They are initialized to -1 to indicate that no edges have been detected yet.
+	// If no edges are detected in the current frame, the last known positions will be used.
+	// This helps to maintain a consistent lane detection experience.
+	float last_left_edge_ = -1.0f;  // Store last known left edge position
+    float last_right_edge_ = -1.0f; // Store last known right edge position
+
 
         // Fixed parameters as constants
     static constexpr double CAMERA_TILT = 0.296706; // 17 degrees in radians (17 * pi/180)

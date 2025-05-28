@@ -197,16 +197,26 @@ void Controller::autonomous() {
 
     // Check if LaneDetector is initialized and capture frame
     if (!laneDetector || !laneDetector->cap_.read(frame)) {
-        std::cerr << "Error: Could not capture frame or LaneDetector not initialized!" << std::endl;
+		std::cout << "[" << __func__ << "] "
+					<< "ERROR " << __LINE__ << " : "
+					<< "laneDetector status : " << laneDetector
+					<< std::endl;
+		std::cout << "[" << __func__ << "] "
+					<< "ERROR " << __LINE__ << " : "
+					<< "laneDetector->cap_.read(frame) status : " << laneDetector->cap_.read(frame)
+					<< std::endl;
+		std::cerr << "[" << __func__ << "] "
+					<< "ERROR " << __LINE__ << " : "
+					<< std::endl;
         return;
     }
 
     float offset, angle;
     tracker.mark();
     laneDetector->processFrame(frame, offset, angle, output_frame, true);
-    
+
     //tracker.mark();
-    
+
 
     // Calculate rate of change of angle to predict curve
     float angle_rate = (angle - prev_angle) / DT;  // deg/s

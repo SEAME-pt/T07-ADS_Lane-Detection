@@ -210,7 +210,30 @@ void Controller::autonomous() {
 
     // Check if LaneDetector is initialized and capture frame
     if (!laneDetector || !laneDetector->cap_.read(frame)) {
-        std::cerr << "Error: Could not capture frame or LaneDetector not initialized!" << std::endl;
+		if (!laneDetector) {
+			std::cout << "[" << __func__ << "] "
+						<< "ERROR " << __LINE__ << " : "
+						<< "laneDetector is not initialized!" << std::endl;
+			return;
+		}
+		if (!laneDetector->cap_.isOpened()) {
+			std::cout << "[" << __func__ << "] "
+						<< "ERROR " << __LINE__ << " : "
+						<< "laneDetector->cap_ is not opened!" << std::endl;
+			return;
+		}
+		if (frame.empty()) {
+			std::cout << "[" << __func__ << "] "
+						<< "ERROR " << __LINE__ << " : "
+						<< "Failed to read frame from laneDetector!" << std::endl;
+			return;
+		}
+		if (frame.type() != CV_8UC3) {
+			std::cout << "[" << __func__ << "] "
+						<< "ERROR " << __LINE__ << " : "
+						<< "Frame type is not CV_8UC3!" << std::endl;
+			return;
+		}
         return;
     }
 
