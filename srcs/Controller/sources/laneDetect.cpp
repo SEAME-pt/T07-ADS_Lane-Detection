@@ -1,138 +1,47 @@
-#pragma once
-#include <opencv2/opencv.hpp>
-#include <stdexcept>
-#include <cmath>
+#include "laneDetector.h"
 
-class Logger : public nvinfer1::ILogger {
-public:
-    void log(Severity severity, const char* msg) noexcept override {
-        if (severity <= Severity::kWARNING) std::cerr << msg << std::endl;
-    }
-};
+laneDetector::laneDetector(const std::string& trt_model_path) {
+    cudaStreamCreate(&stream_);
 
-class LaneDetector {
-
-public:
-    LaneDetector(const std::string& trt_model_path);
-    ~LaneDetector();
-    bool initialize();
-    void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask = true);
-    void loadEngine(const std::string& trt_model_path);
-    void preprocess(const cv::Mat& frame);
-    void infer();
-
-    //void calculateSteeringParams(int left_edge, int right_edge, int& lane_center, float& offset, float& angle);
-    //void calculateLaneGeometry(float& offset, float& angle, cv::Mat& debug_img);
-	bool calculateLaneGeometry(float& offset, float& angle, cv::Mat* debug_img = nullptr);
-    // Helper functions
-    void defineROI(int& start_y, int& end_y, int& start_x, int& end_x) const;
-    bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
-                       std::vector<cv::Point>& left_edges,
-                       std::vector<cv::Point>& right_edges) const;
-    void weightedLinearRegression(const std::vector<cv::Point>& points,
-                                  double& slope, double& intercept) const;
-    void calculateOffsetAndAngle(double left_slope, double left_intercept,
-                                 double right_slope, double right_intercept,
-                                 int y_bottom, float& offset, float& angle) const;
-    void applyKalmanFilter(float measured_offset, float measured_angle,
-                           float& smoothed_offset, float& smoothed_angle);
-    void drawDebugInfo(cv::Mat* debug_img, const std::vector<cv::Point>& left_edges,
-                       const std::vector<cv::Point>& right_edges,
-                       float offset, float angle) const;
-	double calculateDistance(int pixel_y, int x_length) const;
-
-	// TensorRT
-    std::unique_ptr<nvinfer1::IRuntime> runtime_;
-    std::unique_ptr<nvinfer1::ICudaEngine> engine_;
-    std::unique_ptr<nvinfer1::IExecutionContext> context_;
-    Logger logger_;
-    void* buffers_[2];
-    cudaStream_t stream_;
-    std::vector<float> input_data_;
-    std::vector<float> output_data_;
-
-    // OpenCV
-    cv::VideoCapture cap_;
-    cv::cuda::GpuMat gpu_frame_;
-    cv::cuda::GpuMat gpu_resized_;
-    cv::Mat lane_mask_;           // Binary lane mask (assumed to be set elsewhere)
-
-    // Kalman Filter
-    cv::KalmanFilter kf_;         // Kalman filter for smoothing offset and angle
-    // cv::Mat measurement_;
-    // cv::Mat prediction_;
-    float offset_kalman_;
-    float angle_kalman_;
-
-    // Dimensões
-    int image_width_;             // Image width, set during initialization
-    int image_height_;            // Image height, set during initialization
-    int frame_width_ = 640;
-    int frame_height_ = 360;
-    int roi_start_y_;
-    int roi_end_y_;
-
-    // Valores
-    float estimated_lane_width_;
-    int prev_left_edge_;
-    int prev_right_edge_;
-
-	// private:
-	// Member variables
-
-    // Fixed parameters as constants
-    static constexpr double CAMERA_TILT = 0.296706; // 17 degrees in radians (17 * pi/180)
-    static constexpr double CAMERA_HEIGHT = 0.15;   // 15 cm in meters
-    static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
-    static constexpr float ROI_START_Y_PERCENT = 0.7f; // ROI starts at 70% of image height
-    static constexpr float ROI_END_Y_PERCENT = 1.0f;   // ROI ends at 100% of image height
-    static constexpr int MAX_SEARCH_DISTANCE = 500;    // Max distance (pixels) to search for edges
-	static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
-	static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
-
-};
-
-LaneDetector::LaneDetector() {
-
-	cudaStreamCreate(&stream_);
-
-	// Assume lane_mask_, image_width_, and image_height_ are set elsewhere
-
-	// Initialize Kalman filter (2D state: offset, angle)
+    // Initialize Kalman filter
     kf_ = cv::KalmanFilter(2, 2, 0, CV_32F);
-    kf_.statePre.at<float>(0) = 0.0f; // Initial offset
-    kf_.statePre.at<float>(1) = 0.0f; // Initial angle
-    kf_.transitionMatrix = (cv::Mat_<float>(2, 2) << 1, 0, 0, 1); // Identity matrix
-    kf_.measurementMatrix = (cv::Mat_<float>(2, 2) << 1, 0, 0, 1); // Identity matrix
+    kf_.statePre.at<float>(0) = 0.0f;
+    kf_.statePre.at<float>(1) = 0.0f;
+    kf_.transitionMatrix = (cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
+    kf_.measurementMatrix = (cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
     cv::setIdentity(kf_.processNoiseCov, cv::Scalar::all(1e-4));
     cv::setIdentity(kf_.measurementNoiseCov, cv::Scalar::all(1e-1));
     cv::setIdentity(kf_.errorCovPre, cv::Scalar::all(1));
 
     input_height_ = 128;
     input_width_ = 256;
-
-    frame_height_ = 128;
-    frame_width_ = 256;
-    roi_start_y_ = 0;
-    // roi_start_y_ = frame_height_ / 2;
-    roi_end_y_ = frame_height_ - 10;
+    frame_height_ = 360; // Corrected to match input frame
+    frame_width_ = 640;  // Corrected to match input frame
+    roi_sy_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252
+    roi_ey_ = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
 
     offset_kalman_ = 0.0f;
     angle_kalman_ = 0.0f;
     estimated_lane_width_ = 200.0f;
-    prev_left_edge_ = frame_width_ / 2;
-    prev_right_edge_ = frame_width_ / 2;
+
+    prev_left_edge_ = frame_width_ / 2;  // 320
+    prev_right_edge_ = frame_width_ / 2; // 320
+    last_left_edge_ = frame_width_ / 2;  // 320
+    last_right_edge_ = frame_width_ / 2; // 320
+
+	defineROI();
 
     loadEngine(trt_model_path);
+	std::cout << "laneDetector created with model: " << trt_model_path << std::endl;
 }
 
-LaneDetector::~LaneDetector() {
+laneDetector::~laneDetector() {
     cudaStreamDestroy(stream_);
     cudaFree(buffers_[0]);
     cudaFree(buffers_[1]);
 }
 
-bool LaneDetector::initialize() {
+bool laneDetector::initialize() {
     std::string pipeline = "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=640, height=360, "
                            "format=(string)NV12, framerate=30/1 ! nvvidconv ! video/x-raw, format=BGRx ! "
                            "videoconvert ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=1";
@@ -155,7 +64,7 @@ bool LaneDetector::initialize() {
  *
  * @note This function assumes that `lane_mask_` has been populated with a float32 lane probability map before being called.
  */
-bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, cv::Mat* debug_img) {
+bool laneDetector::calculateLaneGeometry(float& offset, float& angle, cv::Mat* debug_img) {
     // Check if lane mask is valid
     if (lane_mask_.empty() || lane_mask_.type() != CV_32F) {
         return false;
@@ -211,7 +120,7 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, cv::Mat* d
  *
  * @note This function assumes that `image_height_` and `image_width_` are properly initialized class members.
  */
-void LaneDetector::defineROI(int& start_y, int& end_y, int& start_x, int& end_x) const {
+void laneDetector::defineROI(int& start_y, int& end_y, int& start_x, int& end_x) const {
     start_y = static_cast<int>(image_height_ * ROI_START_Y_PERCENT);
     end_y = static_cast<int>(image_height_ * ROI_END_Y_PERCENT);
     start_x = 0; // Full width
@@ -237,7 +146,7 @@ void LaneDetector::defineROI(int& start_y, int& end_y, int& start_x, int& end_x)
  *
  * @warning `lane_mask` must be of type CV_32FC1. Any other type may lead to undefined behavior.
  */
-bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
+bool laneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
                                  std::vector<cv::Point>& left_edges,
                                  std::vector<cv::Point>& right_edges) const {
     left_edges.clear();
@@ -269,7 +178,7 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
 
 // Perform weighted linear regression (fits x = m*y + b)
 
-void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& points,
+void laneDetector::weightedLinearRegression(const std::vector<cv::Point>& points,
                                             double& slope, double& intercept) const {
     if (points.size() < 2) {
         slope = 0.0;
@@ -308,7 +217,7 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& points
 }
 
 // Calculate offset (meters) and angle (radians) from fitted lines
-void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
+void laneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
                                            double right_slope, double right_intercept,
                                            int y_bottom, float& offset, float& angle) const {
     // Calculate x positions at bottom row
@@ -328,7 +237,7 @@ void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_interc
 }
 
 // Apply Kalman filter to smooth offset and angle
-void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle,
+void laneDetector::applyKalmanFilter(float measured_offset, float measured_angle,
                                      float& smoothed_offset, float& smoothed_angle) {
     // Predict
     cv::Mat prediction = kf_.predict();
@@ -343,7 +252,7 @@ void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle
 }
 
 // Draw debug information on the provided image
-void LaneDetector::drawDebugInfo(cv::Mat* debug_img,
+void laneDetector::drawDebugInfo(cv::Mat* debug_img,
                                  const std::vector<cv::Point>& left_edges,
                                  const std::vector<cv::Point>& right_edges,
                                  float offset, float angle) const {
@@ -371,7 +280,7 @@ void LaneDetector::drawDebugInfo(cv::Mat* debug_img,
              cv::Scalar(255, 255, 0), 2); // Yellow line
 }
 
-void LaneDetector::loadEngine(const std::string& trt_model_path) {
+void laneDetector::loadEngine(const std::string& trt_model_path) {
     std::ifstream file(trt_model_path, std::ios::binary);
     if (!file.good()) {
         std::cerr << "Error opening TensorRT model file!" << std::endl;
@@ -391,14 +300,14 @@ void LaneDetector::loadEngine(const std::string& trt_model_path) {
     output_data_.resize(1 * 1 * input_height_ * input_width_);
 }
 
-void LaneDetector::infer() {
+void laneDetector::infer() {
 	cudaMemcpyAsync(buffers_[0], input_data_.data(), input_data_.size() * sizeof(float), cudaMemcpyHostToDevice, stream_);
 	context_->enqueueV2(buffers_, stream_, nullptr);
 	cudaMemcpyAsync(output_data_.data(), buffers_[1], output_data_.size() * sizeof(float), cudaMemcpyDeviceToHost, stream_);
 	cudaStreamSynchronize(stream_);
 }
 
-void LaneDetector::preprocess(const cv::Mat& frame) {
+void laneDetector::preprocess(const cv::Mat& frame) {
     cv::Mat resized;
     cv::resize(frame, resized, cv::Size(input_width_, input_height_)); // resize to input size
 
@@ -411,7 +320,7 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
     }
 }
 
-void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
+void laneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
     preprocess(frame);
     infer();
 
@@ -462,13 +371,13 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 
     // Print no terminal
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "[LaneDetector] Offset: " << offset
+    std::cout << "[laneDetector] Offset: " << offset
               << ", Angle: " << angle
               << " deg | Frame Size: " << frame.cols << "x" << frame.rows
               << std::endl;
 }
 
-double LaneDetector::calculateDistance(int pixel_y, int x_length) {
+double laneDetector::calculateDistance(int pixel_y, int x_length) {
 	double scale_factor = A_DISTANCE * pixel_y + B_DISTANCE;
 	return scale_factor * x_length;
 }

@@ -1,5 +1,4 @@
-#ifndef LANE_DETECTOR_HPP
-#define LANE_DETECTOR_HPP
+#pragma once
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/cuda.hpp>
@@ -42,22 +41,22 @@ public:
     }
 };
 
-class LaneDetector {
-public:
-    LaneDetector(const std::string& trt_model_path);
-    ~LaneDetector();
-    bool initialize();
-    void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask = false);
-    cv::VideoCapture cap_;
+class laneDetector {
 
+public:
+    laneDetector(const std::string& trt_model_path);
+    ~laneDetector();
+    bool initialize();
+    void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask = true);
 private:
-    void loadEngine(const std::string& trt_model_path);
+	void loadEngine(const std::string& trt_model_path);
     void preprocess(const cv::Mat& frame);
     void infer();
-    // void calculateLaneGeometry(float& offset, float& angle);
-    bool calculateLaneGeometry(float& offset, float& angle);
+    //void calculateSteeringParams(int left_edge, int right_edge, int& lane_center, float& offset, float& angle);
+    //void calculateLaneGeometry(float& offset, float& angle, cv::Mat& debug_img);
+	bool calculateLaneGeometry(float& offset, float& angle, cv::Mat* debug_img = nullptr);
     // Helper functions
-    void defineROI() ;
+    void defineROI(int& start_y, int& end_y, int& start_x, int& end_x) const;
     bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
                        std::vector<cv::Point>& left_edges,
                        std::vector<cv::Point>& right_edges) const;
@@ -73,7 +72,7 @@ private:
                        float offset, float angle) const;
 	double calculateDistance(int pixel_y, int x_length) const;
 
-    // TensorRT
+	// TensorRT
     std::unique_ptr<nvinfer1::IRuntime> runtime_;
     std::unique_ptr<nvinfer1::ICudaEngine> engine_;
     std::unique_ptr<nvinfer1::IExecutionContext> context_;
@@ -84,20 +83,17 @@ private:
     std::vector<float> output_data_;
 
     // OpenCV
-    cv::Mat lane_mask_;
+    cv::VideoCapture cap_;
+    cv::cuda::GpuMat gpu_frame_;
+    cv::cuda::GpuMat gpu_resized_;
+    cv::Mat lane_mask_;           // Binary lane mask (assumed to be set elsewhere)
 
     // Kalman Filter
     cv::KalmanFilter kf_;         // Kalman filter for smoothing offset and angle
-    // cv::KalmanFilter kalman_;
-    cv::Mat measurement_;
-    cv::Mat prediction_;
+    // cv::Mat measurement_;
+    // cv::Mat prediction_;
     float offset_kalman_;
     float angle_kalman_;
-
-    // Valores
-    float estimated_lane_width_;
-    int prev_left_edge_;
-    int prev_right_edge_;
 
     // Dimensões
     int input_width_ = I_W;
@@ -111,7 +107,6 @@ private:
 	// The ROI is set to start 20 pixels from the left edge and end 20 pixels from the right edge.
 	// The vertical ROI starts at 40 pixels from the top and extends to the bottom of the frame.
 	int roi_sx_, roi_ex_, roi_sy_, roi_ey_;
-
 
 	// Store last known edge positions for smoothing
 	// These will be used to maintain continuity in edge detection
@@ -127,17 +122,14 @@ private:
 	float last_left_edge_ = -1.0f;  // Store last known left edge position
     float last_right_edge_ = -1.0f; // Store last known right edge position
 
-
-        // Fixed parameters as constants
+    // Fixed parameters as constants
     static constexpr double CAMERA_TILT = 0.296706; // 17 degrees in radians (17 * pi/180)
     static constexpr double CAMERA_HEIGHT = 0.15;   // 15 cm in meters
-    // static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
-    static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
+    static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
     static constexpr float ROI_START_Y_PERCENT = 0.7f; // ROI starts at 70% of image height
     static constexpr float ROI_END_Y_PERCENT = 1.0f;   // ROI ends at 100% of image height
     static constexpr int MAX_SEARCH_DISTANCE = 500;    // Max distance (pixels) to search for edges
 	static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
 	static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
-};
 
-#endif // LANE_DETECTOR_HPP
+};

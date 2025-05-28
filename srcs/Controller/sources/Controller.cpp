@@ -240,6 +240,10 @@ void Controller::autonomous() {
     float offset, angle;
     tracker.mark();
     laneDetector->processFrame(frame, offset, angle, output_frame, true);
+	std::cout << "[" << __func__ << "] "
+			  << "offset: " << std::setw(6) << offset
+			  << " angle: " << std::setw(6) << angle << std::endl;
+
 
     // Calculate rate of change of angle to predict curve
     float angle_rate = (angle - prev_angle) / DT;  // deg/s
