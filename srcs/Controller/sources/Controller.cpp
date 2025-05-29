@@ -6,6 +6,8 @@
 #include <chrono>
 #include <sstream>
 
+static constexpr int AXIS_A = 3;  // Axis acceleration
+
 Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK) {
     // Initialize SDL for joystick input
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0) {
@@ -101,7 +103,8 @@ void Controller::processEvent(const SDL_Event& event) {
         int axis = event.jaxis.axis;
         int value = event.jaxis.value;
         // std::cout << "Axis " << axis << " moved to " << value << std::endl;
-        if (axisActions.find(axis) != axisActions.end() && axis == 3) {
+        // if (axisActions.find(axis) != axisActions.end() && axis == AXIS_A) {
+        if (axisActions.find(axis) != axisActions.end()) {
             axisActions[axis](value);
         }
     } else if (event.type == SDL_JOYDEVICEADDED) {
@@ -250,8 +253,8 @@ void Controller::autonomous() {
     prev_angle = angle;
 
     // Convert to MPC inputs
-    float y_ref = offset * (1.0f / 640.0f);  // Convert pixels to meters (adjust scale if needed)
-    float theta_ref = -angle * (CV_PI / 180.0f);  // Invert angle to correct for possible detection error
+    float y_ref = offset;//  * (1.0f / 640.0f);  //** */ Convert pixels to meters (adjust scale if needed)
+    float theta_ref = -angle; // * (CV_PI / 180.0f);  //** */ Invert angle to correct for possible detection error
 
     // Predict future trajectory over horizon with dynamic offset
     Eigen::VectorXd y_ref_vec(N);
@@ -259,7 +262,7 @@ void Controller::autonomous() {
     for (int i = 0; i < N; ++i) {
         float t = i * DT;
         // Extrapolate offset based on current offset and angle (assuming constant speed and curvature)
-        float dy = (current_state_.v * t * std::sin(theta_ref)) / 640.0f;  // Approximate lateral shift in meters
+        float dy = (current_state_.v * t * std::sin(theta_ref));// / 640.0f;  // Approximate lateral shift in meters
         y_ref_vec[i] = y_ref + dy;  // Update offset over time
         theta_ref_vec[i] = theta_ref + (angle_rate * (CV_PI / 180.0f) * t);  // Linear extrapolation of angle
     }
@@ -271,7 +274,9 @@ void Controller::autonomous() {
 
     // Apply constraints
     float steering = std::max(-MAX_DELTA, std::min(MAX_DELTA, delta));  // Limit to ±90 deg in radians
-    //std::cout << "Final steering calculation " << (steering * (180.0f / CV_PI)) << std::endl;
+    std::cout << "[" << __func__ << "] "
+			  << "Steering : " << delta << " radians, "
+			  << "Acceleration input: " << a << " m/s²" << std::endl;
     jetCar->set_servo_angle(static_cast<int>(steering * (180.0f / CV_PI)));  // Convert radians to degrees
 
     // Update vehicle state

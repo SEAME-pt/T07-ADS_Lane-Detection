@@ -62,6 +62,9 @@ bool LaneDetector::initialize() {
 bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     // Check if lane mask is valid
     if (lane_mask_.empty() || lane_mask_.type() != CV_32F) {
+		std::cout << "[" << __func__ << "] "
+				  << "ERROR: lane_mask_ is empty or not of type CV_32F!" << std::endl;
+		std::cerr << "Lane mask is empty or not of type CV_32F!" << std::endl;
         return false;
     }
 
@@ -88,7 +91,7 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
 	std::cout << "[" << __func__ << "] "
 			  << "Measured Offset: " << std::setw(6) << measured_offset
 			  << " m, Measured Angle: " << std::setw(6) << measured_angle << " rad"
-			  << '\r' << std::flush;
+			  << std::endl;
 
 
 	//std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
@@ -210,32 +213,6 @@ void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle
     cv::Mat corrected = kf_.correct(measurement);
     smoothed_offset = corrected.at<float>(0);
     smoothed_angle = corrected.at<float>(1);
-}
-
-void LaneDetector::drawDebugInfo(cv::Mat* debug_img,
-                                 const std::vector<cv::Point>& left_edges,
-                                 const std::vector<cv::Point>& right_edges,
-                                 float offset, float angle) const {
-    if (debug_img->empty()) {
-        *debug_img = cv::Mat(frame_height_, frame_width_, CV_8UC3, cv::Scalar(0)); // 640x360
-    }
-    if (debug_img->type() != CV_8UC3) {
-        debug_img->convertTo(*debug_img, CV_8UC3);
-    }
-
-    for (const auto& pt : left_edges) {
-        cv::circle(*debug_img, pt, 2, cv::Scalar(0, 0, 255), -1);
-    }
-    for (const auto& pt : right_edges) {
-        cv::circle(*debug_img, pt, 2, cv::Scalar(0, 255, 0), -1);
-    }
-
-    int y_bottom = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT) - 1; // 359
-    int x_center = frame_width_ / 2; // 320
-    int x_mid = x_center + static_cast<int>(offset / METER_PER_PIXEL);
-    cv::line(*debug_img, cv::Point(x_mid, y_bottom),
-             cv::Point(x_mid - static_cast<int>(100 * std::tan(angle)), y_bottom - 100),
-             cv::Scalar(255, 255, 0), 2);
 }
 
 void LaneDetector::loadEngine(const std::string& trt_model_path) {
@@ -421,8 +398,12 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
     }
 }
 
+
 void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
-    preprocess(frame);
+    // Preprocesses an input frame for lane detection inference.
+	preprocess(frame);
+	// Run inference using the TensorRT engine.
+	// This will fill the output_data_ vector with the model's predictions.
     infer();
 
     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
@@ -447,8 +428,9 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     // test if true or false
     if(!calculateLaneGeometry(offset, angle))
     {
-       std::cout << "[" << __func__ <<"] "
-	   				<< "Failed to calculate lane geometry" << std::endl;
+       std::cerr << "[" << __func__ <<"] "
+	   				<< "Failed to calculate lane geometry"
+					<< std::endl;
     }
 
     // cv::Mat mask_vis;
