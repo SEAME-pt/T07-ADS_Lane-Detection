@@ -4,6 +4,9 @@ project(Controller)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
+# add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=0)
+
+
 find_package(Threads REQUIRED)
 
 # Otimização e warnings
@@ -21,6 +24,7 @@ include_directories(
     /opt/jetson-sysroot/usr/src/tensorrt/include
     /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/tegra
     /opt/jetson-sysroot/usr/include/SDL2
+    /opt/jetson-sysroot/usr/local/include
 )
 
 # pkg-config para libgpiod
@@ -28,22 +32,28 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GPIOD REQUIRED libgpiod)
 
 # Bibliotecas externas no sysroot
-find_library(I2C_LIB             i2c              PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
+find_library(I2C_LIB            i2c              PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 find_library(NVINFER            nvinfer          PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 find_library(NVONNXPARSER       nvonnxparser     PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 find_library(CUDART             cudart           PATHS /opt/jetson-sysroot/usr/local/cuda/lib64)
 find_library(ZMQ                zmq              PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 find_library(SDL2_LIB           SDL2             PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 find_library(NVMEDIA            nvmedia          PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/tegra)
+find_library(IPOPT_LIB          ipopt            PATHS /opt/jetson-sysroot/usr/local/lib)
+find_library(CPPAD_LIB          cppad_lib        PATHS /opt/jetson-sysroot/usr/local/lib)
+
+# BLAS e LAPACK (usando caminhos reais para evitar symlinks quebrados)
+set(LAPACK_LIB /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/lapack/liblapack.so.3.7.1)
+set(BLAS_LIB   /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/blas/libblas.so.3.7.1)
 
 # OpenCV módulos
-find_library(OpenCV_CORE        opencv_core      PATHS /opt/jetson-sysroot/usr/local/lib)
-find_library(OpenCV_IMGPROC     opencv_imgproc   PATHS /opt/jetson-sysroot/usr/local/lib)
-find_library(OpenCV_HIGHGUI     opencv_highgui   PATHS /opt/jetson-sysroot/usr/local/lib)
-find_library(OpenCV_VIDEOIO     opencv_videoio   PATHS /opt/jetson-sysroot/usr/local/lib)
-find_library(OpenCV_VIDEO       opencv_video     PATHS /opt/jetson-sysroot/usr/local/lib)
+find_library(OpenCV_CORE        opencv_core        PATHS /opt/jetson-sysroot/usr/local/lib)
+find_library(OpenCV_IMGPROC     opencv_imgproc     PATHS /opt/jetson-sysroot/usr/local/lib)
+find_library(OpenCV_HIGHGUI     opencv_highgui     PATHS /opt/jetson-sysroot/usr/local/lib)
+find_library(OpenCV_VIDEOIO     opencv_videoio     PATHS /opt/jetson-sysroot/usr/local/lib)
+find_library(OpenCV_VIDEO       opencv_video       PATHS /opt/jetson-sysroot/usr/local/lib)
 find_library(OpenCV_CUDAWARPING opencv_cudawarping PATHS /opt/jetson-sysroot/usr/local/lib)
-find_library(OpenCV_IMGCODECS   opencv_imgcodecs PATHS /opt/jetson-sysroot/usr/local/lib)  # Added for cv::imwrite
+find_library(OpenCV_IMGCODECS   opencv_imgcodecs   PATHS /opt/jetson-sysroot/usr/local/lib)
 
 # Fontes do projeto
 set(SOURCES
@@ -52,6 +62,7 @@ set(SOURCES
     sources/JetCar.cpp
     sources/devices.cpp
     sources/LaneDetector.cpp
+    sources/MPC.cpp
     sources/main.cpp
 )
 
@@ -74,6 +85,10 @@ target_link_libraries(ControllerExec
     ${OpenCV_VIDEOIO}
     ${OpenCV_VIDEO}
     ${OpenCV_CUDAWARPING}
-    ${OpenCV_IMGCODECS}  # Added for cv::imwrite
+    ${OpenCV_IMGCODECS}
+    ${IPOPT_LIB}
+    ${CPPAD_LIB}
+    ${LAPACK_LIB}
+    ${BLAS_LIB}
     Threads::Threads
 )

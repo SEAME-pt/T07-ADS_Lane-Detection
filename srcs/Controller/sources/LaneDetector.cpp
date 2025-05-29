@@ -13,10 +13,10 @@ LaneDetector::LaneDetector(const std::string& trt_model_path) {
     cv::setIdentity(kf_.measurementNoiseCov, cv::Scalar::all(1e-1));
     cv::setIdentity(kf_.errorCovPre, cv::Scalar::all(1));
 
-    input_height_ = 128;
-    input_width_ = 256;
-    frame_height_ = 360; // Corrected to match input frame
-    frame_width_ = 640;  // Corrected to match input frame
+    // input_height_ = 128;
+    // input_width_ = 256;
+    // frame_height_ = 128; // Corrected to match input frame
+    // frame_width_ = ;  // Corrected to match input frame
     roi_start_y_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252
     roi_end_y_ = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
 

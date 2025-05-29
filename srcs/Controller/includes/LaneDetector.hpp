@@ -24,8 +24,20 @@ enum KalmanProcessCovIndex { PROCESS_COV_OFFSET = 0, PROCESS_COV_ANGLE = 1 };
 enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITION_ANGLE = 2 };
 enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
 
+// Fixed parameters as constants
+static constexpr double CAMERA_TILT = 0.296706; // 17 degrees in radians (17 * pi/180)
+static constexpr double CAMERA_HEIGHT = 0.15;   // 15 cm in meters
+static constexpr double METER_PER_PIXEL = 0.00055556;  // Example scale factor, should be calibrated [m/pixel]
+static constexpr float ROI_START_Y_PERCENT = 0.7f; // ROI starts at 70% of image height
+static constexpr float ROI_END_Y_PERCENT = 1.0f;   // ROI ends at 100% of image height
+static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
+static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
+static constexpr int I_WIDTH = 256; // Coefficient for distance calculation
+static constexpr int I_HEIGHT = 128; // Coefficient for distance calculation
+static constexpr int MAX_SEARCH_DISTANCE = I_WIDTH / 2;    // Max distance (pixels) to search for edges
+
 class Logger : public nvinfer1::ILogger {
-public:
+    public:
     void log(Severity severity, const char* msg) noexcept override {
         if (severity <= Severity::kWARNING) std::cerr << msg << std::endl;
     }
@@ -45,7 +57,7 @@ private:
     void infer();
     // void calculateLaneGeometry(float& offset, float& angle);
     bool calculateLaneGeometry(float& offset, float& angle);
-    // Helper functions
+    // Helper functions360
     void defineROI(int& start_y, int& end_y, int& start_x, int& end_x) const;
     bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
                        std::vector<cv::Point>& left_edges,
@@ -89,25 +101,15 @@ private:
     int prev_right_edge_;
 
     // Dimensões
-    int input_width_ = 256;
-    int input_height_ = 128;
+    int input_width_ = I_WIDTH;
+    int input_height_ = I_HEIGHT;
     int frame_width_ = 640;
     int frame_height_ = 360;
-    int roi_start_y_ = 40; // Top of ROI (bottom 320 pixels)
-    int roi_end_y_ = 360;  // Bottom of frame
+    int roi_start_y_ = 0; // Top of ROI (bottom 320 pixels)
+    int roi_end_y_ = 0;  // Bottom of frame
     float last_left_edge_;  // Store last known left edge position
     float last_right_edge_; // Store last known right edge position
 
-        // Fixed parameters as constants
-    static constexpr double CAMERA_TILT = 0.296706; // 17 degrees in radians (17 * pi/180)
-    static constexpr double CAMERA_HEIGHT = 0.15;   // 15 cm in meters
-    // static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
-    static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
-    static constexpr float ROI_START_Y_PERCENT = 0.7f; // ROI starts at 70% of image height
-    static constexpr float ROI_END_Y_PERCENT = 1.0f;   // ROI ends at 100% of image height
-    static constexpr int MAX_SEARCH_DISTANCE = 500;    // Max distance (pixels) to search for edges
-	static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
-	static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
 };
 
 #endif // LANE_DETECTOR_HPP
