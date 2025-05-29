@@ -82,7 +82,6 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
 
     // Step 1: Define the Region of Interest (ROI)
     cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
-    cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
 
     // Step 2: Find left and right lane edges using dense sampling
     std::vector<cv::Point> left_edges, right_edges;
@@ -91,6 +90,8 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
 		std::cerr << "Not enough edge points detected in ROI!" << std::endl;
         return false; // Not enough edge points detected
     }
+	left_edges_ = left_edges;
+	right_edges_ = right_edges;
 
     // Step 3: Perform weighted linear regression to fit lines to edges
     double left_slope, left_intercept, right_slope, right_intercept;
@@ -108,15 +109,6 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
 			  << " m, Measured Angle: " << std::setw(6) << measured_angle << " rad"
 			  << '\r' << std::flush;
 
-
-	//std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
-                            roi_ey_ - 1, measured_offset, measured_angle);
-	std::cout << "[" << __func__ << "] "
-			  << "Measured Offset: " << std::setw(6) << measured_offset
-			  << " m, Measured Angle: " << std::setw(6) << measured_angle << " rad"
-			  << '\r' << std::flush;
-
-
 	//std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
     // Step 5: Apply Kalman filter to smooth the estimates
     float smoothed_offset, smoothed_angle;
@@ -131,18 +123,6 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     return true;
 }
 
-void LaneDetector::defineROI() {
-		std::cout << "Defining ROI..." << std::endl;
-		roi_sy_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252 for 360
-		roi_ey_ = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
-		roi_sx_ = ROI_X_BORDER;
-		roi_ex_ = frame_width_ - ROI_X_BORDER; // 640
-		std::cout << "ROI: "
-					<< "sy = " << roi_sy_
-					<< ", ey = " << roi_ey_
-					<< ", sx = " << roi_sx_
-					<< ", ex = " << roi_ex_
-					<< std::endl;
 void LaneDetector::defineROI() {
 		std::cout << "Defining ROI..." << std::endl;
 		roi_sy_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252 for 360
@@ -492,8 +472,8 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     }
 
     // Use Debug class for visualization
-    debug_->showOutputVideo(output_frame, left_edges, right_edges, offset, angle, lane_mask_, visualize_mask);
+    debug_->showOutputVideo(output_frame, left_edges_, right_edges_, offset, angle, lane_mask_, visualize_mask);
 
     // Optionally save debug info to file
-    debug_->saveToFile("lane_debug_output.txt", left_edges, right_edges, offset, angle, lane_mask_);
+    //debug_->saveToFile("lane_debug_output.csv", left_edges_, right_edges_, offset, angle, lane_mask_);
 }

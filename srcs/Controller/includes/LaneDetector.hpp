@@ -127,7 +127,7 @@ private:
 	// This helps to maintain a consistent lane detection experience.
 	float last_left_edge_ = -1.0f;  // Store last known left edge position
     float last_right_edge_ = -1.0f; // Store last known right edge position
-
+ 	std::vector<cv::Point> left_edges_, right_edges_;
 
         // Fixed parameters as constants
     static constexpr double CAMERA_TILT = 0.296706; // 17 degrees in radians (17 * pi/180)
