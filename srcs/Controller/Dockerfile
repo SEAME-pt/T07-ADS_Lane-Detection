@@ -14,7 +14,10 @@ RUN apt update && apt-get install -y \
     libi2c-dev \
     git \
     cmake \
-    pkg-config
+    pkg-config \
+    liblapack-dev \
+    libblas-dev
+
 
 RUN pip3 install Jetson.GPIO
 # Instala o cabeçalho do ZeroMQ

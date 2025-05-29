@@ -6,6 +6,7 @@
 #include <opencv2/cudawarping.hpp>
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
+#include "Debug.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -138,6 +139,8 @@ private:
     static constexpr int MAX_SEARCH_DISTANCE = 500;    // Max distance (pixels) to search for edges
 	static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
 	static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
+
+    std::unique_ptr<Debug> debug_;
 };
 
 #endif // LANE_DETECTOR_HPP

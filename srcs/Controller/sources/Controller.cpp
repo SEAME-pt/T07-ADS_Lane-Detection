@@ -39,7 +39,7 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
 
     // Setup video streaming pipeline
     std::string pipeline = "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
-                          "rtph264pay ! udpsink host=239.255.0.1 host=10.21.221.29 port=5000 sync=false";
+                          "rtph264pay ! udpsink host=239.255.0.1 port=5000 sync=false";
     video_writer.open(pipeline, cv::CAP_GSTREAMER, 0, 30.0, cv::Size(640, 360), true);
     if (!video_writer.isOpened()) {
         throw std::runtime_error("Failed to open VideoWriter for streaming!");
