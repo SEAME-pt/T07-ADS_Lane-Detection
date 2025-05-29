@@ -6,6 +6,8 @@
 #include <chrono>
 #include <sstream>
 
+static constexpr int AXIS_A = 3;  // Axis acceleration
+
 Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK) {
     // Initialize SDL for joystick input
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0) {
@@ -101,7 +103,8 @@ void Controller::processEvent(const SDL_Event& event) {
         int axis = event.jaxis.axis;
         int value = event.jaxis.value;
         // std::cout << "Axis " << axis << " moved to " << value << std::endl;
-        if (axisActions.find(axis) != axisActions.end() && axis == 3) {
+        // if (axisActions.find(axis) != axisActions.end() && axis == AXIS_A) {
+        if (axisActions.find(axis) != axisActions.end()) {
             axisActions[axis](value);
         }
     } else if (event.type == SDL_JOYDEVICEADDED) {
@@ -210,21 +213,48 @@ void Controller::autonomous() {
 
     // Check if LaneDetector is initialized and capture frame
     if (!laneDetector || !laneDetector->cap_.read(frame)) {
-        std::cerr << "Error: Could not capture frame or LaneDetector not initialized!" << std::endl;
+		if (!laneDetector) {
+			std::cout << "[" << __func__ << "] "
+						<< "ERROR " << __LINE__ << " : "
+						<< "laneDetector is not initialized!" << std::endl;
+			return;
+		}
+		if (!laneDetector->cap_.isOpened()) {
+			std::cout << "[" << __func__ << "] "
+						<< "ERROR " << __LINE__ << " : "
+						<< "laneDetector->cap_ is not opened!" << std::endl;
+			return;
+		}
+		if (frame.empty()) {
+			std::cout << "[" << __func__ << "] "
+						<< "ERROR " << __LINE__ << " : "
+						<< "Failed to read frame from laneDetector!" << std::endl;
+			return;
+		}
+		if (frame.type() != CV_8UC3) {
+			std::cout << "[" << __func__ << "] "
+						<< "ERROR " << __LINE__ << " : "
+						<< "Frame type is not CV_8UC3!" << std::endl;
+			return;
+		}
         return;
     }
 
     float offset, angle;
     tracker.mark();
     laneDetector->processFrame(frame, offset, angle, output_frame, true);
+	std::cout << "[" << __func__ << "] "
+			  << "offset: " << std::setw(6) << offset
+			  << " angle: " << std::setw(6) << angle << std::endl;
+
 
     // Calculate rate of change of angle to predict curve
     float angle_rate = (angle - prev_angle) / DT;  // deg/s
     prev_angle = angle;
 
     // Convert to MPC inputs
-    float y_ref = offset * (1.0f / 640.0f);  // Convert pixels to meters (adjust scale if needed)
-    float theta_ref = -angle * (CV_PI / 180.0f);  // Invert angle to correct for possible detection error
+    float y_ref = offset;//  * (1.0f / 640.0f);  //** */ Convert pixels to meters (adjust scale if needed)
+    float theta_ref = -angle; // * (CV_PI / 180.0f);  //** */ Invert angle to correct for possible detection error
 
     // Predict future trajectory over horizon with dynamic offset
     Eigen::VectorXd y_ref_vec(N);
@@ -232,7 +262,7 @@ void Controller::autonomous() {
     for (int i = 0; i < N; ++i) {
         float t = i * DT;
         // Extrapolate offset based on current offset and angle (assuming constant speed and curvature)
-        float dy = (current_state_.v * t * std::sin(theta_ref)) / 640.0f;  // Approximate lateral shift in meters
+        float dy = (current_state_.v * t * std::sin(theta_ref));// / 640.0f;  // Approximate lateral shift in meters
         y_ref_vec[i] = y_ref + dy;  // Update offset over time
         theta_ref_vec[i] = theta_ref + (angle_rate * (CV_PI / 180.0f) * t);  // Linear extrapolation of angle
     }
@@ -244,7 +274,9 @@ void Controller::autonomous() {
 
     // Apply constraints
     float steering = std::max(-MAX_DELTA, std::min(MAX_DELTA, delta));  // Limit to ±90 deg in radians
-    //std::cout << "Final steering calculation " << (steering * (180.0f / CV_PI)) << std::endl;
+    std::cout << "[" << __func__ << "] "
+			  << "Steering : " << delta << " radians, "
+			  << "Acceleration input: " << a << " m/s²" << std::endl;
     jetCar->set_servo_angle(static_cast<int>(steering * (180.0f / CV_PI)));  // Convert radians to degrees
 
     // Update vehicle state

@@ -30,7 +30,8 @@ JetCar::~JetCar() {
 
 void JetCar::set_servo_angle(int angle) {
     angle = std::max(-_maxAngle, std::min(_maxAngle, angle));
-
+	std::cout << "[" << __func__ << "] "
+			  << "Setting servo angle to: " << angle << " unit??" << std::endl;
     int pwm;
     if (angle < 0) {
         pwm = static_cast<int>(_servoCenterPwm + (static_cast<float>(angle) / _maxAngle) * (_servoCenterPwm - _servoLeftPwm));
@@ -118,7 +119,7 @@ bool JetCar::init_motors() {
         writeByteData(_fdMotor, 0x00, newMode);
         writeByteData(_fdMotor, 0xFE, preScale);
         writeByteData(_fdMotor, 0x00, oldMode);
-        
+
         usleep(5000);
 
         writeByteData(_fdMotor, 0x00, oldMode | 0xa1);
@@ -163,11 +164,11 @@ void JetCar::writeByteData(int fd, uint8_t reg, uint8_t value) {
 uint8_t JetCar::readByteData(int fd, uint8_t reg) {
     if (write(fd, &reg, 1) != 1)
         throw std::runtime_error("Erro ao enviar o registrador ao dispositivo I2C.");
-    
+
     uint8_t value;
     if (read(fd, &value, 1) != 1)
         throw std::runtime_error("Erro ao ler o registrador ao dispositivo I2C.");
-    
+
     return value;
 }
 

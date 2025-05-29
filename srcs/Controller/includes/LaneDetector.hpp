@@ -6,7 +6,6 @@
 #include <opencv2/cudawarping.hpp>
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
-#include "Debug.hpp"
 #include <memory>
 #include <string>
 #include <vector>
@@ -14,6 +13,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <cmath>
+#include "Debug.hpp"
 
 enum KalmanStateIndex { OFFSET = 0, OFFSET_VEL = 1, ANGLE = 2 };
 enum KalmanMeasurementIndex { MEASUREMENT_OFFSET = 0, MEASUREMENT_ANGLE = 1 };
@@ -127,6 +127,9 @@ private:
 	// This helps to maintain a consistent lane detection experience.
 	float last_left_edge_ = -1.0f;  // Store last known left edge position
     float last_right_edge_ = -1.0f; // Store last known right edge position
+    
+    std::vector<cv::Point> left_edges_, right_edges_;
+    std::unique_ptr<Debug> debug_;
 
 
         // Fixed parameters as constants
@@ -139,8 +142,6 @@ private:
     static constexpr int MAX_SEARCH_DISTANCE = 500;    // Max distance (pixels) to search for edges
 	static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
 	static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
-
-    std::unique_ptr<Debug> debug_;
 };
 
 #endif // LANE_DETECTOR_HPP

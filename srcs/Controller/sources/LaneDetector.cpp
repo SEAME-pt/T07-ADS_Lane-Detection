@@ -2,7 +2,7 @@
 
 LaneDetector::LaneDetector(const std::string& trt_model_path) {
     cudaStreamCreate(&stream_);
-
+    
     // Initialize Kalman filter
     kf_ = cv::KalmanFilter(2, 2, 0, CV_32F);
     kf_.statePre.at<float>(0) = 0.0f;
@@ -12,14 +12,14 @@ LaneDetector::LaneDetector(const std::string& trt_model_path) {
     cv::setIdentity(kf_.processNoiseCov, cv::Scalar::all(1e-4));
     cv::setIdentity(kf_.measurementNoiseCov, cv::Scalar::all(1e-1));
     cv::setIdentity(kf_.errorCovPre, cv::Scalar::all(1));
-
+    
     input_height_ = 128;
     input_width_ = 256;
     frame_height_ = 360; // Corrected to match input frame
     frame_width_ = 640;  // Corrected to match input frame
     roi_sy_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252
     roi_ey_ = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
-
+    
     offset_kalman_ = 0.0f;
     angle_kalman_ = 0.0f;
     estimated_lane_width_ = 200.0f;
@@ -28,10 +28,10 @@ LaneDetector::LaneDetector(const std::string& trt_model_path) {
     prev_right_edge_ = frame_width_ / 2; // 320
     last_left_edge_ = frame_width_ / 2;  // 320
     last_right_edge_ = frame_width_ / 2; // 320
-
+    
 	defineROI();
+    
     debug_ = std::make_unique<Debug>(frame_width_, frame_height_, roi_sy_, roi_ey_);
-
     loadEngine(trt_model_path);
 	std::cout << "LaneDetector created with model: " << trt_model_path << std::endl;
 }
@@ -76,6 +76,8 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
         return false; // Not enough edge points detected
     }
 
+    left_edges_ = left_edges;
+    right_edges_ = right_edges;
     // Step 3: Perform weighted linear regression to fit lines to edges
     double left_slope, left_intercept, right_slope, right_intercept;
     weightedLinearRegression(left_edges, left_slope, left_intercept);
@@ -213,32 +215,6 @@ void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle
     smoothed_angle = corrected.at<float>(1);
 }
 
-void LaneDetector::drawDebugInfo(cv::Mat* debug_img,
-                                 const std::vector<cv::Point>& left_edges,
-                                 const std::vector<cv::Point>& right_edges,
-                                 float offset, float angle) const {
-    if (debug_img->empty()) {
-        *debug_img = cv::Mat(frame_height_, frame_width_, CV_8UC3, cv::Scalar(0)); // 640x360
-    }
-    if (debug_img->type() != CV_8UC3) {
-        debug_img->convertTo(*debug_img, CV_8UC3);
-    }
-
-    for (const auto& pt : left_edges) {
-        cv::circle(*debug_img, pt, 2, cv::Scalar(0, 0, 255), -1);
-    }
-    for (const auto& pt : right_edges) {
-        cv::circle(*debug_img, pt, 2, cv::Scalar(0, 255, 0), -1);
-    }
-
-    int y_bottom = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT) - 1; // 359
-    int x_center = frame_width_ / 2; // 320
-    int x_mid = x_center + static_cast<int>(offset / METER_PER_PIXEL);
-    cv::line(*debug_img, cv::Point(x_mid, y_bottom),
-             cv::Point(x_mid - static_cast<int>(100 * std::tan(angle)), y_bottom - 100),
-             cv::Scalar(255, 255, 0), 2);
-}
-
 void LaneDetector::loadEngine(const std::string& trt_model_path) {
     std::ifstream file(trt_model_path, std::ios::binary);
     if (!file.good()) {
@@ -267,62 +243,155 @@ void LaneDetector::loadEngine(const std::string& trt_model_path) {
     output_data_.resize(1 * 1 * input_height_ * input_width_);
 }
 
+/**
+ * @brief Runs inference using the TensorRT engine.
+ *
+ * This function performs the complete inference pipeline:
+ * - Copies input data from host (CPU) to device (GPU).
+ * - Executes inference asynchronously using TensorRT.
+ * - Copies the output data back from device to host.
+ * - Synchronizes the CUDA stream to ensure all operations are complete.
+ * - Checks for any CUDA errors during the process.
+ *
+ * @throws std::runtime_error if any CUDA memory transfer fails,
+ *         if inference execution fails, or if there are post-inference CUDA errors.
+ */
 void LaneDetector::infer() {
-    cudaError_t err = cudaMemcpyAsync(buffers_[0], input_data_.data(), input_data_.size() * sizeof(float),
-                                      cudaMemcpyHostToDevice, stream_);
+    // Copy input data from host (CPU) to device (GPU) memory asynchronously.
+    // buffers_[0] is the input buffer on the GPU.
+    cudaError_t err = cudaMemcpyAsync(
+        buffers_[0],						// Destination: GPU input buffer
+        input_data_.data(),					// Source: CPU input data
+        input_data_.size() * sizeof(float),	// Number of bytes to copy
+        cudaMemcpyHostToDevice,				// Direction: Host to Device
+        stream_								// CUDA stream to execute this copy
+    );
     if (err != cudaSuccess) throw std::runtime_error("CUDA memcpy to device failed: " + std::string(cudaGetErrorString(err)));
 
+    // Run inference on the GPU using TensorRT.
+    // 'enqueueV2' schedules the execution of the network on the GPU using provided buffers and stream.
     if (!context_->enqueueV2(buffers_, stream_, nullptr)) {
         throw std::runtime_error("TensorRT inference failed");
     }
 
-    err = cudaMemcpyAsync(output_data_.data(), buffers_[1], output_data_.size() * sizeof(float),
-                          cudaMemcpyDeviceToHost, stream_);
+    // Copy the inference output data back from device (GPU) to host (CPU) memory asynchronously.
+    // buffers_[1] is the output buffer on the GPU.
+    err = cudaMemcpyAsync(
+        output_data_.data(),				// Destination: CPU output buffer
+        buffers_[1],						// Source: GPU output buffer
+        output_data_.size() * sizeof(float),// Number of bytes to copy
+        cudaMemcpyDeviceToHost,				// Direction: Device to Host
+        stream_								// CUDA stream used for the copy
+    );
     if (err != cudaSuccess) throw std::runtime_error("CUDA memcpy to host failed: " + std::string(cudaGetErrorString(err)));
 
+    // Wait for all tasks in the CUDA stream (inference + memory transfers) to complete.
     cudaStreamSynchronize(stream_);
+
+    // Check for any errors that may have occurred during kernel execution or memory operations.
     err = cudaGetLastError();
-    if (err != cudaSuccess) throw std::runtime_error("CUDA error after inference: " + std::string(cudaGetErrorString(err)));
+    if (err != cudaSuccess) {
+        throw std::runtime_error("CUDA error after inference: " + std::string(cudaGetErrorString(err)));
+    }
 }
 
+/**
+ * @brief Preprocesses an input frame for lane detection inference.
+ *
+ * This function performs several tasks:
+ * - Validates the input frame format and size.
+ * - Crops a region of interest (ROI).
+ * - Enhances image contrast using CLAHE if necessary.
+ * - Resizes the image to the model's input size.
+ * - Normalizes pixel values to [0, 1] range.
+ * - Reorders data into channel-first (CHW) format expected by the model.
+ *
+ * @param frame The input BGR image frame from a video stream or camera.
+ *
+ * @throws std::runtime_error if the input frame is invalid.
+ */
 void LaneDetector::preprocess(const cv::Mat& frame) {
-    if (frame.empty() || frame.type() != CV_8UC3 || frame.cols != frame_width_ || frame.rows != frame_height_) {
-        throw std::runtime_error("Invalid input frame: expected " + std::to_string(frame_width_) + "x" +
-                                 std::to_string(frame_height_) + " CV_8UC3");
+    // === Input Validation ===
+    // Check if the input frame is empty (not loaded or captured properly)
+    if (frame.empty()) {
+        std::cerr << "Error: Input frame is empty." << std::endl;
+        throw std::runtime_error("Invalid input frame: frame is empty");
     }
 
-    cv::Rect roi(0, roi_sy_, frame_width_, roi_ey_ - roi_sy_); // 640x108
-    cv::Mat cropped = frame(roi);
+    // Ensure the input frame is of expected 8-bit 3-channel (BGR) type
+    if (frame.type() != CV_8UC3) {
+        std::cerr << "Error: Input frame has wrong type. Expected CV_8UC3, got type " << frame.type() << "." << std::endl;
+        throw std::runtime_error("Invalid input frame: incorrect type, expected CV_8UC3");
+    }
 
+    // Validate frame dimensions match what the model expects
+    if (frame.cols != frame_width_ || frame.rows != frame_height_) {
+        std::cerr << "Error: Input frame has incorrect dimensions. Expected "
+                  << frame_width_ << "x" << frame_height_ << ", got "
+                  << frame.cols << "x" << frame.rows << "." << std::endl;
+        throw std::runtime_error("Invalid input frame: incorrect dimensions");
+    }
+
+    // === ROI (Region of Interest) Cropping ===
+    // Define a rectangle using configured coordinates
+    cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
+
+    // Crop the input image to the specified ROI
+    cv::Mat cropped_roi = frame(roi);
+
+    // === Brightness Estimation ===
+    // Convert cropped image to grayscale to compute mean brightness
     cv::Mat gray;
-    cv::cvtColor(cropped, gray, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(cropped_roi, gray, cv::COLOR_BGR2GRAY);
     cv::Scalar mean_intensity = cv::mean(gray);
-    float brightness = mean_intensity[0];
+    float brightness = mean_intensity[0];  // Use only the first channel (gray value)
 
+    // === Contrast Enhancement (Adaptive) ===
     cv::Mat enhanced;
+
+    // Create a CLAHE object for adaptive contrast enhancement
     cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+
+    // Adjust contrast more aggressively if brightness is low
     clahe->setClipLimit(brightness < 100 ? 4.0 : 2.0);
-    clahe->setTilesGridSize(cv::Size(8, 8));
+    clahe->setTilesGridSize(cv::Size(8, 8));  // Use an 8x8 tile grid
+
     if (brightness < 150) {
+        // Convert cropped BGR image to Lab color space (L = lightness)
         cv::Mat lab;
-        cv::cvtColor(cropped, lab, cv::COLOR_BGR2Lab);
+        cv::cvtColor(cropped_roi, lab, cv::COLOR_BGR2Lab);
+
+        // Split Lab image into separate channels
         std::vector<cv::Mat> lab_channels;
         cv::split(lab, lab_channels);
+
+        // Apply CLAHE to the L (lightness) channel to enhance local contrast
         clahe->apply(lab_channels[0], lab_channels[0]);
+
+        // Merge channels back together and convert back to BGR
         cv::merge(lab_channels, lab);
         cv::cvtColor(lab, enhanced, cv::COLOR_Lab2BGR);
     } else {
-        enhanced = cropped;
+        // If brightness is sufficient, skip contrast enhancement
+        enhanced = cropped_roi;
     }
 
+    // === Resize to Model Input Size ===
+    // Resize image to the dimensions expected by the model (e.g., 224x224)
     cv::Mat resized;
     cv::resize(enhanced, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_LINEAR);
 
+    // === Normalize Pixel Values ===
+    // Convert pixel values from [0, 255] uchar to [0.0, 1.0] float
     cv::Mat normalized;
     resized.convertTo(normalized, CV_32F, 1.0 / 255.0);
 
+    // === Convert from HWC to CHW Format ===
+    // Many models (e.g., TensorRT, PyTorch) expect channel-first layout
     std::vector<cv::Mat> channels(3);
-    cv::split(normalized, channels);
+    cv::split(normalized, channels);  // Split into B, G, R channels
+
+    // Rearrange and copy each channel to the input buffer in CHW order
     for (int c = 0; c < 3; ++c) {
         float* dst = input_data_.data() + c * input_height_ * input_width_;
         memcpy(dst, channels[c].ptr<float>(), input_width_ * input_height_ * sizeof(float));
@@ -351,22 +420,13 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     cv::resize(lane_mask_, lane_mask_, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_NEAREST);
 
     output_frame = frame.clone();
+    debug_->showOutputVideo(output_frame, left_edges_, right_edges_, offset, angle, lane_mask_, visualize_mask);
 
-    std::vector<cv::Point> left_edges, right_edges;
-    cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
-    if (!findLaneEdges(lane_mask_, roi, left_edges, right_edges)) {
-        std::cout << "[" << __func__ << "] "
-                  << "Failed to calculate lane geometry" << std::endl;
-    } else {
-        if (!calculateLaneGeometry(offset, angle)) {
-            std::cout << "[" << __func__ << "] "
-                      << "Failed to calculate lane geometry" << std::endl;
-        }
+    // test if true or false
+    if(!calculateLaneGeometry(offset, angle))
+    {
+       std::cout << "[" << __func__ <<"] "
+	   				<< "Failed to calculate lane geometry" << std::endl;
     }
 
-    // Use Debug class for visualization
-    debug_->showOutputVideo(output_frame, left_edges, right_edges, offset, angle, lane_mask_, visualize_mask);
-
-    // Optionally save debug info to file
-    // debug_->saveToFile("lane_debug_output.txt", left_edges, right_edges, offset, angle, lane_mask_);
 }
