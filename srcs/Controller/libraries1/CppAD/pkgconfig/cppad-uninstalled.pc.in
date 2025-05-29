@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-22 Bradley M. Bell
+# ----------------------------------------------------------------------------
+# The settings in this file file are the same as in cppad.pc except for the
+# following line:
+# includedir=@cppad_SOURCE_DIR@/include
+#
+prefix=@cppad_prefix@
+exec_prefix=${prefix}
+includedir=@cppad_SOURCE_DIR@/include
+libdir=${exec_prefix}/@cppad_libdir@
+#
+Name:                  cppad
+Description:           @cppad_description@
+Version:               @cppad_version@
+URL:                   @cppad_url@
+#
+Cflags:                -I${includedir}
+Libs:                  @cppad_libdir_list@ @cppad_lib_list@
+Requires:              @cppad_requires@
+Libs.private           @cppad_libs_private@
+Requires.private:      @cppad_requires_private@

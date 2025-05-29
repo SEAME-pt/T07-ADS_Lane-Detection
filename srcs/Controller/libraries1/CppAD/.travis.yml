@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-22 Bradley M. Bell
+# ----------------------------------------------------------------------------
+#
+sudo:     false
+language: cpp
+compiler: gcc
+
+script:
+  # bin/travis.sh (make|test_one) target1 target2 ...
+  #
+  bin/travis.sh make check install uninstall
+
+notifications:
+  email:
+    recipients:
+      bradbell@seanet.com
+    on_success: change # send e-mail what success status changes
+    on_failure: always # always send e-mail when a test fails

@@ -1,0 +1,49 @@
+# !! EDITS TO THIS FILE ARE LOST DURING UPDATES BY xrst.git/bin/dev_tools.sh !!
+# {xrst_comment_ch #}
+#
+# Example Read the Docs Configuration
+# ###################################
+#
+# Read the Docs Specification
+# ***************************
+# `<https://docs.readthedocs.com/platform/stable/config-file>`_
+#
+# This Example File
+# *****************
+# {xrst_literal}
+#
+version: 2
+
+build:
+   os: "ubuntu-22.04"
+   tools:
+      python: "3.10"
+   #
+   # The readthedocs commands feature is still in beta
+   commands:
+      #
+      # xrst
+      - pip install xrst
+      #
+      # This is only necessary if you need the most recent testing verison
+      - pip uninstall -y xrst
+      - pip install --index-url https://test.pypi.org/simple/ xrst
+      #
+      # This command prints the version of xrst that is being used
+      - xrst --version
+      #
+      # build/html
+      # This comamnd builds the xrst user documentaiton.
+      # Suppress spell warnings because readthdocs uses a different dictionry.
+      - xrst
+         --page_source
+         --html_theme furo
+         --group_list default app
+         --index_page_name user_guide
+         --suppress_spell_warnings
+      #
+      # _readthedocs/html
+      # The directory that Read the Docs uploads when commands is used.
+      - mkdir _readthedocs
+      - rm -r build/html/.doctrees
+      - cp -r build/html _readthedocs/html
