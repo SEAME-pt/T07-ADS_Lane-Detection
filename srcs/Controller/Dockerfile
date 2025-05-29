@@ -5,8 +5,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Atualiza os pacotes e instala dependências necessárias
 RUN apt update && apt-get install -y \
-    gcc-aarch64-linux-gnu \
-    g++-aarch64-linux-gnu \
+    gcc-8-aarch64-linux-gnu \
+    g++-8-aarch64-linux-gnu \
     libzmq3-dev \
     build-essential \
     python3-pip \

@@ -17,6 +17,7 @@
 #include "SpeedSubscriber.hpp"
 #include "TimeTracker.hpp"
 #include "SpeedPIDController.hpp"
+#include "MPC.hpp"
 
 #define BTN_A 0
 #define BTN_B 1

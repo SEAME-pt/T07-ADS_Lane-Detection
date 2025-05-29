@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GPIOD REQUIRED libgpiod)
@@ -41,15 +42,12 @@ find_library(IPOPT_LIB          ipopt            PATHS /opt/jetson-sysroot/usr/l
 # find_library(LAPACK_LIB         lapack           NAMES liblapack.so.3.7.1 lapack PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/lapack)
 # find_library(BLAS_LIB           blas             NAMES libblas.so.3.7.1 blas PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/blas)
 
-# set(LAPACK_LIB "/opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/lapack/liblapack.so.3.7.1")
-# set(BLAS_LIB "/opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/blas/libblas.so.3.7.1")
+set(LAPACK_LIB "/opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/lapack/liblapack.so.3.7.1")
+set(BLAS_LIB "/opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/blas/libblas.so.3.7.1")
 
-find_library(LAPACK_LIB lapack PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/lapack NO_DEFAULT_PATH)
-find_library(BLAS_LIB   blas   PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/blas NO_DEFAULT_PATH)
+# find_library(LAPACK_LIB lapack PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/lapack NO_DEFAULT_PATH)
+# find_library(BLAS_LIB   blas   PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/blas NO_DEFAULT_PATH)
 find_library(M_LIB m PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu NO_DEFAULT_PATH)
-
-
-
 # Checagens
 if(NOT IPOPT_LIB)
     message(FATAL_ERROR "IPOPT library not found")

@@ -268,10 +268,6 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
         cv::cvtColor(mask_thumb, mask_thumb, cv::COLOR_GRAY2BGR);
         mask_thumb.copyTo(output_frame(cv::Rect(frame_width_ - mask_thumb.cols, 0, mask_thumb.cols, mask_thumb.rows)));
     }
-
-    // Display the output frame
-    cv::imshow("Lane Detection Debug", output_frame);
-    cv::waitKey(1);
 }
 
 void Debug::saveToFile(const std::string& filename, 

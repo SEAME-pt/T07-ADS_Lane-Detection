@@ -368,5 +368,5 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     debug_->showOutputVideo(output_frame, left_edges, right_edges, offset, angle, lane_mask_, visualize_mask);
 
     // Optionally save debug info to file
-    debug_->saveToFile("lane_debug_output.txt", left_edges, right_edges, offset, angle, lane_mask_);
+    // debug_->saveToFile("lane_debug_output.txt", left_edges, right_edges, offset, angle, lane_mask_);
 }
