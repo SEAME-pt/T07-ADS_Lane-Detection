@@ -1,4 +1,3 @@
-```cmake
 cmake_minimum_required(VERSION 3.10)
 project(Controller)
 
@@ -104,4 +103,3 @@ target_link_libraries(ControllerExec
     ${OpenCV_IMGPROC}
     ${OpenCV_CORE}
 )
-```
