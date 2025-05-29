@@ -18,7 +18,6 @@ RUN apt update && apt-get install -y \
     liblapack-dev \
     libblas-dev
 
-
 RUN pip3 install Jetson.GPIO
 # Instala o cabeçalho do ZeroMQ
 RUN git clone https://github.com/zeromq/cppzmq.git /tmp/cppzmq && \
