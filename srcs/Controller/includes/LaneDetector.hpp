@@ -112,7 +112,7 @@ private:
 	// The ROI is defined to focus on the bottom part of the image where lanes are typically located.
 	// The ROI is set to start 20 pixels from the left edge and end 20 pixels from the right edge.
 	// The vertical ROI starts at 40 pixels from the top and extends to the bottom of the frame.
-	int roi_sx_, roi_ex_, roi_sy_, roi_ey_;
+	int roi_sx_, roi_ex_, roi_sy_, roi_ey_, roi_w_, roi_h_;
 
 
 	// Store last known edge positions for smoothing

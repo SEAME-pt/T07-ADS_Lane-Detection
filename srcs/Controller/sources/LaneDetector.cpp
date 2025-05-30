@@ -43,9 +43,12 @@ LaneDetector::~LaneDetector() {
 }
 
 bool LaneDetector::initialize() {
-    std::string pipeline = "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=640, height=360, "
-                           "format=(string)NV12, framerate=30/1 ! nvvidconv ! video/x-raw, format=BGRx ! "
-                           "videoconvert ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=1";
+	std::string pipeline = "nvarguscamerasrc exposuretimerange=\"1000000 50000000\" gainrange=\"1 16\" wbmode=1 ! "
+                       "video/x-raw(memory:NVMM), width=640, height=360, framerate=30/1, format=(string)NV12 ! "
+                       "nvvidconv ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=2";
+	// std::string pipeline = "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=640, height=360, "
+    //                        "format=(string)NV12, framerate=30/1 ! nvvidconv ! video/x-raw, format=BGRx ! "
+    //                        "videoconvert ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=1";
     cap_.open(pipeline, cv::CAP_GSTREAMER);
 	if (!cap_.isOpened()) {
 		std::cerr << "Failed to open camera pipeline!" << std::endl;
@@ -117,13 +120,17 @@ void LaneDetector::defineROI() {
 		std::cout << "Defining ROI..." << std::endl;
 		roi_sy_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252 for 360
 		roi_ey_ = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
-		roi_sx_ = ROI_X_BORDER;
-		roi_ex_ = frame_width_ - ROI_X_BORDER; // 640
+		roi_sx_ = ROI_X_BORDER; // 20
+		roi_ex_ = frame_width_ - ROI_X_BORDER; // 620
+		roi_w_ = roi_ex_ - roi_sx_; // 620 - 20 = 600
+		roi_h_ = roi_ey_ - roi_sy_; // 360 - 252 = 108
 		std::cout << "ROI: "
 					<< "sy = " << roi_sy_
 					<< ", ey = " << roi_ey_
 					<< ", sx = " << roi_sx_
 					<< ", ex = " << roi_ex_
+					<< ", w = " << roi_w_
+					<< ", h = " << roi_h_
 					<< std::endl;
 }
 
@@ -308,7 +315,8 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
                                  ", frame_height_=" + std::to_string(frame_height_));
     }
 
-    cv::Rect roi(0, roi_sy_, frame_width_, roi_ey_ - roi_sy_);
+    cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
+    // cv::Rect roi(0, roi_sy_, frame_width_, roi_ey_ - roi_sy_);
     cv::Mat cropped = frame(roi);
     std::cout << "[preprocess] : 1Cropped frame size: " << cropped.cols << "x" << cropped.rows << std::endl;
 
