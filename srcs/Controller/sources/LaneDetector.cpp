@@ -296,13 +296,11 @@ void LaneDetector::infer() {
 
 // yellow detected ??
 void LaneDetector::preprocess(const cv::Mat& frame) {
-    // Validate input frame
     if (frame.empty() || frame.type() != CV_8UC3 || frame.cols != frame_width_ || frame.rows != frame_height_) {
         throw std::runtime_error("Invalid input frame: expected " + std::to_string(frame_width_) + "x" +
                                  std::to_string(frame_height_) + " CV_8UC3");
     }
 
-    // Validate ROI
     if (roi_sy_ < 0 || roi_ey_ <= roi_sy_ || roi_ey_ > frame_height_ || frame_width_ <= 0) {
         throw std::runtime_error("Invalid ROI: roi_sy_=" + std::to_string(roi_sy_) +
                                  ", roi_ey_=" + std::to_string(roi_ey_) +
@@ -310,61 +308,75 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
                                  ", frame_height_=" + std::to_string(frame_height_));
     }
 
-    // Crop to ROI
     cv::Rect roi(0, roi_sy_, frame_width_, roi_ey_ - roi_sy_);
     cv::Mat cropped = frame(roi);
-    // std::cout << "[preprocess] : 1Cropped frame size: " << cropped.cols << "x" << cropped.rows << std::endl;
+    std::cout << "[preprocess] : 1Cropped frame size: " << cropped.cols << "x" << cropped.rows << std::endl;
 
-    // Apply gamma correction for low brightness
     cv::Mat gray;
     cv::cvtColor(cropped, gray, cv::COLOR_BGR2GRAY);
     cv::Scalar mean_intensity = cv::mean(gray);
     float brightness = mean_intensity[0];
-    // std::cout << "[preprocess] : 2Mean brightness: " << brightness << std::endl;
+    std::cout << "[preprocess] : 2Mean brightness: " << brightness << std::endl;
 
     cv::Mat gamma_corrected = cropped;
     if (brightness < 100) {
         cv::Mat lookup(1, 256, CV_8U);
-        float gamma = 0.8;
+        float gamma = 0.6; // More aggressive brightening
         for (int i = 0; i < 256; ++i) {
             lookup.at<uchar>(i) = cv::saturate_cast<uchar>(pow(i / 255.0, gamma) * 255.0);
         }
         cv::LUT(cropped, lookup, gamma_corrected);
     }
 
-    // Convert to Lab and enhance L and a channels
-    cv::Mat lab, enhanced;
+    cv::Mat lab, enhanced_lab;
     cv::cvtColor(gamma_corrected, lab, cv::COLOR_BGR2Lab);
     std::vector<cv::Mat> lab_channels(3);
     cv::split(lab, lab_channels);
 
     cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
-    clahe->setClipLimit(brightness < 100 ? 4.0 : 2.0);
+    clahe->setClipLimit(brightness < 100 ? 6.0 : 2.5);
     clahe->setTilesGridSize(cv::Size(8, 8));
-    clahe->apply(lab_channels[0], lab_channels[0]); // Enhance L (lightness)
-    clahe->apply(lab_channels[1], lab_channels[1]); // Enhance a (red-green, boosts yellow)
+    clahe->apply(lab_channels[0], lab_channels[0]);
+    clahe->apply(lab_channels[1], lab_channels[1]);
+    clahe->apply(lab_channels[2], lab_channels[2]);
 
     cv::merge(lab_channels, lab);
-    cv::cvtColor(lab, enhanced, cv::COLOR_Lab2BGR);
-    // std::cout << "[preprocess] : 3Enhanced image size: " << enhanced.cols << "x" << enhanced.rows << std::endl;
+    cv::cvtColor(lab, enhanced_lab, cv::COLOR_Lab2BGR);
+    std::cout << "[preprocess] : 3Enhanced Lab image size: " << enhanced_lab.cols << "x" << enhanced_lab.rows << std::endl;
 
-    // Resize and normalize
+    cv::Mat hsv, yellow_mask;
+    cv::cvtColor(gamma_corrected, hsv, cv::COLOR_BGR2HSV);
+    cv::inRange(hsv, cv::Scalar(10, 50, 50), cv::Scalar(50, 255, 255), yellow_mask); // Wider yellow range
+    std::cout << "[preprocess] : 4Yellow mask size: " << yellow_mask.cols << "x" << yellow_mask.rows << std::endl;
+
+    std::vector<cv::Mat> hsv_channels(3);
+    cv::split(hsv, hsv_channels);
+    clahe->apply(hsv_channels[2], hsv_channels[2]);
+    cv::merge(hsv_channels, hsv);
+    cv::Mat enhanced_hsv;
+    cv::cvtColor(hsv, enhanced_hsv, cv::COLOR_HSV2BGR);
+
+    cv::Mat enhanced, yellow_enhanced;
+    cv::bitwise_and(enhanced_lab, enhanced_lab, yellow_enhanced, yellow_mask);
+    cv::addWeighted(enhanced_lab, 0.6, enhanced_hsv, 0.4, 0.0, enhanced); // More HSV weight for yellow
+    cv::bitwise_and(enhanced, enhanced, enhanced, ~yellow_mask);
+    cv::add(yellow_enhanced, enhanced, enhanced);
+    std::cout << "[preprocess] : 5Combined enhanced image size: " << enhanced.cols << "x" << enhanced.rows << std::endl;
+
     cv::Mat resized;
     cv::resize(enhanced, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_LINEAR);
-    // std::cout << "[preprocess] : 4Resized to: " << input_width_ << "x" << input_height_ << std::endl;
+    std::cout << "[preprocess] : 6Resized to: " << input_width_ << "x" << input_height_ << std::endl;
 
     cv::Mat normalized;
-    resized.convertTo(normalized, CV_32FC3, 1.0 / 255.0); // Ensure 3 channels
-    // std::cout << "[preprocess] : 5Normalized size: " << normalized.cols << "x" << normalized.rows << ", type: " << normalized.type() << std::endl;
+    resized.convertTo(normalized, CV_32FC3, 1.0 / 255.0);
+    std::cout << "[preprocess] : 7Normalized size: " << normalized.cols << "x" << normalized.rows << ", type: " << normalized.type() << std::endl;
 
-    // Validate input_data_ size
     size_t expected_size = 3 * input_width_ * input_height_;
     if (input_data_.size() < expected_size) {
         throw std::runtime_error("input_data_ size too small: " + std::to_string(input_data_.size()) +
                                  ", expected: " + std::to_string(expected_size));
     }
 
-    // Split and copy to input_data_
     std::vector<cv::Mat> channels(3);
     cv::split(normalized, channels);
     for (int c = 0; c < 3; ++c) {
@@ -373,7 +385,7 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
         }
         float* dst = input_data_.data() + c * input_width_ * input_height_;
         memcpy(dst, channels[c].ptr<float>(), input_width_ * input_height_ * sizeof(float));
-        // std::cout << "[preprocess] : 6Copied channel " << c << std::endl;
+        std::cout << "[preprocess] : 8Copied channel " << c << std::endl;
     }
 }
 
@@ -463,8 +475,7 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
 
 // yellow not detected
 void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
-
-	preprocess(frame);
+    preprocess(frame);
     infer();
 
     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
@@ -472,28 +483,34 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     cv::exp(-lane_mask_, exp_mask);
     lane_mask_ = 1.0 / (1.0 + exp_mask);
 
+    double min_val, max_val;
+    cv::minMaxLoc(lane_mask_, &min_val, &max_val);
+    std::cout << "[processFrame] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
+
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
     cv::Scalar mean_intensity = cv::mean(gray);
     float brightness = mean_intensity[0];
-    float threshold = brightness < 100 ? 0.3 : 0.5;
-    cv::threshold(lane_mask_, lane_mask_, threshold, 1.0, cv::THRESH_BINARY);
+    float threshold = brightness < 100 ? 0.15 : 0.3; // Even lower for yellow
+    std::cout << "[processFrame] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
 
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
-    cv::morphologyEx(lane_mask_, lane_mask_, cv::MORPH_CLOSE, kernel);
+    cv::Mat binary_mask;
+    cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
+
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7)); // Larger kernel
+    cv::morphologyEx(binary_mask, binary_mask, cv::MORPH_DILATE, kernel);
+    cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
 
     cv::resize(lane_mask_, lane_mask_, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_NEAREST);
 
     output_frame = frame.clone();
 
-	if (!calculateLaneGeometry(offset, angle)) {
-		std::cout << "[" << __func__ << "] "
-					<< "Failed to calculate lane geometry" << std::endl;
-	}
+    if (!calculateLaneGeometry(offset, angle)) {
+        std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
+    }
 
-    // Use Debug class for visualization
     debug_->showOutputVideo(output_frame, left_edges_, right_edges_, offset, angle, lane_mask_, visualize_mask);
 
-    // Optionally save debug info to file
-    // debug_->saveToFile("lane_debug_output.txt", left_edges, right_edges, offset, angle, lane_mask_);
+    cv::imwrite("lane_mask.png", lane_mask_ * 255);
+    cv::imwrite("binary_mask.png", binary_mask * 255);
 }
