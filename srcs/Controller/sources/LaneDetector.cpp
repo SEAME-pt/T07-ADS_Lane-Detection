@@ -70,16 +70,16 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
 
     // Step 2: Find left and right lane edges using dense sampling
-    std::vector<cv::Point> left_edges, right_edges;
-    if (!findLaneEdges(lane_mask_, roi, left_edges, right_edges)) {
+    // std::vector<cv::Point> left_edges, right_edges;
+    if (!findLaneEdges(lane_mask_, roi, left_edges_, right_edges_)) {
 		std::cerr << "Not enough edge points detected in ROI!" << std::endl;
         return false; // Not enough edge points detected
     }
 
     // Step 3: Perform weighted linear regression to fit lines to edges
     double left_slope, left_intercept, right_slope, right_intercept;
-    weightedLinearRegression(left_edges, left_slope, left_intercept);
-    weightedLinearRegression(right_edges, right_slope, right_intercept);
+    weightedLinearRegression(left_edges_, left_slope, left_intercept);
+    weightedLinearRegression(right_edges_, right_slope, right_intercept);
     //std::cout << "Left  Line: slope = " << left_slope << " | intercept = " << left_intercept << " || " << "Right Line: slope = " << right_slope << " | intercept = " << right_intercept << std::endl;
 
     // Step 4: Calculate offset and angle from the fitted lines
@@ -101,6 +101,14 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     offset = smoothed_offset;
     angle = smoothed_angle;
 	//std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
+
+	std::cout << "[" << __func__ << "] "
+			  << "Offset: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_offset
+			  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << offset << ") m"
+			  << "Angle: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_angle
+			  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << smoothed_angle << ") rad"
+			  << '\r' << std::flush;
+
 
     return true;
 }
@@ -147,9 +155,9 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
     return !left_edges.empty() && !right_edges.empty();
 }
 
-void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& points,
+void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
                                             double& slope, double& intercept) const {
-    if (points.size() < 2) {
+    if (edges.size() < 2) {
         slope = 0.0;
         intercept = frame_width_ / 2.0; // 320
         return;
@@ -160,7 +168,7 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& points
     int end_y = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
     double range_y = end_y - start_y;
 
-    for (const auto& pt : points) {
+    for (const auto& pt : edges) {
         double y = pt.y;
         double x = pt.x;
         double weight = (y - start_y) / range_y;
@@ -352,20 +360,13 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 
     output_frame = frame.clone();
 
-    std::vector<cv::Point> left_edges, right_edges;
-    cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
-    if (!findLaneEdges(lane_mask_, roi, left_edges, right_edges)) {
-        std::cout << "[" << __func__ << "] "
-                  << "Failed to calculate lane geometry" << std::endl;
-    } else {
-        if (!calculateLaneGeometry(offset, angle)) {
-            std::cout << "[" << __func__ << "] "
-                      << "Failed to calculate lane geometry" << std::endl;
-        }
-    }
+	if (!calculateLaneGeometry(offset, angle)) {
+		std::cout << "[" << __func__ << "] "
+					<< "Failed to calculate lane geometry" << std::endl;
+	}
 
     // Use Debug class for visualization
-    debug_->showOutputVideo(output_frame, left_edges, right_edges, offset, angle, lane_mask_, visualize_mask);
+    debug_->showOutputVideo(output_frame, left_edges_, right_edges_, offset, angle, lane_mask_, visualize_mask);
 
     // Optionally save debug info to file
     // debug_->saveToFile("lane_debug_output.txt", left_edges, right_edges, offset, angle, lane_mask_);

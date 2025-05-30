@@ -4,6 +4,8 @@
 #include <csignal>
 #include "Controller.hpp"
 
+const std::string VERSAO = "1.0.0";
+
 JetCar jetCar(0x60, 0x40);
 
 void signalHandler(int signum) {
@@ -49,6 +51,9 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+	std::cout << "[Main] LaneDetector inicializado com sucesso!" << std::endl;
+	std::cout << "[Main] Versao..." << VERSAO << std::endl;
+
     std::cout << "Sistema iniciado com sucesso! Pressione 'q' para sair." << std::endl;
     signal(SIGINT, signalHandler);
 
@@ -57,7 +62,7 @@ int main(int argc, char *argv[]) {
     try {
         Controller controller(&jetCar); // Passar ponteiro para JetCar
         controller.setLaneDetector(std::move(laneDetector)); // Transferir posse
-        
+
         changeModeActions.onPress = nullptr;
         changeModeActions.onRelease = [&](){
             changeMode(controller.getMode(), controller, jetCar);

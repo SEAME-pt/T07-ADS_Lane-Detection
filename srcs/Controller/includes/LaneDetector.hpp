@@ -94,7 +94,8 @@ private:
     cv::Mat prediction_;
     float offset_kalman_;
     float angle_kalman_;
-
+	std::vector<cv::Point> left_edges_;
+	std::vector<cv::Point> right_edges_;
     // Valores
     float estimated_lane_width_;
     int prev_left_edge_;

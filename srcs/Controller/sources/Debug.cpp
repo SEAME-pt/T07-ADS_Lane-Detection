@@ -3,9 +3,9 @@
 #include <fstream>
 
 Debug::Debug(int frame_width, int frame_height, int roi_sy, int roi_ey)
-    : frame_width_(frame_width), 
-      frame_height_(frame_height), 
-      roi_sy_(roi_sy), 
+    : frame_width_(frame_width),
+      frame_height_(frame_height),
+      roi_sy_(roi_sy),
       roi_ey_(roi_ey),
       camera_center_(frame_width / 2) {
 }
@@ -13,10 +13,10 @@ Debug::Debug(int frame_width, int frame_height, int roi_sy, int roi_ey)
 Debug::~Debug() {
 }
 
-void Debug::showOutputVideo(cv::Mat& output_frame, 
-                           const std::vector<cv::Point>& left_edges, 
-                           const std::vector<cv::Point>& right_edges, 
-                           float offset, 
+void Debug::showOutputVideo(cv::Mat& output_frame,
+                           const std::vector<cv::Point>& left_edges_,
+                           const std::vector<cv::Point>& right_edges_,
+                           float offset,
                            float angle,
                            const cv::Mat& lane_mask,
                            bool visualize_mask) {
@@ -28,6 +28,13 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
         output_frame.convertTo(output_frame, CV_8UC3);
     }
 
+
+	// ***********************
+	std::vector<cv::Point> left_edges = left_edges_;
+	std::vector<cv::Point> right_edges = right_edges_;
+	// ***********************
+	left_edges_.x
+
     // Convert lane mask to visualization format
     cv::Mat mask_vis;
     lane_mask.convertTo(mask_vis, CV_8U, 255.0);
@@ -37,6 +44,8 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
     // Find lane edges at sampled y-positions
     std::vector<int> left_edges_y, right_edges_y, valid_y;
     for (int y = roi_ey_ - 10; y >= roi_sy_; y -= 10) {
+
+		left_edges_.y = y;
         uchar* row = mask_vis.ptr<uchar>(y);
         int left = camera_center_, right = camera_center_;
 
@@ -207,18 +216,18 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
     int distance = std::abs(static_cast<int>(offset));
     cv::line(output_frame, cv::Point(frame_center, frame_height_ - 1), cv::Point(lane_center, frame_height_ - 2), cv::Scalar(0, 255, 255), 2);
     std::string distance_text = "Distance: " + std::to_string(distance) + " px";
-    cv::putText(output_frame, distance_text, cv::Point(frame_center + offset / 2 - 50, frame_height_ - 10), 
+    cv::putText(output_frame, distance_text, cv::Point(frame_center + offset / 2 - 50, frame_height_ - 10),
                 cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 2);
 
     // Draw lane width at bottom
     int left_edge_bottom = left_edges_y[0];
     int right_edge_bottom = right_edges_y[0];
     if (right_edge_bottom - left_edge_bottom < 50) right_edge_bottom = left_edge_bottom + 50;
-    cv::line(output_frame, cv::Point(left_edge_bottom, frame_height_ - 1), cv::Point(right_edge_bottom, frame_height_ - 1), 
+    cv::line(output_frame, cv::Point(left_edge_bottom, frame_height_ - 1), cv::Point(right_edge_bottom, frame_height_ - 1),
              cv::Scalar(255, 255, 0), 2);
     int lane_width_bottom = right_edge_bottom - left_edge_bottom;
     std::string width_text_bottom = "Lane Width (Bottom): " + std::to_string(lane_width_bottom) + " px";
-    cv::putText(output_frame, width_text_bottom, cv::Point(left_edge_bottom + (right_edge_bottom - left_edge_bottom) / 2 - 50, frame_height_ - 25), 
+    cv::putText(output_frame, width_text_bottom, cv::Point(left_edge_bottom + (right_edge_bottom - left_edge_bottom) / 2 - 50, frame_height_ - 25),
                 cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 2);
 
     // Draw lane width at center
@@ -252,7 +261,7 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
     cv::line(output_frame, cv::Point(left_edge_center, center_y), cv::Point(right_edge_center, center_y), cv::Scalar(255, 255, 0), 2);
     int lane_width_center = right_edge_center - left_edge_center;
     std::string width_text_center = "Lane Width (Center): " + std::to_string(lane_width_center) + " px";
-    cv::putText(output_frame, width_text_center, cv::Point(left_edge_center + (right_edge_center - left_edge_center) / 2 - 50, center_y - 10), 
+    cv::putText(output_frame, width_text_center, cv::Point(left_edge_center + (right_edge_center - left_edge_center) / 2 - 50, center_y - 10),
                 cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(255, 255, 255), 2);
 
     // Draw offset and angle text
@@ -270,10 +279,10 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
     }
 }
 
-void Debug::saveToFile(const std::string& filename, 
-                       const std::vector<cv::Point>& left_edges, 
-                       const std::vector<cv::Point>& right_edges, 
-                       float offset, 
+void Debug::saveToFile(const std::string& filename,
+                       const std::vector<cv::Point>& left_edges,
+                       const std::vector<cv::Point>& right_edges,
+                       float offset,
                        float angle,
                        const cv::Mat& lane_mask) {
     std::ofstream file(filename, std::ios::app);
