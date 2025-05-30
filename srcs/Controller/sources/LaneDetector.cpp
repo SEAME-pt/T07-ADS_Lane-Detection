@@ -293,52 +293,178 @@ void LaneDetector::infer() {
     if (err != cudaSuccess) throw std::runtime_error("CUDA error after inference: " + std::string(cudaGetErrorString(err)));
 }
 
+
+// yellow detected ??
 void LaneDetector::preprocess(const cv::Mat& frame) {
+    // Validate input frame
     if (frame.empty() || frame.type() != CV_8UC3 || frame.cols != frame_width_ || frame.rows != frame_height_) {
         throw std::runtime_error("Invalid input frame: expected " + std::to_string(frame_width_) + "x" +
                                  std::to_string(frame_height_) + " CV_8UC3");
     }
 
-    cv::Rect roi(0, roi_sy_, frame_width_, roi_ey_ - roi_sy_); // 640x108
-    cv::Mat cropped = frame(roi);
+    // Validate ROI
+    if (roi_sy_ < 0 || roi_ey_ <= roi_sy_ || roi_ey_ > frame_height_ || frame_width_ <= 0) {
+        throw std::runtime_error("Invalid ROI: roi_sy_=" + std::to_string(roi_sy_) +
+                                 ", roi_ey_=" + std::to_string(roi_ey_) +
+                                 ", frame_width_=" + std::to_string(frame_width_) +
+                                 ", frame_height_=" + std::to_string(frame_height_));
+    }
 
+    // Crop to ROI
+    cv::Rect roi(0, roi_sy_, frame_width_, roi_ey_ - roi_sy_);
+    cv::Mat cropped = frame(roi);
+    // std::cout << "[preprocess] : 1Cropped frame size: " << cropped.cols << "x" << cropped.rows << std::endl;
+
+    // Apply gamma correction for low brightness
     cv::Mat gray;
     cv::cvtColor(cropped, gray, cv::COLOR_BGR2GRAY);
     cv::Scalar mean_intensity = cv::mean(gray);
     float brightness = mean_intensity[0];
+    // std::cout << "[preprocess] : 2Mean brightness: " << brightness << std::endl;
 
-    cv::Mat enhanced;
+    cv::Mat gamma_corrected = cropped;
+    if (brightness < 100) {
+        cv::Mat lookup(1, 256, CV_8U);
+        float gamma = 0.8;
+        for (int i = 0; i < 256; ++i) {
+            lookup.at<uchar>(i) = cv::saturate_cast<uchar>(pow(i / 255.0, gamma) * 255.0);
+        }
+        cv::LUT(cropped, lookup, gamma_corrected);
+    }
+
+    // Convert to Lab and enhance L and a channels
+    cv::Mat lab, enhanced;
+    cv::cvtColor(gamma_corrected, lab, cv::COLOR_BGR2Lab);
+    std::vector<cv::Mat> lab_channels(3);
+    cv::split(lab, lab_channels);
+
     cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
     clahe->setClipLimit(brightness < 100 ? 4.0 : 2.0);
     clahe->setTilesGridSize(cv::Size(8, 8));
-    if (brightness < 150) {
-        cv::Mat lab;
-        cv::cvtColor(cropped, lab, cv::COLOR_BGR2Lab);
-        std::vector<cv::Mat> lab_channels;
-        cv::split(lab, lab_channels);
-        clahe->apply(lab_channels[0], lab_channels[0]);
-        cv::merge(lab_channels, lab);
-        cv::cvtColor(lab, enhanced, cv::COLOR_Lab2BGR);
-    } else {
-        enhanced = cropped;
-    }
+    clahe->apply(lab_channels[0], lab_channels[0]); // Enhance L (lightness)
+    clahe->apply(lab_channels[1], lab_channels[1]); // Enhance a (red-green, boosts yellow)
 
+    cv::merge(lab_channels, lab);
+    cv::cvtColor(lab, enhanced, cv::COLOR_Lab2BGR);
+    // std::cout << "[preprocess] : 3Enhanced image size: " << enhanced.cols << "x" << enhanced.rows << std::endl;
+
+    // Resize and normalize
     cv::Mat resized;
     cv::resize(enhanced, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_LINEAR);
+    // std::cout << "[preprocess] : 4Resized to: " << input_width_ << "x" << input_height_ << std::endl;
 
     cv::Mat normalized;
-    resized.convertTo(normalized, CV_32F, 1.0 / 255.0);
+    resized.convertTo(normalized, CV_32FC3, 1.0 / 255.0); // Ensure 3 channels
+    // std::cout << "[preprocess] : 5Normalized size: " << normalized.cols << "x" << normalized.rows << ", type: " << normalized.type() << std::endl;
 
+    // Validate input_data_ size
+    size_t expected_size = 3 * input_width_ * input_height_;
+    if (input_data_.size() < expected_size) {
+        throw std::runtime_error("input_data_ size too small: " + std::to_string(input_data_.size()) +
+                                 ", expected: " + std::to_string(expected_size));
+    }
+
+    // Split and copy to input_data_
     std::vector<cv::Mat> channels(3);
     cv::split(normalized, channels);
     for (int c = 0; c < 3; ++c) {
-        float* dst = input_data_.data() + c * input_height_ * input_width_;
+        if (!channels[c].isContinuous()) {
+            throw std::runtime_error("Channel " + std::to_string(c) + " is not continuous");
+        }
+        float* dst = input_data_.data() + c * input_width_ * input_height_;
         memcpy(dst, channels[c].ptr<float>(), input_width_ * input_height_ * sizeof(float));
+        // std::cout << "[preprocess] : 6Copied channel " << c << std::endl;
     }
 }
 
+//yellow not detected:
+// void LaneDetector::preprocess(const cv::Mat& frame) {
+//     if (frame.empty() || frame.type() != CV_8UC3 || frame.cols != frame_width_ || frame.rows != frame_height_) {
+//         throw std::runtime_error("Invalid input frame: expected " + std::to_string(frame_width_) + "x" +
+//                                  std::to_string(frame_height_) + " CV_8UC3");
+//     }
+
+//     cv::Rect roi(0, roi_sy_, frame_width_, roi_ey_ - roi_sy_); // 640x108
+//     cv::Mat cropped = frame(roi);
+
+//     cv::Mat gray;
+//     cv::cvtColor(cropped, gray, cv::COLOR_BGR2GRAY);
+//     cv::Scalar mean_intensity = cv::mean(gray);
+//     float brightness = mean_intensity[0];
+
+//     cv::Mat enhanced;
+//     cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE();
+//     clahe->setClipLimit(brightness < 100 ? 4.0 : 2.0);
+//     clahe->setTilesGridSize(cv::Size(8, 8));
+//     if (brightness < 150) {
+//         cv::Mat lab;
+//         cv::cvtColor(cropped, lab, cv::COLOR_BGR2Lab);
+//         std::vector<cv::Mat> lab_channels;
+//         cv::split(lab, lab_channels);
+//         clahe->apply(lab_channels[0], lab_channels[0]);
+//         cv::merge(lab_channels, lab);
+//         cv::cvtColor(lab, enhanced, cv::COLOR_Lab2BGR);
+//     } else {
+//         enhanced = cropped;
+//     }
+
+//     cv::Mat resized;
+//     cv::resize(enhanced, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_LINEAR);
+
+//     cv::Mat normalized;
+//     resized.convertTo(normalized, CV_32F, 1.0 / 255.0);
+
+//     std::vector<cv::Mat> channels(3);
+//     cv::split(normalized, channels);
+//     for (int c = 0; c < 3; ++c) {
+//         float* dst = input_data_.data() + c * input_height_ * input_width_;
+//         memcpy(dst, channels[c].ptr<float>(), input_width_ * input_height_ * sizeof(float));
+//     }
+// }
+
+
+// yellow detected ??
+// void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
+//     preprocess(frame);
+//     infer();
+
+//     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
+//     cv::Mat exp_mask;
+//     cv::exp(-lane_mask_, exp_mask);
+//     lane_mask_ = 1.0 / (1.0 + exp_mask);
+
+//     // Adjust threshold based on brightness
+//     cv::Mat gray;
+//     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+//     cv::Scalar mean_intensity = cv::mean(gray);
+//     float brightness = mean_intensity[0];
+//     float threshold = brightness < 100 ? 0.2 : 0.4; // Lowered thresholds for yellow lanes
+
+//     // Use adaptive thresholding for better robustness
+//     cv::Mat binary_mask;
+//     cv::adaptiveThreshold(lane_mask_, binary_mask, 1.0, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 11, -0.2);
+
+//     // Morphological closing with larger kernel
+//     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7)); // Increased kernel size
+//     cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
+
+//     cv::resize(lane_mask_, lane_mask_, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_NEAREST);
+
+//     output_frame = frame.clone();
+
+//     if (!calculateLaneGeometry(offset, angle)) {
+//         std::cout << "[" << __func__ << "] "
+//                   << "Failed to calculate lane geometry" << std::endl;
+//     }
+
+//     // Use Debug class for visualization
+//     debug_->showOutputVideo(output_frame, left_edges_, right_edges_, offset, angle, lane_mask_, visualize_mask);
+// }
+
+// yellow not detected
 void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
-    preprocess(frame);
+
+	preprocess(frame);
     infer();
 
     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());

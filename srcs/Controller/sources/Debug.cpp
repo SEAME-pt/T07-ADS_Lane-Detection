@@ -33,7 +33,7 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
 	std::vector<cv::Point> left_edges = left_edges_;
 	std::vector<cv::Point> right_edges = right_edges_;
 	// ***********************
-	left_edges_.x
+
 
     // Convert lane mask to visualization format
     cv::Mat mask_vis;
@@ -44,8 +44,6 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
     // Find lane edges at sampled y-positions
     std::vector<int> left_edges_y, right_edges_y, valid_y;
     for (int y = roi_ey_ - 10; y >= roi_sy_; y -= 10) {
-
-		left_edges_.y = y;
         uchar* row = mask_vis.ptr<uchar>(y);
         int left = camera_center_, right = camera_center_;
 
