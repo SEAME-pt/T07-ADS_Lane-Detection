@@ -43,10 +43,12 @@ LaneDetector::~LaneDetector() {
 }
 
 bool LaneDetector::initialize() {
-	std::string pipeline = "nvarguscamerasrc exposuretimerange=\"1000000 50000000\" gainrange=\"1 16\" wbmode=1 ! "
-                       "video/x-raw(memory:NVMM), width=640, height=360, framerate=30/1, format=(string)NV12 ! "
-                       "nvvidconv ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=2";
-	// std::string pipeline = "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=640, height=360, "
+
+	std::string pipeline = "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=640, height=360, "
+                           "format=(string)NV12, framerate=30/1 ! nvvidconv ! video/x-raw, format=BGRx ! "
+                           "videoconvert ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=1";
+	// std::string pipeline = "nvarguscamerasrc exposuretimerange=\"1000000 50000000\" gainrange=\"1 16\" !"
+	//                        "video/x-raw(memory:NVMM), width=640, height=360, "
     //                        "format=(string)NV12, framerate=30/1 ! nvvidconv ! video/x-raw, format=BGRx ! "
     //                        "videoconvert ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=1";
     cap_.open(pipeline, cv::CAP_GSTREAMER);
@@ -318,13 +320,13 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
     cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
     // cv::Rect roi(0, roi_sy_, frame_width_, roi_ey_ - roi_sy_);
     cv::Mat cropped = frame(roi);
-    std::cout << "[preprocess] : 1Cropped frame size: " << cropped.cols << "x" << cropped.rows << std::endl;
+    // std::cout << "[preprocess] : 1 - Cropped frame size: " << cropped.cols << "x" << cropped.rows << std::endl;
 
     cv::Mat gray;
     cv::cvtColor(cropped, gray, cv::COLOR_BGR2GRAY);
     cv::Scalar mean_intensity = cv::mean(gray);
     float brightness = mean_intensity[0];
-    std::cout << "[preprocess] : 2Mean brightness: " << brightness << std::endl;
+    // std::cout << "[preprocess] : 2 - Mean brightness: " << brightness << std::endl;
 
     cv::Mat gamma_corrected = cropped;
     if (brightness < 100) {
@@ -350,12 +352,12 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
 
     cv::merge(lab_channels, lab);
     cv::cvtColor(lab, enhanced_lab, cv::COLOR_Lab2BGR);
-    std::cout << "[preprocess] : 3Enhanced Lab image size: " << enhanced_lab.cols << "x" << enhanced_lab.rows << std::endl;
+    // std::cout << "[preprocess] : 3 - Enhanced Lab image size: " << enhanced_lab.cols << "x" << enhanced_lab.rows << std::endl;
 
     cv::Mat hsv, yellow_mask;
     cv::cvtColor(gamma_corrected, hsv, cv::COLOR_BGR2HSV);
     cv::inRange(hsv, cv::Scalar(10, 50, 50), cv::Scalar(50, 255, 255), yellow_mask); // Wider yellow range
-    std::cout << "[preprocess] : 4Yellow mask size: " << yellow_mask.cols << "x" << yellow_mask.rows << std::endl;
+    // std::cout << "[preprocess] : 4 - Yellow mask size: " << yellow_mask.cols << "x" << yellow_mask.rows << std::endl;
 
     std::vector<cv::Mat> hsv_channels(3);
     cv::split(hsv, hsv_channels);
@@ -369,15 +371,15 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
     cv::addWeighted(enhanced_lab, 0.6, enhanced_hsv, 0.4, 0.0, enhanced); // More HSV weight for yellow
     cv::bitwise_and(enhanced, enhanced, enhanced, ~yellow_mask);
     cv::add(yellow_enhanced, enhanced, enhanced);
-    std::cout << "[preprocess] : 5Combined enhanced image size: " << enhanced.cols << "x" << enhanced.rows << std::endl;
+    // std::cout << "[preprocess] : 5 - Combined enhanced image size: " << enhanced.cols << "x" << enhanced.rows << std::endl;
 
     cv::Mat resized;
     cv::resize(enhanced, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_LINEAR);
-    std::cout << "[preprocess] : 6Resized to: " << input_width_ << "x" << input_height_ << std::endl;
+    // std::cout << "[preprocess] : 6 - Resized to: " << input_width_ << "x" << input_height_ << std::endl;
 
     cv::Mat normalized;
     resized.convertTo(normalized, CV_32FC3, 1.0 / 255.0);
-    std::cout << "[preprocess] : 7Normalized size: " << normalized.cols << "x" << normalized.rows << ", type: " << normalized.type() << std::endl;
+    // std::cout << "[preprocess] : 7 - Normalized size: " << normalized.cols << "x" << normalized.rows << ", type: " << normalized.type() << std::endl;
 
     size_t expected_size = 3 * input_width_ * input_height_;
     if (input_data_.size() < expected_size) {
@@ -393,7 +395,7 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
         }
         float* dst = input_data_.data() + c * input_width_ * input_height_;
         memcpy(dst, channels[c].ptr<float>(), input_width_ * input_height_ * sizeof(float));
-        std::cout << "[preprocess] : 8Copied channel " << c << std::endl;
+        // std::cout << "[preprocess] : 8 - Copied channel " << c << std::endl;
     }
 }
 
@@ -493,14 +495,14 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 
     double min_val, max_val;
     cv::minMaxLoc(lane_mask_, &min_val, &max_val);
-    std::cout << "[processFrame] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
+    // std::cout << "[processFrame] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
 
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
     cv::Scalar mean_intensity = cv::mean(gray);
     float brightness = mean_intensity[0];
     float threshold = brightness < 100 ? 0.15 : 0.3; // Even lower for yellow
-    std::cout << "[processFrame] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
+    // std::cout << "[processFrame] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
 
     cv::Mat binary_mask;
     cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
