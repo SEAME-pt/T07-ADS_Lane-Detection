@@ -354,7 +354,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
     cv::Scalar mean_intensity = cv::mean(gray);
     float brightness = mean_intensity[0];
-    float threshold = brightness < 100 ? 0.1 : 0.15; // Even lower for yellow
+    float threshold = brightness < 100 ? 0.1 : 0.3; // Even lower for yellow
     std::cout << "["<<__func__<< "] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
 
     cv::Mat binary_mask;
