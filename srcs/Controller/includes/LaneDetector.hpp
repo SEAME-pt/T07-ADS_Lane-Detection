@@ -25,17 +25,15 @@ enum KalmanProcessCovIndex { PROCESS_COV_OFFSET = 0, PROCESS_COV_ANGLE = 1 };
 enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITION_ANGLE = 2 };
 enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
 
-static constexpr int ROI_X_BORDER = 0; // Pixels from the left and right edges to avoid noise
+static constexpr int ROI_X_BORDER = 20; // Pixels from the left and right edges to avoid noise
 static constexpr int I_W = 256;
 static constexpr int I_H = 128;
 static constexpr int F_W = 640; // Frame width
 static constexpr int F_H = 360; // Frame height
 static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 70% of image height
 static constexpr float ROI_EY_PERCENT = 0.9f;   // ROI ends at 100% of image height
-static constexpr double METER_PER_PIXEL = 0.0005556; // Example scale factor, should be calibrated [m/pixel]
 static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
 static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
-
 class Logger : public nvinfer1::ILogger {
 public:
     void log(Severity severity, const char* msg) noexcept override {
@@ -59,10 +57,9 @@ private:
     bool calculateLaneGeometry(float& offset, float& angle);
     // Helper functions
     void defineROI() ;
-    // bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
-    //                    std::vector<cv::Point>& left_edges,
-    //                    std::vector<cv::Point>& right_edges) const;
-    bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
+    bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
+                       std::vector<cv::Point>& left_edges,
+                       std::vector<cv::Point>& right_edges) const;
     void weightedLinearRegression(const std::vector<cv::Point>& points,
                                   double& slope, double& intercept) const;
     void calculateOffsetAndAngle(double left_slope, double left_intercept,
@@ -136,9 +133,9 @@ private:
     static constexpr double CAMERA_HEIGHT = 0.15;   // 15 cm in meters
     // static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
     static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
-    static constexpr float ROI_START_Y_PERCENT = 0.5f; // ROI starts at 50% of image height
-    static constexpr float ROI_END_Y_PERCENT = 0.8f;   // ROI ends at 80% of image height
-    static constexpr int MAX_SEARCH_DISTANCE = 310;    // Max distance (pixels) to search for edges
+    static constexpr float ROI_START_Y_PERCENT = 0.7f; // ROI starts at 70% of image height
+    static constexpr float ROI_END_Y_PERCENT = 1.0f;   // ROI ends at 100% of image height
+    static constexpr int MAX_SEARCH_DISTANCE = 500;    // Max distance (pixels) to search for edges
 	static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
 	static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
 
