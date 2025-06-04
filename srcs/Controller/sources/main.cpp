@@ -4,6 +4,8 @@
 #include <csignal>
 #include "Controller.hpp"
 
+const std::string VERSAO = "1.0.0";
+
 JetCar jetCar(0x60, 0x40);
 
 void signalHandler(int signum) {
@@ -22,10 +24,6 @@ void handleSteering(int value) {
 void handleMotors(int value) {
     value *= -1;
     int motorSpeed = static_cast<int>((value / 32768.0) * 100);
-    if (motorSpeed >= 30)
-        motorSpeed = 30;
-    motorSpeed = std::max(-100, std::min(100, motorSpeed));
-    std::cout << "Velocidade do motor: " << motorSpeed << std::endl;
     jetCar.set_motor_speed(motorSpeed);
 }
 
@@ -47,10 +45,14 @@ int main(int argc, char *argv[]) {
     std::string modelPath = argv[1];
     auto laneDetector = std::make_unique<LaneDetector>(modelPath); // Criar com unique_ptr
 
+    std::cout << "[Main] Chamando laneDetector->initialize()" << std::endl;
     if (!laneDetector->initialize()) {
         std::cerr << "Erro ao inicializar o detector de faixas!" << std::endl;
         return -1;
     }
+
+	std::cout << "[Main] LaneDetector inicializado com sucesso!" << std::endl;
+	std::cout << "[Main] Versao..." << VERSAO << std::endl;
 
     std::cout << "Sistema iniciado com sucesso! Pressione 'q' para sair." << std::endl;
     signal(SIGINT, signalHandler);
@@ -60,7 +62,7 @@ int main(int argc, char *argv[]) {
     try {
         Controller controller(&jetCar); // Passar ponteiro para JetCar
         controller.setLaneDetector(std::move(laneDetector)); // Transferir posse
-        
+
         changeModeActions.onPress = nullptr;
         changeModeActions.onRelease = [&](){
             changeMode(controller.getMode(), controller, jetCar);

@@ -1,0 +1,19 @@
+#! /bin/bash -e
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-22 Bradley M. Bell
+# ----------------------------------------------------------------------------
+# remove template information
+s/<[^<>]*>//g
+s/<[^<>]*>//g
+s/<[^<>]*>//g
+s/<[^<>]*>//g
+s/<[^<>]*>//g
+# remove argument information
+s/([^()]*)//g
+s/([^()]*)//g
+# remove names space information
+s/[a-zA-Z0-9_]*:://g
+s/[a-zA-Z0-9_]*:://g
+s/[a-zA-Z0-9_]*:://g
+s/[a-zA-Z0-9_]*:://g

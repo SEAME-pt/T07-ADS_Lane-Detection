@@ -1,0 +1,273 @@
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-24 Bradley M. Bell
+# ----------------------------------------------------------------------------
+{xrst_begin_parent var_unary_op dev}
+{xrst_spell
+   acosh
+   asinh
+   erfc
+   expm
+   neg
+}
+
+Unary Variable Operators
+########################
+All these operators have the same prototype and could be implemented as
+virtual functions for a unary base case.
+Compilers can not optimize across virtual function calls and testing indicates
+that a virtual function implementation is significant slower.
+
+User Syntax
+***********
+| *z* = *Fun* ( *x* )
+
+x
+*
+is the argument to this operator which must be a variable.
+
+z
+*
+is the primary result for this operator which is also a variable.
+Some unary operators have an auxiliary result;
+see :ref:`var_unary_op@n_res` below.
+
+Base
+****
+base type for the operator; i.e., this operation was recorded
+using AD<Base> and computations by these operators done using type Base.
+
+Fun
+***
+
+.. csv-table::
+   :widths: auto
+   :header-rows: 1
+
+   op_code,    Fun,      z
+   AbsOp,     fabs,      absolute value of *x*
+   AcosOp,    acos,      inverse cosine of *x*
+   AcoshOp,   acosh,     inverse hyperbolic cosine of *x*
+   AsinOp,    asin,      inverse sine of *x*
+   AsinhOp,   asinh,     inverse hyperbolic sine of *x*
+   AtanOp,    atan,      inverse tangent  of *x*
+   AtanhOp,   atanh,     inverse hyperbolic tangent of *x*
+   CosOp,     cos,       cosine of *x*
+   CoshOp,    cosh,      hyperbolic cosine of *x*
+   ErfOp,     erf,       error function of *x*
+   ErfcOp,    erfc,      complementary error function of *x*
+   ExpOp,     exp,       exponential of *x*
+   Expm1Op,   expm1,     exponential of *x* minus one
+   Log1pOp,   log1p,     logarithm of 1 + *x*
+   LogOp,     log,       logarithm of *x*
+   NegOp,     -,         minus *x*
+   SignOp,    sign,      sign of *x*
+   SinOp,     sin,       sine of *x*
+   SinhOp,    sinh,      hyperbolic sine of *x*
+   SqrtOp,    sqrt,      square root of *x*
+   TanOp,     tan,       tangent of *x*
+   TanhOp,    tanh,      hyperbolic tangent of *x*
+
+i_z
+***
+is the variable index corresponding to *z* .
+
+n_res
+*****
+is the number of results that are variables.
+This is 2 (1) for unary operators that have (do not have) an auxiliary result.
+If an operator has an auxiliary result, the variable index for the
+auxiliary result is *i_z* - 1 .
+
+arg
+***
+*arg* [0] is the variable index corresponding to *x* .
+
+{xrst_end var_unary_op}
+------------------------------------------------------------------------------
+{xrst_begin var_unary_forward_0 dev}
+
+Zero Order Forward Unary Variable Operators
+###########################################
+
+x, z, n_res
+***********
+see
+:ref:`var_unary_op@x` ,
+:ref:`var_unary_op@z` ,
+:ref:`var_unary_op@n_res`
+
+Prototype
+*********
+{xrst_code cpp}
+template <class Base>
+inline void Fun_forward_0(
+   size_t        i_z         ,
+   const addr_t* arg         ,
+   size_t        cap_order   ,
+   Base*         taylor      )
+{xrst_code}
+
+Base, Fun, i_z, arg
+*******************
+see
+:ref:`var_unary_op@Base` ,
+:ref:`var_unary_op@Fun` ,
+:ref:`var_unary_op@i_z` ,
+:ref:`var_unary_op@arg`
+
+cap_order
+*********
+is the maximum number of orders that can fit in *taylor* .
+
+taylor
+******
+The Taylor coefficient corresponding to variable *i* and order *k* is
+
+   *taylor* [ *i* * *cap_order* + *k*  ]
+
+Input
+=====
+The zero order Taylor coefficients
+for variables with index *i* less than or equal *i_z* - *n_res* .
+
+Output
+======
+The zero order Taylor coefficients for variables with index
+*i_z* and *i_z* - *n_res* + 1.
+
+{xrst_end var_unary_forward_0}
+------------------------------------------------------------------------------
+{xrst_begin var_unary_forward_any dev}
+
+Any Order Forward Unary Variable Operators
+##########################################
+
+x, z, n_res
+***********
+see
+:ref:`var_unary_op@x` ,
+:ref:`var_unary_op@z` ,
+:ref:`var_unary_op@n_res`
+
+Prototype
+*********
+{xrst_code cpp}
+template <class Base>
+inline void Fun_forward_any(
+   size_t        order_low   ,
+   size_t        order_up    ,
+   size_t        i_z         ,
+   const addr_t* arg         ,
+   size_t        cap_order   ,
+   Base*         taylor      )
+{xrst_code}
+
+Base, Fun, i_z, arg
+*******************
+see
+:ref:`var_unary_op@Base` ,
+:ref:`var_unary_op@Fun` ,
+:ref:`var_unary_op@i_z` ,
+:ref:`var_unary_op@arg`
+
+{xrst_template ;
+   include/cppad/local/var_op/template/forward_op.xrst
+   headers: cap_order, order_low, order_up, taylor
+}
+
+
+{xrst_end var_unary_forward_any}
+------------------------------------------------------------------------------
+{xrst_begin var_unary_forward_dir dev}
+
+Multiple Direction Forward Unary Operators
+##########################################
+
+x, z, n_res
+***********
+see
+:ref:`var_unary_op@x` ,
+:ref:`var_unary_op@z` ,
+:ref:`var_unary_op@n_res`
+
+Prototype
+*********
+{xrst_code cpp}
+template <class Base>
+inline void Fun_forward_dir(
+   size_t        order_up    ,
+   size_t        n_dir       ,
+   size_t        i_z         ,
+   const addr_t* arg         ,
+   size_t        cap_order   ,
+   Base*         taylor      )
+{xrst_code}
+
+Base, Fun, i_z, arg
+*******************
+see
+:ref:`var_unary_op@Base` ,
+:ref:`var_unary_op@Fun` ,
+:ref:`var_unary_op@i_z` ,
+:ref:`var_unary_op@arg`
+
+{xrst_template ;
+   include/cppad/local/var_op/template/forward_dir.xrst
+   headers: n_dir, cap_order, order_up, taylor
+}
+
+{xrst_end var_unary_forward_dir}
+------------------------------------------------------------------------------
+{xrst_begin var_unary_reverse dev}
+
+Reverse Mode Unary Operators
+############################
+
+x, z, n_res
+***********
+see
+:ref:`var_unary_op@x` ,
+:ref:`var_unary_op@z` ,
+:ref:`var_unary_op@n_res`
+
+Prototype
+*********
+{xrst_code cpp}
+template <class Base>
+inline void Fun_reverse(
+   size_t        i_z          ,
+   const addr_t* arg          ,
+   size_t        cap_order    ,
+   const Base*   taylor       ,
+   size_t        n_order      ,
+   Base*         partial      )
+{xrst_code}
+
+Base, Fun, i_z, arg
+*******************
+see
+:ref:`var_unary_op@Base` ,
+:ref:`var_unary_op@Fun` ,
+:ref:`var_unary_op@i_z` ,
+:ref:`var_unary_op@arg`
+
+cap_order
+*********
+is the maximum number of orders that can fit in *taylor* .
+
+taylor
+******
+The Taylor coefficient corresponding to variable *i* and order *k* is
+
+   *taylor* [ *i* * *cap_order* + *k*  ]
+
+{xrst_template ;
+   include/cppad/local/var_op/template/reverse_op.xrst
+   headers: n_order, partial
+
+   @x, y@ ; x
+}
+
+{xrst_end var_unary_reverse}
+------------------------------------------------------------------------------

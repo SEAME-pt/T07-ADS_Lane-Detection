@@ -1,0 +1,490 @@
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell  <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-24 Bradley M. Bell
+# ----------------------------------------------------------------------------
+
+{xrst_begin 2024 app}
+{xrst_spell
+   bitwise
+   boostvector
+   bostvector
+   cassert
+   cmd
+   dismod
+   dll
+   env
+   fadbad
+   homebrew
+   iostream
+   ipopt
+   isnan
+   nul
+   nx
+   omhelp
+   py
+   sacado
+   setvec
+   svec
+   usr
+   xcode
+   yy
+   yyyy
+}
+
+Release Notes for 2024
+######################
+
+mm-dd
+*****
+
+12-14
+=====
+Add a separate :ref:`cmake@CMake Command@true_or_false` paragraph
+to describe *true_or_false* in the cmake command.
+
+12-09
+=====
+An option to build a local copy of the user or developer documentation
+was added to the install procedure; see :ref:`cmake@include_doc` .
+This also affects the :ref:`cmake@cmake_install_docdir` option.
+
+11-23
+=====
+In the :ref:`atomic_four_norm_sq.cpp-name` example,
+remove dead code in its forward routine.
+To be specific, remove::
+
+   // Assume we are not using forward mode with order > 1
+   assert( ! ok );
+   return ok;
+
+Also in its reverse routine,
+improve the comment about the relation between G and H; to be specific::
+
+   // H( {x_j^k} ) = G[ F( {x_j^k} ), {x_j^k} ]
+
+11-19
+=====
+Fix the :ref:`configure@--with-clang` and :ref:`configure@--with-verbose-make`
+options did not have any effect in the configure script.
+This has been fixed.
+
+11-16
+=====
+The :ref:`for_hes_sparsity-name` and :ref:`ForSparseHes-name` routines
+did not handle the cumulative summation operators properly.
+These operators sum more than two variables or dynamic parameters at a time
+and may be created during ADFun :ref:`optimization <optimize-name>` .
+
+11-13
+=====
+The :ref:`for_hes_sparsity-name` and :ref:`ForSparseHes-name` routines
+did not handle the :ref:`VecAD-name` load and store operations properly.
+This has been fixed.
+
+11-12
+=====
+Remove extra unintended white space below Syntax headings
+that was introduced when the CppAD documentation was converted from
+omhelp to sphinx; see :ref:`2022-12-16<2022@mm-dd@12-16>` .
+For example:
+
+Old Syntax
+----------
+
+   ``atomic_user`` *a_square_root*
+
+*a_square_root* ( *au* , *ay* )
+
+New Syntax
+----------
+| ``atomic_user`` *a_square_root*
+| *a_square_root* ( *au* , *ay* )
+
+10-04
+=====
+The :ref:`jit_compile.cpp-name` example line was missing
+CPPAD_C_COMPILER_CMD in the line (this has been fixed)::
+
+   const char* cmd = CPPAD_C_COMPILER_CMD " --version > temp";
+
+10-02
+=====
+#. The *include_eigen* argument was removed from the :ref:`cmake-name` command
+   because Eigen is available using most package managers;
+   see :ref:`cmake@Eigen` .
+#. Remove *boost_dir* and *eigen_dir* from :ref:`configure-name`
+   (they no longer have any effect).
+
+09-28
+=====
+Fix some conversion warnings between ``size_t`` , ``int`` , and ``short``
+in the :ref:`speed_adolc-name` examples / tests.
+
+09-24
+=====
+Convert the bitwise operators & and | , when used with bool operands,
+to the logical operations && and ||; see ``bin/no_bitwise.sh``
+(this fixes many warnings).
+In addition, fix some other warnings and put some exceptions on
+``bin/check_all.sh`` for some warnings that seem to be incorrect.
+
+09-13
+=====
+#. Make all of the get_optional.sh routines now works on MacOS with homebrew,
+   see :ref:`get_optional.sh@MacOS with Homebrew` .
+   Do not test :ref:`colpack_prefix-name` on MacOS
+   (there seems to be a problem with the ColPack install on that system).
+#. The :ref:`configure@--with-verbose-make` option was added to the
+   configure script. In addition, :ref:`configure-name` was mistakenly
+   requiring that ColPack was installed; see :ref:`colpack_prefix-name`.
+   This has been fixed.
+
+09-11
+=====
+#. The :ref:`get_ipopt.sh@Source Directory` was changed from
+   ``external/Ipopt-``\ *version* to ``external/Ipopt,git`` .
+#. Advance get_ipopt :ref:`get_ipopt.sh@Version` from 3.13.2 to 3.14.16.
+
+09-09
+=====
+#. The :ref:`cmake@CMake Command@Visual Studio` instructions were improved.
+#. ``CppAD`` was added before ``isnan`` , see the discussion of
+   :ref:`nan@std::isnan` .
+
+08-10
+=====
+There was a problem with :ref:`CppAD_vector@iterators` that caused
+the sort test in :ref:`cppad_vector.cpp-name` to fail when using
+Visual C++ on Windows or Xcode C++ on MacOS.
+To be specific, this was the case where the iterator needs to be ``const`` ,
+even though the value it points to is not ``const`` .
+This has been fixed.
+
+
+08-09
+=====
+#. Suppress the testing of sort using CppAD vector iterators
+   on MacOs with the Xcode C++ compiler; search for CPPAD_CXX_IS_XCODE in
+   :ref:`cppad_vector.cpp-name` .
+#. The :ref:`jit_compile.cpp-name` example was hanging on some Windows
+   systems because they do not support writing to the``nul`` device.
+   This has been fixed by writing to temporary files.
+
+08-08
+=====
+Add the :ref:`dos_build.bat-name` install example.
+
+08-05
+=====
+The cmake ``-D eigen_prefix`` option was removed
+and ``PKG_CONFIG_PATH`` requirements were added for
+``include_eigen`` (and the other packages).
+
+08-04
+=====
+Standard threading was added to the multi-threading examples; see
+:ref:`a11c_sthread.cpp-name` ,
+:ref:`sthread_get_started.cpp-name`  ,
+:ref:`sthread_get_started.cpp-name`  ,
+:ref:`team_sthread.cpp-name` .
+
+05-12
+=====
+A bug in the use of base types that are not ordered
+(e.g., :ref:`complex <base_complex.hpp-name>` )
+was introduced on :ref:`2023@mm-dd@08-10` of 2023,
+when the val_graph branch was merged in the master branch.
+This has been fixed by requiring such base types to define the ordering
+compare operations as resulting in an error; see
+:ref:`base_cond_exp@CondExpTemplate@Not Ordered` .
+
+04-25
+=====
+The :ref:`configure-name` script was changed to detect when
+the eigen package is requested and the compiler is not c++14 or greater.
+The :ref:`configure-name` and :ref:`cmake-name` scripts
+were changed to detect when
+the sacado package is requested and the compiler is not c++17 or greater.
+
+04-20
+=====
+The ``# include`` commands were missing at the top of
+some of the valvector examples.
+This has been fixed; e.g., see ref:`valvector_get_started-name` .
+
+04-04
+=====
+The file example/multi_thread/bthread/get_started.cpp had an error
+when ``CPPAD_TESTVECTOR`` was :ref:`testvector@std::vector`
+(The elements of a standard vectors of bool may a single bits instead of
+a boolean value).
+The has been fixed.
+
+04-03
+=====
+#. Add the :ref:`valvector_llsq_obj.cpp-name` example.
+#. Add the :ref:`valvector_sum.cpp-name` member function.
+#. Fix the titles :ref:`valvector_ad_sum.cpp-title` and
+   :ref:`valvector_ad_join.cpp-name` .
+#. Add the following to :ref:`valvector_base_require.cpp-name` :
+   {xrst_code cpp}
+   x   = valvector( {0.0, 0.0} );
+   ok &= CppAD::IdenticalZero(x);
+   {xrst_code}
+
+
+03-28
+=====
+Change the get_eigen.sh
+version from 3.3.7 to the master branch on 2024-03-24; see
+`issue 200 <https://github.com/coin-or/CppAD/issues/200>`_ .
+Note that the new version of eigen requires c++14 or higher.
+
+03-23
+=====
+#. Change the upper case one letter variable names in the
+   :ref:`interp_onetape.cpp-name` example; to be specific,
+   *X* -> *ax* and *Y* -> *ay* , *A* -> *ax_grid* , *F* -> *af_grid* ,
+   *I* -> *ay_linear* .
+#. Add the :ref:`atomic_four_bilinear.cpp-name` example.
+
+03-19
+=====
+Fix broken links found using ``--external_links`` option to
+the ``xrst`` documentation generator.
+
+03-16
+=====
+The :ref:`ADFun constructor<fun_construct-name>` was changed to use
+*ax* instead of *x* , and *ay* instead of *y* , for AD values.
+In addition, the :ref:`fun_construct@Sequence Constructor` discussion
+was improved.
+
+03-15
+=====
+#. The user's choice of :ref:`ta_parallel_setup@in_parallel` routine
+   was not being called properly in some cases. This has been fixed.
+   This would cause CppAD to not properly report some usage
+   errors during parallel execution.
+#. Fixing the problem above exposed the fact that,
+   when mixing debug and release builds,
+   :ref:`CheckSimpleVector-name` must be defined.
+   This has also been fixed.
+#. The discussion, in the multi-threading get_started examples,
+   about the :ref:`openmp_get_started.cpp@ADFun Constructor` was improved.
+#. The parallel_ad routine has been improved so that it initializes
+   CheckSimpleVector for more cases; see :ref:`parallel_ad@CheckSimpleVector` .
+
+03-13
+=====
+The :ref:`bthread_get_started.cpp-name`
+and :ref:`pthread_get_started.cpp-name`
+examples were made simpler by
+directly using the threading system instead of going through the
+:ref:`team_thread.hpp-name` interface.
+
+03-12
+=====
+The :ref:`openmp_get_started.cpp-name` example was made simpler by
+directly using openmp instead of going through the
+:ref:`team_thread.hpp-name` interface.
+
+03-11
+=====
+The multi-threading ``simple_ad`` examples where changed to
+``get_started`` ; see
+:ref:`openmp_get_started.cpp-name` ,
+:ref:`pthread_get_started.cpp-name` ,
+:ref:`bthread_get_started.cpp-name` .
+
+03-09
+=====
+The number of :ref:`parallel_ad@CheckSimpleVector` cases
+called by parallel_ad<Base>() was increased to include the following::
+
+   CheckSimpleVector< bool, CppAD::vectorBool >()
+   CheckSimpleVector< size_t, CppAD::vector<size_t> >()
+   CheckSimpleVector< Base, std::vector<Base> >()
+   CheckSimpleVector< AD<Base>, std::vector< AD<Base> > >()
+
+In addition, the CheckSimpleVector :ref:`CheckSimpleVector@Parallel Mode`
+documentation and error message has been improved.
+
+03-06
+=====
+#. The ``to_csrc`` parameters :ref:`to_csrc@nu` and :ref:`to_csrc@u`
+   were denoted by ``nx`` and ``x`` in the generated source code.
+   This has been changed an now the generated source uses ``nu`` and ``u``
+   for these parameters.
+#. The :ref:`to_csrc-name` documentation was changed to use
+   *atomic_name* for the name of the atomic
+   (instead of reusing *function_name* which has another purpose).
+   In addition, :ref:`jit_atomic.cpp-name`
+   was also changed to use *atomic_name* .
+
+03-02
+=====
+Add the :ref:`valvector_ad_split-name` and :ref:`valvector_ad_join-name`
+examples.
+
+03-01
+=====
+Fix bug in the optimizer :ref:`optimize@options@val_graph` option.
+To be more specific, the following assert could occur during the optimization::
+
+   vector: index greater than or equal vector size
+
+
+02-29
+=====
+Add the :ref:`valvector_compare_op@op@Ordered Operators`
+to the valvector class.
+This is needed to optimize tapes where the base type is valvector.
+
+02-28
+=====
+Add the :ref:`valvector-name` example base class.
+
+02-27
+=====
+The omhelp package is not longer used by CppAD
+( see :ref:`2022@mm-dd@12-16` ) so the links to its documentation
+were removed.
+In addition, the instructions for
+:ref:`download@Git@Building Documentation` were out of date and have been
+fixed.
+
+02-26
+=====
+#. Correct some errors in the numeric type
+   :ref:`NumericType@Operators` table.
+   Also the table under :ref:`CondExp@Purpose` on the
+   conditional expression documentation.
+   (These were errors in the automatic conversion from omhelp to sphinx.)
+#. The ``<=`` operator was removed from the base type requirements
+   :ref:`base_member@Bool Operators` .
+
+02-23
+=====
+Include more of the example drivers in the documentation;
+see :ref:`example_driver-name` .
+In addition, remove unnecessary includes for ``iostream`` and
+``cassert`` from these drivers.
+
+02-22
+=====
+#. The shebang in the :ref:`configure-name` script was changed from
+   ``#! /bin/bash`` to ``#! /usr/bin/env bash`` .
+   This should make it work on more systems.
+#. The configure script *eigen_dir* ,
+   *fadbad_dir* , and *sacado_dir*
+   directories were not being passed to the ``cmake`` .
+   This has been fixed.
+#. The configure ``--help`` option for using boost vectors
+   was corrected from  ``--with-bostvector`` to ``--with-boostvector`` .
+
+02-21
+=====
+For each year, change the web page name ``whats_new_``\ *yy*
+to *yyyy* where *yy* and *yyyy* identify the year. In addition, change the
+title for these pages to Release Notes for the corresponding year.
+This breaks old links to these web pages.
+For example, the old link to the heading directly below was::
+
+   https://cppad.readthedocs.io/latest/whats_new_24.html#whats-new-24-mm-dd-02-14
+
+Its new link, which is much shorter, is::
+
+   https://cppad.readthedocs.io/latest/2024.html#mm-dd-02-14
+
+02-14
+=====
+The :ref:`optimize-name` routine could crash when
+checking if an operator with the same hash code was a match with the
+argument order switched (for add and multiply).
+This problem occurred during speed.py_ ,
+which is an example and test of dismod_at, which uses CppAD.
+This crash required a very special (and improbable) case that we
+were unable to reproduce in an automated regression test;
+see comment that starts with 2024-02-14 in
+`include/cppad/local/optimize/match_op.hpp` .
+
+.. _speed.py: https://dismod-at.readthedocs.io/latest/user_speed.py.html
+
+01-16
+=====
+fix dll linking of jit code by changing *cppad_c_compiler_path* to
+*cppad_c_compiler_cmd* (spaces in the path were making commands fail).
+
+01-12
+=====
+#. There were some problems using the cmake C compiler for the
+   examples and tests of jit compilation, so that has been backed out for now.
+#. There was a mistake in detecting if size_t is the same as
+   :ref:`cmake@cppad_tape_addr_type`. This could cause a compile error
+   in `op_hash_table.hpp` and has been fixed.
+
+01-11
+=====
+Use the *cppad_c_compiler_path* detected by :ref:`cmake-name`
+to run the C compiler for the Clang and GNU cases; see
+the `create_dll_lib`` defaults for
+:ref:`create_dll_lib@options@compile` and
+:ref:`create_dll_lib@options@link` .
+
+01-10
+=====
+#. Fix some problems with the install on 32 bit systems.
+   To be specific, the :ref:`thread_alloc-name` memory allocator
+   was not properly aligning doubles.
+#. Suppress the test of the ``svec_setvec`` class.
+   (The class has a bug and is not currently being used.)
+
+01-08
+=====
+On some systems ``unsigned int`` and ``size_t`` are the same type
+and this would cause a compile error in ``vector.hpp`` and
+``vector_bool.hpp`` . This has been fixed.
+
+01-07
+=====
+The forward_two :ref:`forward_two@Syntax` was corrected.
+To be specific,
+``Forward`` (1, *x2* ) was changed to ``Forward`` (2, *x2* ) .
+In addition, some other minor improvements were made to the
+forward_two documentation page.
+
+01-03
+=====
+
+#. The change on :ref:`2023@mm-dd@12-24` 2023,
+   when :ref:`cmake@cppad_debug_and_release` was implemented,
+   was not done properly and might cause a mistaken assertion.
+   This has been fixed.
+
+#. Each *file_name* in the latest documentation was moved
+   (this is important if you have links to previous web pages):
+
+   .. list-table::
+
+      *  - Old Location
+         - ``https://cppad.readthedocs.io/``\ *file_name*
+      *  - New Location
+         - ``https://cppad.readthedocs.io/latest/``\ *file_name*
+
+01-02
+=====
+
+#. The :ref:`compare_change.cpp-name` example/test would sometimes fail
+   when :ref:`cmake@cppad_debug_which` was ``debug_even`` or
+   ``debug_odd`` (because it was compiled for debugging and including
+   a release version of a utility). This has been fixed by making this
+   example/test a separate program.
+
+#. The :ref:`CppAD_vector@vectorBool` constructor would generate a
+   warning when called with an ``int`` for the size of the vector
+   (on some compilers). This has been fixed.
+
+
+{xrst_end 2024}

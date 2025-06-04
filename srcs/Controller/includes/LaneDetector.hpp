@@ -6,9 +6,35 @@
 #include <opencv2/cudawarping.hpp>
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
+#include "Debug.hpp"
 #include <memory>
 #include <string>
 #include <vector>
+#include <numeric>
+#include <fstream>
+#include <stdexcept>
+#include <cmath>
+
+enum KalmanStateIndex { OFFSET = 0, OFFSET_VEL = 1, ANGLE = 2 };
+enum KalmanMeasurementIndex { MEASUREMENT_OFFSET = 0, MEASUREMENT_ANGLE = 1 };
+enum KalmanPredictionIndex { PREDICTION_OFFSET = 0, PREDICTION_ANGLE = 1 };
+enum KalmanPredictionCovIndex { PREDICTION_COV_OFFSET = 0, PREDICTION_COV_ANGLE = 1 };
+enum KalmanMeasurementCovIndex { MEASUREMENT_COV_OFFSET = 0, MEASUREMENT_COV_ANGLE = 1 };
+enum KalmanErrorCovIndex { ERROR_COV_OFFSET = 0, ERROR_COV_ANGLE = 1 };
+enum KalmanProcessCovIndex { PROCESS_COV_OFFSET = 0, PROCESS_COV_ANGLE = 1 };
+enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITION_ANGLE = 2 };
+enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
+
+static constexpr int ROI_X_BORDER = 0; // Pixels from the left and right edges to avoid noise
+static constexpr int I_W = 256;
+static constexpr int I_H = 128;
+static constexpr int F_W = 640; // Frame width
+static constexpr int F_H = 360; // Frame height
+static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 70% of image height
+static constexpr float ROI_EY_PERCENT = 0.9f;   // ROI ends at 100% of image height
+static constexpr double METER_PER_PIXEL = 0.0005556; // Example scale factor, should be calibrated [m/pixel]
+static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
+static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
 
 class Logger : public nvinfer1::ILogger {
 public:
@@ -22,13 +48,32 @@ public:
     LaneDetector(const std::string& trt_model_path);
     ~LaneDetector();
     bool initialize();
-    void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask = true);
+    void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask = false);
+    cv::VideoCapture cap_;
 
+private:
     void loadEngine(const std::string& trt_model_path);
     void preprocess(const cv::Mat& frame);
     void infer();
-    void findLaneEdges(int& left_edge, int& right_edge);
-    void calculateSteeringParams(int left_edge, int right_edge, int& lane_center, float& offset, float& angle);
+    // void calculateLaneGeometry(float& offset, float& angle);
+    bool calculateLaneGeometry(float& offset, float& angle);
+    // Helper functions
+    void defineROI() ;
+    // bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
+    //                    std::vector<cv::Point>& left_edges,
+    //                    std::vector<cv::Point>& right_edges) const;
+    bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
+    void weightedLinearRegression(const std::vector<cv::Point>& points,
+                                  double& slope, double& intercept) const;
+    void calculateOffsetAndAngle(double left_slope, double left_intercept,
+                                 double right_slope, double right_intercept,
+                                 int y_bottom, float& offset, float& angle) const;
+    void applyKalmanFilter(float measured_offset, float measured_angle,
+                           float& smoothed_offset, float& smoothed_angle);
+    void drawDebugInfo(cv::Mat* debug_img, const std::vector<cv::Point>& left_edges,
+                       const std::vector<cv::Point>& right_edges,
+                       float offset, float angle) const;
+	double calculateDistance(int pixel_y, int x_length) const;
 
     // TensorRT
     std::unique_ptr<nvinfer1::IRuntime> runtime_;
@@ -41,30 +86,63 @@ public:
     std::vector<float> output_data_;
 
     // OpenCV
-    cv::VideoCapture cap_;
-    cv::cuda::GpuMat gpu_frame_;
-    cv::cuda::GpuMat gpu_resized_;
     cv::Mat lane_mask_;
 
     // Kalman Filter
-    cv::KalmanFilter kalman_;
+    cv::KalmanFilter kf_;         // Kalman filter for smoothing offset and angle
+    // cv::KalmanFilter kalman_;
     cv::Mat measurement_;
     cv::Mat prediction_;
     float offset_kalman_;
     float angle_kalman_;
-
-    // Dimensões
-    int input_width_;
-    int input_height_;
-    int frame_width_ = 640;
-    int frame_height_ = 360;
-    int roi_start_y_;
-    int roi_end_y_;
-
+	std::vector<cv::Point> left_edges_;
+	std::vector<cv::Point> right_edges_;
     // Valores
     float estimated_lane_width_;
     int prev_left_edge_;
     int prev_right_edge_;
+
+    // Dimensions
+    int input_width_ = I_W;
+    int input_height_ = I_H;
+    int frame_width_ = F_W;
+    int frame_height_ = F_H;
+
+	// Region of Interest (ROI) parameters
+	// These parameters define the area of the image where lane detection will be performed.
+	// The ROI is defined to focus on the bottom part of the image where lanes are typically located.
+	// The ROI is set to start 20 pixels from the left edge and end 20 pixels from the right edge.
+	// The vertical ROI starts at 40 pixels from the top and extends to the bottom of the frame.
+	int roi_sx_, roi_ex_, roi_sy_, roi_ey_, roi_w_, roi_h_;
+
+
+	// Store last known edge positions for smoothing
+	// These will be used to maintain continuity in edge detection
+	// This helps in cases where edges are not detected in every frame
+	// and prevents sudden jumps in detected edge positions.
+	// This is particularly useful in dynamic environments where lane edges may not be consistently visible.
+	// The last known positions help to provide a reference point for the next frame's edge detection.
+	// This is important for maintaining a smooth driving experience and avoiding abrupt steering corrections.
+	// These values are updated only when valid edges are detected.
+	// They are initialized to -1 to indicate that no edges have been detected yet.
+	// If no edges are detected in the current frame, the last known positions will be used.
+	// This helps to maintain a consistent lane detection experience.
+	float last_left_edge_ = -1.0f;  // Store last known left edge position
+    float last_right_edge_ = -1.0f; // Store last known right edge position
+
+
+        // Fixed parameters as constants
+    static constexpr double CAMERA_TILT = 0.296706; // 17 degrees in radians (17 * pi/180)
+    static constexpr double CAMERA_HEIGHT = 0.15;   // 15 cm in meters
+    // static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
+    static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
+    static constexpr float ROI_START_Y_PERCENT = 0.5f; // ROI starts at 50% of image height
+    static constexpr float ROI_END_Y_PERCENT = 0.8f;   // ROI ends at 80% of image height
+    static constexpr int MAX_SEARCH_DISTANCE = 310;    // Max distance (pixels) to search for edges
+	static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
+	static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
+
+    std::unique_ptr<Debug> debug_;
 };
 
 #endif // LANE_DETECTOR_HPP

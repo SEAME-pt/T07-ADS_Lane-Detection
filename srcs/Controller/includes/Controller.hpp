@@ -2,15 +2,22 @@
 #define CONTROLLER_HPP
 
 #include <SDL2/SDL.h>
-#include <functional>
-#include <unordered_map>
-#include <array>
-#include <memory>
-#include "LaneDetector.hpp"
-#include "JetCar.hpp"
+#include <opencv2/opencv.hpp>
+#include <opencv2/videoio.hpp>
 #include <Eigen/Dense>
+#include <functional>
+#include <array>
+#include <unordered_map>
+#include <memory>
+#include <atomic>
+#include <mutex>
+#include <fstream>
+#include "JetCar.hpp"
+#include "LaneDetector.hpp"
+#include "SpeedSubscriber.hpp"
 #include "TimeTracker.hpp"
-
+#include "SpeedPIDController.hpp"
+#include "MPC.hpp"
 
 #define BTN_A 0
 #define BTN_B 1
@@ -36,54 +43,59 @@ struct Actions {
 
 class Controller {
 public:
+
+    struct State {
+        float x, y, theta, v;
+    };
+
     Controller(JetCar* jetCar);
     ~Controller();
-
-    TimeTracker tracker;
 
     void setButtonAction(int button, Actions actions);
     void setAxisAction(int axis, std::function<void(int)> action);
     void processEvent(const SDL_Event& event);
     void setMode(const int &mode);
-    int getMode();
+    int  getMode();
     void listen();
+    void autonomous();
     void setLaneDetector(std::unique_ptr<LaneDetector> detector);
 
+private:
     SDL_Joystick* joystick;
     JetCar* jetCar;
     std::unique_ptr<LaneDetector> laneDetector;
+    SpeedSubscriber speed;
+    SpeedPIDController* speedPIDController;
+    std::array<bool, 16> buttonStates;
     std::unordered_map<int, Actions> buttonActions;
     std::unordered_map<int, std::function<void(int)>> axisActions;
-    std::array<bool, 12> buttonStates;
-    int _currentMode;
-    cv::Mat frame, output_frame;
+    std::atomic<float> currentSpeed;
     cv::VideoWriter video_writer;
+    cv::Mat frame, output_frame;
+    State current_state_;
+    TimeTracker tracker;
+    int _currentMode;
 
-    // MPC Structures and Functions
-    struct State {
-        float x = 0.0f;      // X position (m)
-        float y = 0.0f;      // Y position (m)
-        float theta = 0.0f;  // Heading angle (rad)
-        float v = 1.0f;      // Velocity (m/s)
-    };
-    State kinematicModel(const State& state, float delta, float a);  // Predict next state using kinematic bicycle model
-    void setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref);  // Setup QP cost function
-    Eigen::VectorXd solveMPC(const State& initial_state, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref);  // Solve MPC optimization
+    // CSV logging
+    std::ofstream csv_file_;
+    std::mutex csv_mutex_;
 
-    // MPC Parameters
-    State current_state_;  // Current vehicle state
-    static constexpr float DT = 0.03f;      // Time step (s)
-    static constexpr int N = 10;           // Prediction horizon (1 second total)
-    static constexpr float L = 0.3f;       // Wheelbase (m)
-    static constexpr float MAX_DELTA = 0.52f;  // Max steering angle (±90 deg in radians)
-    static constexpr float MAX_A = 1.0f;         // Max acceleration (m/s²)
-    static constexpr float Q_y = 10.0f;    // Weight for lateral offset
-    static constexpr float Q_theta = 5.0f; // Weight for heading error
-    static constexpr float R_delta = 1.0f; // Weight for steering effort
-    static constexpr float R_a = 1.0f;     // Weight for acceleration effort
-    static constexpr float R_d_delta = 50.0f; // Weight for steering rate of change
+    // MPC parameters
+    static constexpr int N = 10;  // Prediction horizon
+    static constexpr float DT = 0.1f;  // Time step
+    static constexpr float L = 0.3f;   // Wheelbase
+    static constexpr float MAX_DELTA = CV_PI / 2.0f;  // Max steering angle (radians)
+    static constexpr float Q_y = 100.0f;      // Weight for lateral offset
+    static constexpr float Q_theta = 50.0f;   // Weight for heading error
+    static constexpr float R_delta = 10.0f;   // Weight for steering effort
+    static constexpr float R_a = 5.0f;        // Weight for acceleration effort
+    static constexpr float R_d_delta = 20.0f; // Weight for steering rate
 
-    void autonomous();  // Autonomous driving logic with curve prediction
+    State kinematicModel(const State& state, float delta, float a);
+    void setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref);
+    Eigen::VectorXd solveMPC(const State& initial_state, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref);
+
 };
 
-#endif // CONTROLLER_HPP
+
+#endif

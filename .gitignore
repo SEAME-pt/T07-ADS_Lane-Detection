@@ -11,8 +11,10 @@ CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
 vscode
-build
+build/
 
 env/
 env_dash/
 *.trt
+jetson-sysroot/
+.vscode

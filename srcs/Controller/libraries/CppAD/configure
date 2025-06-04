@@ -1,0 +1,727 @@
+#! /usr/bin/env bash
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-24 Bradley M. Bell
+set -e -u
+echo $0 $*
+# # ----------------------------------------------------------------------------
+# {xrst_begin configure app}
+# {xrst_spell
+#     adolc
+#     adouble
+#     ansi
+#     badiff
+#     boostvector
+#     colpack
+#     cxx
+#     cygdrive
+#     dist
+#     eigenvector
+#     fadbad
+#     fortran
+#     ip
+#     ipopt
+#     msvc
+#     nmake
+#     sacado
+#     stdvector
+#     sys
+#     ublas
+#     usr
+# }
+# {xrst_comment_ch #}
+#
+# Configure Test and Installation Script
+# ######################################
+#
+# Deprecated 2012-12-26
+# *********************
+# This install procedure is deprecated.
+# You should use the :ref:`cmake-name` instructions to
+# configure and install CppAD.
+#
+# Distribution Directory
+# **********************
+# You must first obtain a copy of the CppAD distribution directory
+# using the :ref:`download-name` instructions.
+# We refer to the corresponding
+# :ref:`download@Distribution Directory` as
+# *dist_dir* .
+#
+# Build Directory
+# ***************
+# Create the directory *dist_dir* / ``build`` ,
+# which will be referred to as the build directory below.
+# (The build directory can be in any location
+# so long as it is not the *dist_dir* .)
+#
+# Configure
+# *********
+# Execute the following command in the build directory:
+#
+# | ../ ``configure`` \\
+# | |tab| ``--help``                                       \\
+# | |tab| ``--prefix`` = *prefix_dir*                      \\
+# | |tab| ``--with-`` *package* ``vector``                 \\
+# | |tab| ``--enable-msvc``                                \\
+# | |tab| ``--with-clang``                                 \\
+# | |tab| ``--with-verbose-make``                          \\
+# | |tab| ``MAX_NUM_THREADS`` = *max_num_threads*          \\
+# | |tab| ``CXX_FLAGS`` = *cxx_flags*                      \\
+# | |tab| ``POSTFIX_DIR`` = *postfix_dir*                  \\
+# | |tab| ``ADOLC_DIR`` = *adolc_dir*                      \\
+# | |tab| ``FADBAD_DIR`` = *fadbad_dir*                    \\
+# | |tab| ``SADADO_DIR`` = *sacado_dir*                    \\
+# | |tab| ``IPOPT_DIR`` = *ipopt_dir*                      \\
+# | |tab| ``TAPE_ADDR_TYPE`` = *tape_addr_type*            \\
+# | |tab| ``TAPE_ID_TYPE`` = *tape_id_type*
+#
+# where only the ``configure`` line need appear; i.e.,
+# the entries in all of the other lines are optional.
+# The text in italic above is replaced values that you choose
+# (see discussion below).
+#
+# make
+# ****
+# The following command, in the build directory,
+# creates the file ``include/cppad/configure.hpp`` in
+# the source directory and then builds
+# some object libraries that are used by the tests
+# ::
+#
+#    make
+#
+# Examples and Tests
+# ==================
+# The following command will build and run all the correctness and speed tests.
+# ::
+#
+#    make test
+#
+# prefix_dir
+# **********
+# The default value for prefix directory is ``$HOME``
+# i.e., by default the CppAD include files
+# will :ref:`install<configure@make install>` below ``$HOME`` .
+# If you want to install elsewhere, you will have to use this option.
+# As an example of using the ``--prefix`` = *prefix_dir* option,
+# if you specify
+# ::
+#
+#    ./configure --prefix=/usr/local
+#
+# the CppAD include files will be installed in the directory
+#
+#    / ``usr/local/include/cppad``
+#
+# --with-<package>vector
+# **********************
+# The :ref:`CPPAD_TESTVECTOR<testvector-name>`
+# template class is used for many of the CppAD examples and tests.
+# The default for this template class is
+#
+#  |tab| ``CppAD::vector<`` *Scalar* > .
+#
+# If one, and only one, of the following command line arguments is specified:
+# ::
+#
+#    --with-stdvector
+#    --with-boostvector
+#    --with-eigenvector
+#
+# the corresponding of the following template classes is used
+#
+# | |tab| ``std::vector<`` *Scalar* >
+# | |tab| ``boost::numeric::ublas::vector<`` *Scalar* >
+# | |tab| ``Eigen::matrix<`` *Scalar* , ``Eigen::Dynamic`` , 1>
+#
+# --enable-msvc
+# *************
+# If this flag is present, the Microsoft ``cl`` compiler will be
+# placed at the front of a list of compilers to search for.
+# In addition, nmake_ make files will be generated; i.e.,
+# you will use ``nmake`` instead of ``make`` to build, test, and install.
+# The resulting C++, C, and Fortran compiler orders work Coin-OR specific;
+# see
+# `Building with Visual Studio in MSys2
+# <https://coin-or.github.io/user_introduction.html#building-with-visual-studio-in-msys2>`_ .
+#
+# .. _nmake: https://learn.microsoft.com/en-us/cpp/build/reference/nmake-reference?view=msvc-170
+#
+# --with-clang
+# ************
+# If this flag is present, ``clang++`` ( ``clang`` )
+# will be used for the C++ (C) compiler.
+# This option cannot appear when the --enable-msvc option appears.
+#
+# --with-verbose-make
+# *******************
+# This will create verbose output during the make commands.
+#
+# max_num_threads
+# ***************
+# this specifies the value for the preprocessor symbol
+# :ref:`multi_thread@CPPAD_MAX_NUM_THREADS` .
+# It must be greater than or equal to four; i.e.,
+# *max_num_threads*  >= 4 .
+# The default value for this option is 64.
+#
+# cxx_flags
+# *********
+# If the command line argument *cxx_flags* is present,
+# it specifies compiler flags.
+# For example,
+#
+#    ``CXX_FLAGS`` = ``"-Wall -ansi"``
+#
+# would specify that warning flags ``-Wall``
+# and ``-ansi`` should be included
+# in all the C++ compile commands.
+# The error and warning flags chosen must be valid options
+# for the C++ compiler.
+# The default value for *cxx_flags* is the
+# empty string.
+#
+# postfix_dir
+# ***********
+# The default value for this directory is empty; i.e., there
+# is no postfix directory.
+# As an example of using the ``POSTFIX_DIR`` = *postfix_dir* option,
+# if you specify
+# ::
+#
+#    ./configure --prefix=/usr/local POSTFIX_DIR=coin
+#
+# the CppAD include files will be
+# :ref:`installed<configure@make install>` in the directory
+#
+#    / ``usr/local/include/coin-or/cppad``
+#
+# adolc_dir
+# *********
+# The default value for this directory is empty; i.e., there
+# is no adolc directory.
+# If you have
+# `ADOL-C <https://github.com/coin-or/ADOL-C>`_
+# installed on your system, you can
+# specify a value for *adolc_dir* in the
+# :ref:`configure@Configure` command line.
+# The value of *adolc_dir* must be such that
+#
+#    *adolc_dir* / ``include/adolc/adouble.h``
+#
+# is a valid way to reference ``adouble.h`` .
+# In this case, you can run the Adolc speed correctness tests
+# by executing the following commands starting in the build directory
+#
+#    make check_speed_adolc
+#
+# Note that these speed tests assume Adolc has been configure with
+# its sparse matrix computations enabled using
+#
+#    ``--with-colpack`` = *colpack_dir*
+#
+# where *colpack_dir* is the same as *adolc_dir* .
+#
+# Linux
+# =====
+# If you are using Linux,
+# you may have to add *adolc_dir* / ``lib`` to ``LD_LIBRARY_PATH`` .
+# For example, if you use the ``bash`` shell to run your programs,
+# you could include
+#
+# | |tab| ``LD_LIBRARY_PATH`` = *adolc_dir* / ``lib:$`` { ``LD_LIBRARY_PATH`` }
+# | |tab| ``export LD_LIBRARY_PATH``
+#
+# in your ``$HOME/.bash_profile`` file.
+#
+# Cygwin
+# ======
+# If you are using Cygwin,
+# you will have to add to following lines to the file
+# ``.bash_profile`` in your home directory:
+#
+# | |tab| ``PATH`` = *adolc_dir* / ``bin:$`` { ``PATH`` }
+# | |tab| ``export PATH``
+#
+# in order for Adolc to run properly.
+# If *adolc_dir* begins with a disk specification,
+# you must use the Cygwin format for the disk specification.
+# For example,
+# if ``d:/adolc_base`` is the proper directory,
+# ``/cygdrive/d/adolc_base`` should be used for *adolc_dir* .
+#
+# fadbad_dir
+# **********
+# The default value for this directory is empty; i.e., there
+# is no fadbad directory.
+# If you have
+# `Fadbad 2.1 <http://uning.dk//>`_
+# installed on your system, you can
+# specify a value for *fadbad_dir* .
+# It must be such that
+#
+#    *fadbad_dir* / ``include/FADBAD`` ++/ ``badiff.h``
+#
+# is a valid reference to ``badiff.h`` .
+# In this case, you can run the Fadbad speed correctness tests
+# by executing the following commands starting in the build directory:
+#
+#    make check_speed_fadbad
+#
+#
+# ipopt_dir
+# *********
+# The default value for this directory is empty; i.e., there
+# is no ipopt directory.
+# If you have
+# `Ipopt <https://coin-or.github.io/Ipopt>`_
+# installed on your system, you can
+# specify a value for *ipopt_dir* .
+# It must be such that
+#
+#    *ipopt_dir* / ``include/coin-or/IpIpoptApplication.hpp``
+#
+# is a valid reference to ``IpIpoptApplication.hpp`` .
+# In this case, the CppAD interface to Ipopt
+# examples can be built and tested
+# by executing the following commands starting in the build directory:
+#
+#    make check_cppad_ipopt
+#
+# Once this has been done, you can execute the program
+# ``cppad_ipopt_speed`` in the ``build/cppad_ipopt/speed`` directory;
+# see ``ipopt_ode_speed.cpp`` .
+#
+# sacado_dir
+# **********
+# The default value for this directory is empty; i.e., there
+# is no sacado directory.
+# If you have
+# `Sacado <https://trilinos.github.io/sacado.html>`_
+# installed on your system, you can
+# specify a value for *sacado_dir* .
+# It must be such that
+#
+#    *sacado_dir* / ``include/Sacado.hpp``
+#
+# is a valid reference to ``Sacado.hpp`` .
+# In this case, you can run the Sacado speed correctness tests
+# by executing the following commands starting in the build directory:
+# ::
+#
+#    make check_speed_sacado
+#
+# tape_addr_type
+# **************
+# The default value for this type is ``size_t`` .
+# If the command line argument *tape_addr_type* is present,
+# it specifies the type used for address in the AD recordings (tapes).
+# The valid values for this argument are
+# ``unsigned short int`` ,
+# ``unsigned int`` ,
+# ``size_t`` .
+# The smaller the value of *sizeof* ( ``tape_addr_type`` ) ,
+# the less memory is used.
+# On the other hand, the value
+#
+#    ``std::numeric_limits<`` *tape_addr_type* >:: ``max`` ()
+#
+# must be larger than any of the following:
+# :ref:`fun_property@size_op` ,
+# :ref:`fun_property@size_op_arg` ,
+# :ref:`size_par<fun_property@size_text>` ,
+# :ref:`fun_property@size_par` ,
+# :ref:`size_par<fun_property@size_VecAD>` .
+#
+# tape_id_type
+# ************
+# The default value for this type is ``size_t`` .
+# If the command line argument *tape_id_type* is present,
+# it specifies the type used for identifying tapes.
+# The valid values for this argument are
+# ``unsigned short int`` ,
+# ``unsigned int`` ,
+# ``size_t`` .
+# The smaller the value of *sizeof* ( ``tape_id_type`` ) ,
+# the less memory is used.
+# On the other hand, the value
+#
+#    ``std::numeric_limits<`` *tape_id_type* >:: ``max`` ()
+#
+# must be larger than the maximum number of tapes per thread
+# times :ref:`configure@max_num_threads` .
+#
+# make install
+# ************
+# Once you are satisfied that the tests are giving correct results,
+# you can install CppAD into easy to use directories by executing the command
+# ::
+#
+#    make install
+#
+# This will install CppAD in the location specified by
+# :ref:`configure@prefix_dir` .
+# You must have permission to write in the *prefix_dir*
+# directory to execute this command.
+# You may optionally specify a destination directory for the install; i.e.,
+#
+#    ``make install DESTDIR`` = *DestinationDirectory*
+#
+# {xrst_end configure}
+# ----------------------------------------------------------------------------
+function print_variable {
+   echo "$1 = ${!1}"
+}
+# ----------------------------------------------------------------------------
+#
+# --help
+if echo " $* " | grep ' --help ' > /dev/null
+then
+   cat << EOF
+usage: <path_to_configure>/configure \\
+   [--help] \\
+   [--prefix=<prefix_dir>] \\
+   [--with-<package>vector] \\
+   [--enable-msvc] \\
+   [--with-clang]  \\
+   [--with-verbose-make] \\
+   [MAX_NUM_THREADS=max_num_threads] \\
+   [CXX_FLAGS=cxx_flags] \\
+   [POSTFIX_DIR=postfix_dir] \\
+   [ADOLC_DIR=adolc_dir] \\
+   [FADBAD_DIR=fadbad_dir] \\
+   [SACADO_DIR=sacado_dir] \\
+   [IPOPT_DIR=ipopt_dir] \\
+   [TAPE_ADDR_TYPE=tape_addr_type] \\
+   [TAPE_ID_TYPE=tape_id_type]
+The --help option just prints this message and exits.
+<package> is one of he following: boost, eigen, std
+
+EOF
+   exit 0
+fi
+# ----------------------------------------------------------------------------
+first_executable() {
+   first_executable_result=''
+   while [ "$first_executable_result" == '' ] && [ "$1" != '' ]
+   do
+      if which $1 >& /dev/null
+      then
+         first_executable_result="$(which $1)"
+      fi
+      shift
+   done
+}
+# ----------------------------------------------------------------------------
+#
+prefix="$HOME"
+testvector='cppad'
+enable_msvc='no'
+with_clang='n0'
+with_verbose_make='no'
+max_num_threads='64'
+cxx_flags=''
+postfix_dir='NOTFOUND'
+adolc_dir='NOTFOUND'
+fadbad_dir='NOTFOUND'
+sacado_dir='NOTFOUND'
+ipopt_dir='NOTFOUND'
+tape_addr_type='size_t'
+tape_id_type='size_t'
+while [ "$#" != 0 ]
+do
+   case "$1" in
+
+      --prefix=*)
+      prefix=$( echo $1 | sed -e 's|^--prefix=||' )
+      ;;
+
+      --with-boostvector)
+      testvector='boost'
+      ;;
+
+      --with-eigenvector)
+      testvector='eigen'
+      ;;
+
+      --with-stdvector)
+      testvector='std'
+      ;;
+
+      --with-clang)
+      with_clang='yes'
+      ;;
+
+      --enable-msvc)
+      enable_msvc='yes'
+      ;;
+
+      --with-verbose-make)
+      with_verbose_make='yes'
+      ;;
+
+      MAX_NUM_THREADS=*)
+      max_num_threads=$( echo $1 | sed -e 's|MAX_NUM_THREADS=||' )
+      ;;
+
+      CXX_FLAGS=*)
+      cxx_flags=$( echo $1 | sed -e 's|CXX_FLAGS=||' )
+      ;;
+
+      POSTFIX_DIR=*)
+      postfix_dir=$( echo $1 | sed -e 's|POSTFIX_DIR=||' )
+      ;;
+
+      ADOLC_DIR=*)
+      adolc_dir=$( echo $1 | sed -e 's|ADOLC_DIR=||' )
+      ;;
+
+      FADBAD_DIR=*)
+      fadbad_dir=$( echo $1 | sed -e 's|FADBAD_DIR=||' )
+      ;;
+
+      SACADO_DIR=*)
+      sacado_dir=$( echo $1 | sed -e 's|SACADO_DIR=||' )
+      ;;
+
+      IPOPT_DIR=*)
+      ipopt_dir=$( echo $1 | sed -e 's|IPOPT_DIR=||' )
+      ;;
+
+      TAPE_ADDR_TYPE=*)
+      tape_addr_type=$( echo $1 | sed -e 's|TAPE_ADDR_TYPE=||' )
+      ;;
+
+      TAPE_ID_TYPE=*)
+      tape_id_type=$( echo $1 | sed -e 's|TAPE_ID_TYPE=||' )
+      ;;
+
+      *)
+      echo "configure: '$1' is not a valid option. Use following to get help:"
+      echo "$0 --help"
+      exit 1
+   esac
+   shift
+done
+if [ "$with_clang" == 'yes' ] && [ "$enable_msvc" == 'yes' ]
+then
+   echo 'configure: cannot specify both --enable-mcvc and --with-clang'
+   exit 1
+fi
+# ----------------------------------------------------------------------------
+# type_makefile
+if [ "$enable_msvc" == 'yes' ]
+then
+   type_makefile='NMake Makefiles'
+else
+   if [[ $(uname -s) =~ ^MSYS_.* ]]
+   then
+      type_makefile='MSYS Makefiles'
+   else
+      type_makefile='Unix Makefiles'
+   fi
+fi
+#
+# cxx_standard_year
+if echo $cxx_flags | grep 'std=c++' > /dev/null
+then
+   cxx_standard_year=$(echo $cxx_flags | sed -e 's|.*std=c++\([0-9]*\).*|\1|')
+   print_variable cxx_standard_year
+   if [ "$cxx_standard_year"  -lt 17 ]
+   then
+      if [ "$sacado_dir" != 'NOTFOUND' ]
+      then
+         echo 'Sacado requires c++17 or greater'
+         exit 1
+      fi
+   fi
+fi
+#
+# cmake_cxx_compiler
+cmake_cxx_compiler=''
+if [ "$enable_msvc" == 'yes' ]
+then
+   first_executable icl cl g++
+else
+   first_executable g++ clang++ CC pgCC icpc gpp cxx cc++
+fi
+if [ "$with_clang" == 'yes' ]
+then
+   cmake_cxx_compiler='-D CMAKE_CXX_COMPILER=clang++'
+elif [ "$first_executable_result" != '' ]
+then
+   cmake_cxx_compiler="-D CMAKE_CXX_COMPILER=$first_executable_result"
+fi
+#
+# cmake_c_compiler
+cmake_c_compiler=''
+if [ "$enable_msvc" == 'yes' ]
+then
+   first_executable icl cl gcc
+else
+   first_executable gcc clang cc pgcc icc
+fi
+if [ "$with_clang" == 'yes' ]
+then
+   cmake_c_compiler='-D CMAKE_C_COMPLIER=clang'
+elif [ "$first_executable_result" != '' ]
+then
+   cmake_c_compiler="-D CMAKE_C_COMPILER=$first_executable_result"
+fi
+#
+# CMAKE_Fortran_COMPILER
+cmake_fortran_compiler=''
+if [ "$enable_msvc" == 'yes' ]
+then
+   first_executable ifort gfortran
+else
+   first_executable gfortran ifort g95 fort77 f77 g77 pgf90 pgf77 ifc frt af77
+fi
+if [ "$first_executable_result" != '' ]
+then
+   cmake_fortran_compiler="-D CMAKE_Fortan_COMPILER=$first_executable_result"
+fi
+#
+# source_dir
+source_dir=$( echo $0 | sed -e 's|/configure$||' )
+if [ "$source_dir" == "$0" ] || [ "$source_dir" == '.' ]
+then
+   echo 'configure: cannot run configure in the current working directory'
+   pwd
+   exit 1
+fi
+PKG_CONFIG_PATH=''
+#
+# include_$package, PKG_CONFIG_PATH
+for package in adolc ipopt
+do
+   package_dir="${package}_dir"
+   if [ "${!package_dir}" == NOTFOUND ]
+   then
+      declare include_${package}='false'
+   else
+      declare include_${package}='true'
+      pc_file="$package.pc"
+      if [ "$package" == eigen ]
+      then
+         pc_file='eigen3.pc'
+      fi
+      pc_path=$(find ${!package_dir} -name "$pc_file" | head -1)
+      if [ "$pc_path" == '' ]
+      then
+         echo "$package_dir = ${!package_dir}"
+         echo "But cannot find $pc_file below that directory"
+         exit 1
+      fi
+      pc_dir=$(echo $pc_path | sed -e "s|/$pc_file||")
+      if [ -z ${PKG_CONFIG_PATH+x} ]
+      then
+         export PKG_CONFIG_PATH="$pc_dir"
+      elif [ "$PKG_CONFIG_PATH" == '' ]
+      then
+         export PKG_CONFIG_PATH="$pc_dir"
+      else
+         PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$pc_dir"
+      fi
+   fi
+   print_variable PKG_CONFIG_PATH
+done
+#
+# cppad_cxx_flags
+cppad_cxx_flags=$( echo " $cxx_flags " | sed -e 's| -g ||' )
+#
+# cmake_install_libdirs
+cmake_install_libdirs='lib;lib64'
+if [ -d '/usr/lib64' ]
+then
+   cmake_install_libdirs='lib64;lib'
+fi
+list='
+   build.ninja
+   CMakeCache.txt
+   CMakeFiles
+'
+for name in $list
+do
+   if [ -e "$name" ]
+   then
+      echo_eval rm -r $name
+   fi
+done
+echo cmake \
+   -U .+ \
+   -S "$source_dir" \
+   -B . \
+   \
+   -D CMAKE_VERBOSE_MAKEFILE=$with_verbose_make \
+   -G "'$type_makefile'" \
+   \
+   $cmake_c_compiler \
+   $cmake_fortran_compiler \
+   \
+   -D cppad_prefix="$prefix" \
+   -D cppad_postfix="$postfix_dir" \
+   \
+   -D cmake_install_includedirs=include \
+   -D cmake_install_libdirs=$cmake_install_libdirs \
+   \
+   -D cmake_install_datadir=share \
+   -D cmake_install_docdir=share/doc \
+   \
+   -D include_adolc=$include_adolc \
+   -D include_ipopt=$include_ipopt \
+   -D include_cppadcg=false \
+   \
+   -D colpack_prefix='NOTFOUND' \
+   -D fadbad_prefix="$fadbad_dir" \
+   -D sacado_prefix="$sacado_dir" \
+   \
+   -D cppad_cxx_flags="$cxx_flags" \
+   -D cppad_profile_flag='' \
+   -D cppad_testvector="$testvector"  \
+   -D cppad_max_num_threads="$max_num_threads" \
+   -D cppad_tape_id_type="$tape_id_type" \
+   -D cppad_tape_addr_type="$tape_addr_type" \
+   -D cppad_debug_which='debug_none' \
+   -D cppad_debug_and_release='true'
+#
+cmake \
+   -U .+ \
+   -S "$source_dir" \
+   -B . \
+   \
+   -D CMAKE_VERBOSE_MAKEFILE=$with_verbose_make \
+   -G "$type_makefile" \
+   \
+   $cmake_cxx_compiler \
+   $cmake_fortran_compiler \
+   \
+   -D cppad_prefix="$prefix" \
+   -D cppad_postfix="$postfix_dir" \
+   \
+   -D cmake_install_includedirs=include \
+   -D cmake_install_libdirs=$cmake_install_libdirs \
+   \
+   -D cmake_install_datadir=share \
+   -D cmake_install_docdir=share/doc \
+   \
+   -D include_adolc=$include_adolc \
+   -D include_ipopt=$include_adolc \
+   -D include_cppadcg=false \
+   \
+   -D colpack_prefix='NOTFOUND' \
+   -D fadbad_prefix="$fadbad_dir" \
+   -D sacado_prefix="$sacado_dir" \
+   \
+   -D cppad_cxx_flags="$cxx_flags" \
+   -D cppad_profile_flag='' \
+   -D cppad_testvector="$testvector"  \
+   -D cppad_max_num_threads="$max_num_threads" \
+   -D cppad_tape_id_type="$tape_id_type" \
+   -D cppad_tape_addr_type="$tape_addr_type" \
+   -D cppad_debug_which='debug_none' \
+   -D cppad_debug_and_release='true'
+# ----------------------------------------------------------------------------
+echo 'configure: OK'
+exit 0

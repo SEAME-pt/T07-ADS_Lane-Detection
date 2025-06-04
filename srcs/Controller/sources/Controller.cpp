@@ -1,11 +1,19 @@
 #include <Controller.hpp>
+#include "SpeedSubscriber.hpp"
 #include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <chrono>
+#include <sstream>
 
 Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK) {
     // Initialize SDL for joystick input
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0) {
         throw std::runtime_error("Failed to initialize SDL2 Joystick: " + std::string(SDL_GetError()));
     }
+
+    // Initialize speedController
+    speedPIDController = new SpeedPIDController();
 
     int joystickCount = SDL_NumJoysticks();
     std::cout << "Number of joysticks connected: " << joystickCount << std::endl;
@@ -23,14 +31,27 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
         throw std::runtime_error("No joystick detected.");
     }
 
+    speed.start([this](float speed) {
+        currentSpeed.store(speed, std::memory_order_relaxed);
+    });
+
     // Setup video streaming pipeline
     std::string pipeline = "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
-                          "rtph264pay ! udpsink host=192.168.43.190 port=5000 sync=false";
+                          "rtph264pay ! udpsink host=239.255.0.1 port=5000 sync=false";
     video_writer.open(pipeline, cv::CAP_GSTREAMER, 0, 30.0, cv::Size(640, 360), true);
     if (!video_writer.isOpened()) {
         throw std::runtime_error("Failed to open VideoWriter for streaming!");
     }
     std::cout << "Streaming started at udp://0.0.0.0:5000" << std::endl;
+    std::cout << '<gst-launch-1.0 -v udpsrc udpsrc address=239.255.0.1 port=5000 caps="application/x-rtp, payload=96, encoding-name=H264" ! rtph264depay ! decodebin ! videoconvert ! autovideosink sync=false< std::endl;' << std::endl;
+
+    // Initialize CSV file
+    csv_file_.open("lane_detection_log.csv", std::ios::out | std::ios::app);
+    if (!csv_file_.is_open()) {
+        throw std::runtime_error("Failed to open CSV file for writing!");
+    }
+    // Write CSV header
+    csv_file_ << "Timestamp,CurrentSpeed,SteeringAngle,LaneAngle,Offset,ImageFilename\n";
 }
 
 Controller::~Controller() {
@@ -38,6 +59,10 @@ Controller::~Controller() {
         SDL_JoystickClose(joystick);
     }
     SDL_Quit();
+    // Close CSV file
+    if (csv_file_.is_open()) {
+        csv_file_.close();
+    }
 }
 
 void Controller::setButtonAction(int button, Actions actions) {
@@ -49,12 +74,13 @@ void Controller::setAxisAction(int axis, std::function<void(int)> action) {
 }
 
 void Controller::processEvent(const SDL_Event& event) {
+    // Unchanged from original
     if (event.type == SDL_JOYBUTTONDOWN || event.type == SDL_JOYBUTTONUP) {
         bool isPressed = (event.type == SDL_JOYBUTTONDOWN);
         int button = event.jbutton.button;
 
         if (button < static_cast<int>(buttonStates.size())) {
-            std::cout << "Button " << button << " " << (isPressed ? "pressed" : "released") << std::endl;
+            // std::cout << "Button " << button << " " << (isPressed ? "pressed" : "released") << std::endl;
             buttonStates[button] = isPressed;
             if (buttonActions.find(button) != buttonActions.end()) {
                 if (isPressed && buttonActions[button].onPress) {
@@ -67,14 +93,14 @@ void Controller::processEvent(const SDL_Event& event) {
     } else if (event.type == SDL_JOYAXISMOTION && _currentMode != MODE_AUTONOMOUS) {
         int axis = event.jaxis.axis;
         int value = event.jaxis.value;
-        std::cout << "Axis " << axis << " moved to " << value << std::endl;
+        // std::cout << "Axis " << axis << " moved to " << value << std::endl;
         if (axisActions.find(axis) != axisActions.end()) {
             axisActions[axis](value);
         }
     } else if (event.type == SDL_JOYAXISMOTION && _currentMode == MODE_AUTONOMOUS) {
         int axis = event.jaxis.axis;
         int value = event.jaxis.value;
-        std::cout << "Axis " << axis << " moved to " << value << std::endl;
+        // std::cout << "Axis " << axis << " moved to " << value << std::endl;
         if (axisActions.find(axis) != axisActions.end() && axis == 3) {
             axisActions[axis](value);
         }
@@ -114,7 +140,6 @@ void Controller::listen() {
         }
 
         if (_currentMode == MODE_AUTONOMOUS) {
-            std::cout << "Autonomous mode activated!" << std::endl;
             autonomous();
         }
 
@@ -132,7 +157,7 @@ void Controller::listen() {
 }
 
 Controller::State Controller::kinematicModel(const State& state, float delta, float a) {
-    // Kinematic bicycle model to predict next state
+    // Unchanged from original
     State next;
     next.x = state.x + state.v * std::cos(state.theta) * DT;
     next.y = state.y + state.v * std::sin(state.theta) * DT;
@@ -142,11 +167,10 @@ Controller::State Controller::kinematicModel(const State& state, float delta, fl
 }
 
 void Controller::setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref) {
-    // Initialize cost matrices
+    // Unchanged from original
     H.setZero();
     f.setZero();
 
-    // Populate cost function for QP problem
     for (int i = 0; i < N; ++i) {
         H(i, i) = Q_y;                // Penalize lateral offset
         H(N + i, N + i) = Q_theta;    // Penalize heading error
@@ -156,7 +180,6 @@ void Controller::setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const
         f(N + i) = -Q_theta * theta_ref[i]; // Linear term for angle
     }
 
-    // Add penalty for steering rate of change
     for (int i = 1; i < N; ++i) {
         H(2 * N + i, 2 * N + i) += R_d_delta;
         H(2 * N + i - 1, 2 * N + i - 1) += R_d_delta;
@@ -164,19 +187,17 @@ void Controller::setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const
 }
 
 Eigen::VectorXd Controller::solveMPC(const State& initial_state, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref) {
-    int n_vars = 4 * N;  // Variables: y, theta, delta, a for each timestep
+    // Unchanged from original
+    int n_vars = 4 * N;
     Eigen::MatrixXd H(n_vars, n_vars);
     Eigen::VectorXd f(n_vars);
 
     setupCostFunction(H, f, y_ref, theta_ref);
 
-    // Temporary proportional control until OSQP is integrated
     Eigen::VectorXd control_sequence(2);
-    // Steering: Use offset and average predicted angle for curve anticipation
     float steering = (0.5f * y_ref[0]) + (2.0f * theta_ref.mean());
     control_sequence[0] = steering;
 
-    // Throttle: Base speed adjusted by predicted curvature
     float base_throttle = 0.8f;
     float throttle = base_throttle - 0.05f * fabs(theta_ref.mean());
     control_sequence[1] = throttle;
@@ -196,24 +217,23 @@ void Controller::autonomous() {
     float offset, angle;
     tracker.mark();
     laneDetector->processFrame(frame, offset, angle, output_frame, true);
-    
-    //tracker.mark();
-    
 
     // Calculate rate of change of angle to predict curve
     float angle_rate = (angle - prev_angle) / DT;  // deg/s
     prev_angle = angle;
 
     // Convert to MPC inputs
-    float y_ref = offset * (1.0f/640.0f);  // Convert pixels to meters (adjust scale if needed)
-    float theta_ref = angle * (CV_PI / 180.0f);  // Convert degrees to radians
+    float y_ref = offset * (1.0f / 640.0f);  // Convert pixels to meters (adjust scale if needed)
+    float theta_ref = -angle * (CV_PI / 180.0f);  // Invert angle to correct for possible detection error
 
-    // Predict future trajectory over horizon
+    // Predict future trajectory over horizon with dynamic offset
     Eigen::VectorXd y_ref_vec(N);
     Eigen::VectorXd theta_ref_vec(N);
     for (int i = 0; i < N; ++i) {
         float t = i * DT;
-        y_ref_vec[i] = y_ref;  // Assume constant offset for simplicity (can add offset_rate if desired)
+        // Extrapolate offset based on current offset and angle (assuming constant speed and curvature)
+        float dy = (current_state_.v * t * std::sin(theta_ref)) / 640.0f;  // Approximate lateral shift in meters
+        y_ref_vec[i] = y_ref + dy;  // Update offset over time
         theta_ref_vec[i] = theta_ref + (angle_rate * (CV_PI / 180.0f) * t);  // Linear extrapolation of angle
     }
 
@@ -224,23 +244,28 @@ void Controller::autonomous() {
 
     // Apply constraints
     float steering = std::max(-MAX_DELTA, std::min(MAX_DELTA, delta));  // Limit to ±90 deg in radians
-    float throttle = std::max(0.2f, std::min(0.8f, a));  // Throttle range adjusted
+    //std::cout << "Final steering calculation " << (steering * (180.0f / CV_PI)) << std::endl;
+    jetCar->set_servo_angle(static_cast<int>(steering * (180.0f / CV_PI)));  // Convert radians to degrees
 
     // Update vehicle state
-    current_state_ = kinematicModel(current_state_, steering, throttle);
+    current_state_ = kinematicModel(current_state_, steering, a);
+
+    // Log data to CSV (unchanged)
+    auto now = std::chrono::system_clock::now();
+    auto timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    {
+        std::lock_guard<std::mutex> lock(csv_mutex_);
+        csv_file_ << timestamp_ms << ","
+                  << std::fixed << std::setprecision(2) << currentSpeed.load(std::memory_order_relaxed) << ","
+                  << (steering * 180.0f / CV_PI) << ","
+                  << angle << ","
+                  << offset << "\n";
+        csv_file_.flush();
+    }
 
     tracker.mark();
-    std::cout << "Delta: " << tracker.delta() << " microseconds" << std::endl;
-    // Apply controls to JetCar
-    jetCar->set_servo_angle(steering * (180.0f / CV_PI));  // Convert radians to degrees for JetCar
-    jetCar->set_motor_speed(throttle * 35);  // Scale throttle to match expected range
-
-    // Output control values
-    //std::cout << "Steering: " << steering << " rad (" << (steering * 180.0f / CV_PI) << " deg), Throttle: " << throttle << std::endl;
-
-    video_writer.write(output_frame);  // Stream the output frame
+    video_writer.write(output_frame);
 }
-
 void Controller::setLaneDetector(std::unique_ptr<LaneDetector> detector) {
     laneDetector = std::move(detector);
 }

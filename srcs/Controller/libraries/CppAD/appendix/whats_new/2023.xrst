@@ -1,0 +1,246 @@
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-24 Bradley M. Bell
+# ----------------------------------------------------------------------------
+
+{xrst_begin 2023 app}
+{xrst_spell
+   autotools
+   cstdint
+   kludge
+   kokkos
+   mingw
+   msys
+   pacman
+   trilinos
+   uintptr
+   usr
+   whithout
+}
+
+Release Notes for 2023
+######################
+
+mm-dd
+*****
+
+12-27
+=====
+Fix link in :ref:`user_guide@Software Engineering` paragraph.
+
+12-24
+=====
+Change the ``CPPAD_DEBUG_AND_RELEASE`` compiler flag to the cmake
+:ref:`cmake@cppad_debug_and_release` configuration flag.
+This changed the default behavior for compiling the CppAD library
+so that it allows for mixing debug and release code.
+
+09-08
+=====
+#. Add the :ref:`cmake@cppad_static_lib` option to the install.
+#. Fix warning (on some newer compilers) when a :ref:`CppAD_vector@vectorBool`
+   constructor specified the number of elements using a signed integer.
+
+08-19
+=====
+Add :ref:`numeric_limits@max_digits10` to the AD numeric limits.
+If you define your own Base type, and you do not use the
+:ref:`base_limits@CPPAD_NUMERIC_LIMITS` macro,
+you will have to add ``max_digits10`` to your Base type's numeric limits.
+
+08-12
+=====
+#. There was a bug in the to_csrc :ref:`to_csrc@compare_change` argument.
+   To be specific, it was not adding to the input value but rather
+   reporting the number of changes during a call.
+   This has been fixed and demonstrated in the
+   :ref:`jit_compare_change.cpp-name` example.
+#. A :ref:`link_dll_lib@fun_ptr@Warning !!` was added to the documentation
+   for function pointers created by the dll linker.
+   (This fact did not stand out as much in the previous documentation.)
+
+08-10
+=====
+#. The :ref:`parallel_ad-name` routine was missing some initializations.
+   This has been fixed. In addition, a list of
+   :ref:`parallel_ad@Other Initialization` ,
+   that must be initialized before using in parallel mode,
+   was included in the documentation.
+#. There was a bug introduce on :ref:`2023@mm-dd@06-20` when the
+   val_graph branch was merged into the master. To be more specific,
+   if :ref:`cmake@cppad_tape_addr_type` was ``size_t`` ,
+   a compile error occurred one of the ``is_pod`` definitions.
+   This has been fixed.
+
+08-09
+=====
+The :ref:`cmake@cmake_build_type` option was changed to not be case
+sensitive; e.g., you can now use ``debug`` or ``Debug`` for this option.
+
+08-06
+=====
+Add the cumulative summation operator to the :ref:`to_csrc-name` conversion.
+The cumulative summation operator can occur during optimization.
+Not having this operator seemed like a bug when NDEBUG was true
+because one got no warning that the operator did not get converted.
+
+07-29
+=====
+Add the CppAD vector :ref:`CppAD_vector@Comparison` operators
+and size with :ref:`CppAD_vector@Size Constructor@Value` constructor.
+
+06-20
+=====
+#. Add ``unsigned int`` as a valid type for the CppAD vector
+   :ref:`CppAD_vector@Size Constructor` and
+   :ref:`CppAD_vector@resize` argument.
+
+#. Merge in the val_graph Branch:
+
+   #. Add :ref:`optimize@options@val_graph` to the
+      list of possible optimizer options.
+   #. Add the :ref:`speed_main@Global Options@val_graph`
+      option to the speed tests. This option has been implemented
+      with all of the :ref:`speed_cppad-name` tests.
+   #. Simplify :ref:`atomic_four_lin_ode_rev_depend.cpp-name`
+      and add m to the
+      `atomic_four_lin_ode_rev_depend.cpp@Problem Parameters`
+      that can be changed.
+   #. Fix the title of the
+      :ref:`atomic_four_lin_ode_base_solver.hpp-title` section.
+   #. Change all the atomic_four :ref:`examples <atomic_four_example-name>`
+      that use :ref:`optimize-name` to include the ``val_graph`` option.
+
+06-13
+=====
+Change the :ref:`cppad_det_minor.cpp-name` speed test to use the
+:ref:`optimize@options@no_cumulative_sum_op` optimization option
+(because it is faster for this case).
+
+06-10
+=====
+#. The autotools configure script has been replaced by
+   :ref:`configure-name` which just maps the configure script interface
+   to the :ref:`cmake-name` interface.
+   The corresponding autotools files were removed.
+#. In some cases there was a problem linking the adolc library to the
+   :ref:`speed_adolc-name` tests. This has been fixed.
+
+06-07
+=====
+Add links to
+:ref:`Install@Generator`, :ref:`Install@cppad.spec`,  and :ref:`Install@xrst`
+in the CppAD install instructions.
+
+06-04
+=====
+Fix a warning form the Trilinos Kokkos package when including
+:ref:`sacado_prefix-name` on the cmake command line.
+
+06-01
+=====
+The ``cmake_needs_dot_slash`` symbol was removed from the cmake command line.
+It was a kludge for msys2 systems.
+The proper fix is to use
+{xrst_code sh}
+   pacman -S mingw-w64-x86_64-cmake
+{xrst_code}
+( not use ``pacman -S cmake`` )
+to install cmake on an msys2 system.
+
+05-31
+=====
+There was an error building the old version of the sacado library using
+:ref:`get_sacado.sh-name` with g++-13.1.1.
+This has been fixed by advancing to trilinos-14-0-0
+and patching one of its include files; see trilinos issue
+`11923 <https://github.com/trilinos/Trilinos/issues/11923>`_ .
+
+05-19
+=====
+Fix ``uintptr_t`` not defined (on some systems) by adding the following
+before using it: ``# include <cstdint>`` .
+
+05-18
+=====
+Remove the unnecessary include directory ``/usr/include``
+from the :ref:`speed_cppad_jit-name` speed tests.
+This was including multiple versions of some system include files
+on the msys system.
+
+04-17
+=====
+Extend the CppAD::vector CppAD::vectorBool template classes so that the
+:ref:`CppAD_vector@resize` argument can be an ``int``
+(this was causing a warning with the clang++ compiler).
+Also extend :ref:`CppAD_vector@vectorBool` so that any index type,
+that can be converted to size_t, can be used to access elements
+(whithout a clang++ warning).
+
+04-01
+=====
+Extend index_sort so that the
+:ref:`index_sort@ind` vector can have elements of any integral type.
+
+03-04
+=====
+There were some problems running :ref:`cmake_check-name` when
+:ref:`cmake@include_ipopt` was true
+(and certain combination of other cmake options).
+This has been fixed.
+
+
+02-08
+=====
+A :ref:`Discrete-name` function is now initialized
+by the ``CPPAD_DISCRETE_FUNCITON`` macro instead of later
+the first time it is used.
+
+02-07
+=====
+The atomic four rev_depend argument
+:ref:`atomic_four_rev_depend@ident_zero_x` was not catching
+all the identically zero values.
+This has been fixed.
+It was not a bug but was not as efficient when
+an atomic four function used this information to reduce the work.
+
+02-05
+=====
+Merge in pull request 168.
+This fixes an issue with :ref:`link_dll_lib-name`
+on windows when building with unicode.
+
+01-15
+=====
+The following atomic four ``rev_depend`` problems have been fixed.
+
+#. The atomic four :ref:`atomic_four_rev_depend@ident_zero_x` argument
+   can be used to reduce the number of depend_x (not depend_y) values.
+#. The *ident_zero_x* argument should have been ``const`` in the prototype.
+#. The :ref:`atomic_four_vector-name` and
+   :ref:`atomic_four_mat_mul-name` examples used the
+   :ref:`atomic_four_rev_depend@Syntax@Deprecated 2022-05-10`
+   version of the ``rev_depend`` callback; i.e., the one without
+   the *ident_zero_x* argument.
+
+01-12
+=====
+Fix a problem with the documentation conversion on
+:ref:`2022@mm-dd@12-16` of 2022.
+To be specific:
+``name_1<`` *name_2* > was converted to ``name_1`` < *name_2* >
+
+
+01-11
+=====
+The :ref:`CppAD_vector@Initializer Constructor` was added to the
+``CppAD::vector`` template class.
+
+01-07
+=====
+Print an error message and exit from the cmake command when a
+:ref:`cmake@package_prefix` does not contain any include directories
+or libraries.
+
+{xrst_end 2023}

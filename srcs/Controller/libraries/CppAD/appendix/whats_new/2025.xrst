@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell  <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-25 Bradley M. Bell
+# ----------------------------------------------------------------------------
+
+{xrst_begin 2025 app}
+{xrst_spell
+   dll
+   jit
+   rpath
+   msys
+}
+
+Release Notes for 2025
+######################
+
+mm-dd
+*****
+
+04-18
+=====
+Increase size of matrices in the
+:ref:`det_minor<link_det_minor-name>` speed tests.
+
+04-01
+=====
+Fix a :ref:`conditional expressions<CondExp-name>`  bug that affect
+:ref:`optimize-name` and :ref:`subgraph_sparsity-name` .
+optimizing functions with
+
+03-21
+=====
+If :ref:`cmake@cppad_tape_addr_type` was chosen to be `size_t` ,
+a multiple definition of ``setup_random`` compiler error would occur.
+This has been fixed. 
+
+
+02-09
+=====
+Systems that use windows dll files,
+(msys, cygwin, and windows) would always build a static
+version of the cppad library; i.e., the
+`cmake@cppad_static_lib` flag was ignored in this case.
+This has been changed so that the cppad_static_lib flag is always respected.
+The default value for *cppad_static_lib* on msys, cygwin, and windows is true
+and on other systems it is false; i.e., if you do not specify cppad_static_lib
+you will get the same result as before this change.
+
+
+02-02
+=====
+The rpath in may not have been set properly in
+:ref:`cmake@cmake_install_libdirs@cppad_lib` because ``CMAKE_INSTALL_RPATH``
+was not set. This has been fixed its value is printed
+during the cmake command.
+
+01-24
+=====
+#. Fix linking the pthread examples ( e.g. :ref:`pthread_get_started.cpp-name` )
+   when the pthread library is in a non-standard location.
+#. Fix linking the standard thread examples
+   ( e.g. :ref:`sthread_get_started.cpp-name` )
+   when the standard thread library required the pthread library.
+
+01-17
+=====
+#. The :ref:`cmake@cppad_link_flags` option was added to the cmake command.
+
+#. The detection of when ``unsigned int`` and ``size_t`` were the same,
+   by the cmake command, was incorrect in cases where
+   the compiler flags affected this result.
+
+#. Fix some errors of the form *function_name*\ ``(unsigned int)``
+   cannot be overloaded with *function_name*\ ``(size_t)`` .
+
+#. The :ref:`dll_lib.cpp@Restrictions` ,
+   on when the dll_lib.cpp example is tested were documented.
+
+#. The :ref:`example_jit@Restrictions` was added to the
+   jit example documentation.
+
+01-10
+=====
+Split the external links at the top of the user guide into:
+:ref:`user_guide@Git Repository` ,
+:ref:`user_guide@Versions` ,
+:ref:`user_guide@Other Links` .
+
+{xrst_end 2025}

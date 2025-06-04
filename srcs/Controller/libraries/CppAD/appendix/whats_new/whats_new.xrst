@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-23 Bradley M. Bell
+# ----------------------------------------------------------------------------
+
+{xrst_begin whats_new app}
+
+CppAD Release Notes
+###################
+
+Introduction
+************
+The sections listed below contain a list of the changes to CppAD
+in reverse order by date.
+The purpose of these sections is to
+assist you in learning about changes between various versions of CppAD.
+{xrst_toc_hidden
+   appendix/whats_new/2025.xrst
+   appendix/whats_new/2024.xrst
+   appendix/whats_new/2023.xrst
+   appendix/whats_new/2022.xrst
+   appendix/whats_new/2021.xrst
+   appendix/whats_new/2020.xrst
+   appendix/whats_new/2019.xrst
+   appendix/whats_new/2018.xrst
+   appendix/whats_new/2017.xrst
+   appendix/whats_new/2016.xrst
+   appendix/whats_new/2015.xrst
+   appendix/whats_new/2014.xrst
+   appendix/whats_new/2013.xrst
+   appendix/whats_new/2012.xrst
+   appendix/whats_new/2011.xrst
+   appendix/whats_new/2010.xrst
+   appendix/whats_new/2009.xrst
+   appendix/whats_new/2008.xrst
+   appendix/whats_new/2007.xrst
+   appendix/whats_new/2006.xrst
+   appendix/whats_new/2005.xrst
+   appendix/whats_new/2004.xrst
+   appendix/whats_new/2003.xrst
+}
+
+This Year
+*********
+:ref:`2025-name`
+
+Previous Years
+**************
+:ref:`2024-name` ,
+:ref:`2023-name` ,
+:ref:`2022-name` ,
+:ref:`2021-name` ,
+:ref:`2020-name` ,
+:ref:`2019-name` ,
+:ref:`2018-name` ,
+:ref:`2017-name` ,
+:ref:`2016-name` ,
+:ref:`2015-name` ,
+:ref:`2014-name` ,
+:ref:`2013-name` ,
+:ref:`2012-name` ,
+:ref:`2011-name` ,
+:ref:`2010-name` ,
+:ref:`2009-name` ,
+:ref:`2008-name` ,
+:ref:`2007-name` ,
+:ref:`2006-name` ,
+:ref:`2005-name` ,
+:ref:`2004-name` ,
+:ref:`2003-name` .
+
+{xrst_end whats_new}

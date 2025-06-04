@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
+# SPDX-FileCopyrightText: Bradley M. Bell <bradbell@seanet.com>
+# SPDX-FileContributor: 2003-22 Bradley M. Bell
+# ----------------------------------------------------------------------------
+#
+# The following variable settings seem to by requried by the vcpkg packager,
+# see https://www.gnu.org/prep/standards/html_node/Directory-Variables.html
+# for the meaning of these variables.
+#
+prefix=@cppad_prefix@
+exec_prefix=${prefix}
+includedir=${prefix}/@cppad_includedir@
+libdir=${exec_prefix}/@cppad_libdir@
+#
+# See https://people.freedesktop.org/~dbn/pkg-config-guide.html
+# for the meaning of the settings below:
+#
+Name:                  cppad
+Description:           @cppad_description@
+Version:               @cppad_version@
+URL:                   @cppad_url@
+#
+Cflags:                -I${includedir}
+Libs:                  @cppad_libdir_list@ @cppad_lib_list@
+Requires:              @cppad_requires@
+Libs.private           @cppad_libs_private@
+Requires.private:      @cppad_requires_private@
