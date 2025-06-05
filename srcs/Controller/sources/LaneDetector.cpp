@@ -94,13 +94,19 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     // Step 3: Perform weighted linear regression to fit lines to edges
     double left_slope, left_intercept, right_slope, right_intercept;
     weightedLinearRegression(left_edges_, left_slope, left_intercept);
+	left_slope_ = left_slope;
+	left_intercept_ = left_intercept; // Reset right intercept to zero
     weightedLinearRegression(right_edges_, right_slope, right_intercept);
-    //std::cout << "Left  Line: slope = " << left_slope << " | intercept = " << left_intercept << " || " << "Right Line: slope = " << right_slope << " | intercept = " << right_intercept << std::endl;
+	right_slope_ = right_slope;
+	right_intercept_ = right_intercept; // Reset right intercept to zero
+    std::cout << "[" << __func__ << "] "
+				<< "Left : slope = " << left_slope << " | intercept = " << left_intercept
+				<< " || " << "Right : slope = " << right_slope << " | intercept = " << right_intercept << std::endl;
 
     // Step 4: Calculate offset and angle from the fitted lines
     float measured_offset, measured_angle;
     calculateOffsetAndAngle(left_slope, left_intercept, right_slope, right_intercept,
-                            roi_ey_ - 1, measured_offset, measured_angle);
+                            roi_ey_, measured_offset, measured_angle);
 	// std::cout << "[" << __func__ << "] "
 	// 		  << "Measured Offset: " << std::setw(6) << measured_offset
 	// 		  << " m, Measured Angle: " << std::setw(6) << measured_angle << " rad"
@@ -117,12 +123,12 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     angle = smoothed_angle;
 	//std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
 
-	// std::cout << "[" << __func__ << "] "
-	// 		  << "Offset: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_offset
-	// 		  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << offset << ") m"
-	// 		  << "Angle: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_angle
-	// 		  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << smoothed_angle << ") rad"
-	// 		  << '\r' << std::flush;
+	std::cout << "[" << __func__ << "] "
+			  << "Offset: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_offset
+			  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << offset << ") m"
+			  << "Angle: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_angle
+			  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << smoothed_angle << ") rad"
+			  << '\r' << std::flush;
 
 
     return true;
@@ -152,42 +158,54 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 
     for (int y = roi.y; y < roi.y + roi.height; ++y) {
         int left_x = -1, right_x = -1;
-		// std::cout << "[" << __func__ << "] "
-		// 		  << "Searching for left edges at y = " << y
-		// 		  << " in ROI: [ from x = " << roi.width /2 << " to x >= " << roi.x + MAX_SEARCH_DISTANCE << " ]"
-		// 		  << std::endl;
         for (int x = roi.width /2; x >= roi.x + ROI_X_BORDER; --x) {
             if (lane_mask.at<float>(y, x) > 0.5f) {
                 left_x = x;
-				// std::cout << "Left edge found at y = " << y << ", x = " << left_x << std::endl;
+				left_edges_.emplace_back(left_x, y);
                 break;
             }
         }
-		// std::cout << "[" << __func__ << "] "
-		// 		  << "Searching for right edges at y = " << y
-		// 		  << " in ROI: [ from x = " << roi.width /2 << " to x <= " << roi.x + MAX_SEARCH_DISTANCE << " ]"
-		// 		  << std::endl;
         for (int x = roi.width/2; x <= roi.width - ROI_X_BORDER; ++x) {
             if (lane_mask.at<float>(y, x) > 0.5f) {
                 right_x = x;
-				// std::cout << "Right edge found at y = " << y << ", x = " << right_x << std::endl;
+				right_edges_.emplace_back(right_x, y);
                 break;
             }
         }
-        if (left_x != -1 && right_x != -1 && left_x < right_x) {
-            left_edges_.emplace_back(left_x, y);
-            right_edges_.emplace_back(right_x, y);
-        }
+        // if (left_x != -1 && right_x != -1 && left_x < right_x) {
+        //     left_edges_.emplace_back(left_x, y);
+        //     right_edges_.emplace_back(right_x, y);
+        // }
     }
 	std::cout << "[" << __func__ << "] : "
 				<< "Found " << left_edges_.size() << " left edges and "
 				<< right_edges_.size() << " right edges in the ROI." << std::endl;
+	// Check if we found enough edges
+	if (left_edges_.size() < MIN_EDGE_POINTS || right_edges_.size() < MIN_EDGE_POINTS) {
+		std::cerr << "[" << __func__ << "] : "
+					<< "Not enough edge points found in ROI!" << std::endl;
+		return false; // Not enough edge points found
+	}
+	else {
+		std::cout << "[" << __func__ << "] : "
+				  << "Left edges: " << left_edges_.size()
+				  << ", Right edges: " << right_edges_.size() << std::endl;
+		std::cout << "[" << __func__ << "] : "
+				  << "Left edge first: (" << left_edges_[0].x << ", " << left_edges_[0].y << ")"
+				  << ", Right edge first: (" << right_edges_[0].x << ", " << right_edges_[0].y << ")"
+				  << std::endl;
+		std::cout << "[" << __func__ << "] : "
+				  << "Left edge last: (" << left_edges_.back().x << ", " << left_edges_.back().y << ")"
+				  << ", Right edge last: (" << right_edges_.back().x << ", " << right_edges_.back().y << ")"
+				  << std::endl;
+	}
+
     return !left_edges_.empty() && !right_edges_.empty();
 }
 
 void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
                                             double& slope, double& intercept) const {
-    if (edges.size() < 2) {
+    if (edges.size() < MIN_EDGE_POINTS) {
         slope = 0.0;
         intercept = frame_width_ / 2.0; // 320
         return;
@@ -195,7 +213,8 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
 
     double sum_w = 0.0, sum_wy = 0.0, sum_wx = 0.0, sum_wyy = 0.0, sum_wyx = 0.0;
     int start_y = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252
-    int end_y = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
+    int end_y = static_cast<int>(start_y + std::min(left_edges_.size(), right_edges_.size()));     // 360
+    // int end_y = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
     double range_y = end_y - start_y;
 
     for (const auto& pt : edges) {
@@ -226,18 +245,31 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
 void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
                                            double right_slope, double right_intercept,
                                            int y_bottom, float& offset, float& angle) const {
-    double x_left = left_slope * y_bottom + left_intercept;
-    double x_right = right_slope * y_bottom + right_intercept;
-    double x_mid = (x_left + x_right) / 2.0;
-    double x_center = frame_width_ / 2.0; // 320
+    double xl = left_slope_ * frame_height_ + left_intercept_;
+    double xr = right_slope_ * frame_height_ + right_intercept_;
+    double xm = ((xl + xr) / 2.0);
+    double xc = frame_width_ / 2.0; // 320
 
-    float offset_pixels = static_cast<float>(x_mid - x_center);
-    offset = offset_pixels * METER_PER_PIXEL;
 
+    float offset_pixels = static_cast<float>(xm - xc) + CAMERA_OFFSET;
+	if (std::abs(offset_pixels) < 1e-6) {
+		offset = 0.0f; // No offset
+	} else {
+		offset = static_cast<float>(offset_pixels * METER_PER_PIXEL);
+	}
+
+		std::cout << "[" << __func__ << "] : "
+				<< "Left edge at y=" << frame_height_
+				<< ", xl =" << xl
+				<< ", xm =" << xm
+				<< ", xr =" << xr
+				<< ", xc =" << xc
+				<< ", offset_pixels = " << offset_pixels
+				<< std::endl;
+	// Calculate the average slope of the left and right lines
     double avg_slope = (left_slope + right_slope) / 2.0;
     float angle_image = std::atan(avg_slope);
-    // angle = angle_image - static_cast<float>(CAMERA_TILT);
-    angle = angle_image;
+    angle = angle_image;// Adjust for camera tilt
     //std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
 
 }
@@ -249,32 +281,6 @@ void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle
     cv::Mat corrected = kf_.correct(measurement);
     smoothed_offset = corrected.at<float>(0);
     smoothed_angle = corrected.at<float>(1);
-}
-
-void LaneDetector::drawDebugInfo(cv::Mat* debug_img,
-                                 const std::vector<cv::Point>& left_edges,
-                                 const std::vector<cv::Point>& right_edges,
-                                 float offset, float angle) const {
-    if (debug_img->empty()) {
-        *debug_img = cv::Mat(frame_height_, frame_width_, CV_8UC3, cv::Scalar(0)); // 640x360
-    }
-    if (debug_img->type() != CV_8UC3) {
-        debug_img->convertTo(*debug_img, CV_8UC3);
-    }
-
-    for (const auto& pt : left_edges) {
-        cv::circle(*debug_img, pt, 2, cv::Scalar(0, 0, 255), -1);
-    }
-    for (const auto& pt : right_edges) {
-        cv::circle(*debug_img, pt, 2, cv::Scalar(0, 255, 0), -1);
-    }
-
-    int y_bottom = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT) - 1; // 359
-    int x_center = frame_width_ / 2; // 320
-    int x_mid = x_center + static_cast<int>(offset / METER_PER_PIXEL);
-    cv::line(*debug_img, cv::Point(x_mid, y_bottom),
-             cv::Point(x_mid - static_cast<int>(100 * std::tan(angle)), y_bottom - 100),
-             cv::Scalar(255, 255, 0), 2);
 }
 
 void LaneDetector::loadEngine(const std::string& trt_model_path) {
@@ -348,14 +354,16 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 
     double min_val, max_val;
     cv::minMaxLoc(lane_mask_, &min_val, &max_val);
-    std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
+    // Do not remove the comment below, it is useful for debugging
+    // std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
 
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
     cv::Scalar mean_intensity = cv::mean(gray);
     float brightness = mean_intensity[0];
     float threshold = brightness < 100 ? 0.1 : 0.3; // Even lower for yellow
-    std::cout << "["<<__func__<< "] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
+    // Do not remove the comment below, it is useful for debugging
+	// std::cout << "["<<__func__<< "] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
 
     cv::Mat binary_mask;
     cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);

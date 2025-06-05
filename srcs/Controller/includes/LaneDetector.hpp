@@ -30,11 +30,14 @@ static constexpr int I_W = 256;
 static constexpr int I_H = 128;
 static constexpr int F_W = 640; // Frame width
 static constexpr int F_H = 360; // Frame height
-static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 70% of image height
-static constexpr float ROI_EY_PERCENT = 0.9f;   // ROI ends at 100% of image height
+static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 50% of image height
+static constexpr float ROI_EY_PERCENT = 0.9f;   // ROI ends at 90% of image height
 static constexpr double METER_PER_PIXEL = 0.0005556; // Example scale factor, should be calibrated [m/pixel]
 static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
 static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
+static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calculation
+static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation
+
 
 class Logger : public nvinfer1::ILogger {
 public:
@@ -70,10 +73,10 @@ private:
                                  int y_bottom, float& offset, float& angle) const;
     void applyKalmanFilter(float measured_offset, float measured_angle,
                            float& smoothed_offset, float& smoothed_angle);
-    void drawDebugInfo(cv::Mat* debug_img, const std::vector<cv::Point>& left_edges,
-                       const std::vector<cv::Point>& right_edges,
-                       float offset, float angle) const;
-	double calculateDistance(int pixel_y, int x_length) const;
+    // void drawDebugInfo(cv::Mat* debug_img, const std::vector<cv::Point>& left_edges,
+    //                    const std::vector<cv::Point>& right_edges,
+    //                    float offset, float angle) const;
+	// double calculateDistance(int pixel_y, int x_length) const;
 
     // TensorRT
     std::unique_ptr<nvinfer1::IRuntime> runtime_;
@@ -129,15 +132,19 @@ private:
 	// This helps to maintain a consistent lane detection experience.
 	float last_left_edge_ = -1.0f;  // Store last known left edge position
     float last_right_edge_ = -1.0f; // Store last known right edge position
-
+	float left_slope_ = 0.0f;  // Slope of the left lane line
+	float right_slope_ = 0.0f; // Slope of the right lane line
+	float left_intercept_ = 0.0f;  // Intercept of the left lane line
+	float right_intercept_ = 0.0f; // Intercept of the right lane line
 
         // Fixed parameters as constants
     static constexpr double CAMERA_TILT = 0.296706; // 17 degrees in radians (17 * pi/180)
     static constexpr double CAMERA_HEIGHT = 0.15;   // 15 cm in meters
+	static constexpr double CAMERA_OFFSET = 20; // Offset in pixels, adjust if needed
     // static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
     static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
     static constexpr float ROI_START_Y_PERCENT = 0.5f; // ROI starts at 50% of image height
-    static constexpr float ROI_END_Y_PERCENT = 0.8f;   // ROI ends at 80% of image height
+    static constexpr float ROI_END_Y_PERCENT = 0.9f;   // ROI ends at 80% of image height
     static constexpr int MAX_SEARCH_DISTANCE = 310;    // Max distance (pixels) to search for edges
 	static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
 	static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation

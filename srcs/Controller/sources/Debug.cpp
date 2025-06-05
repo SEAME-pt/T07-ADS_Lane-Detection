@@ -181,6 +181,8 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
     for (const auto& pt : centers) {
         cv::circle(output_frame, pt, 4, cv::Scalar(0, 255, 255), -1);
     }
+	// >>>>> CURRENT *****************************************************
+
     if (centers.size() >= 3) {
         float sum_w = 0, sum_y = 0, sum_x = 0, sum_yx = 0, sum_yy = 0;
         for (size_t i = 0; i < centers.size(); ++i) {
@@ -203,6 +205,20 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
             cv::line(output_frame, pt1, pt2, cv::Scalar(255, 0, 255), 2);
         }
     }
+	// <<<<< *****************************************************
+
+	// >>>>> INCOME *****************************************************
+	// // sugestao para desenhar as linhas da faixa no debugger
+	// // *****************************************************
+	// cv::Point lpt1(left_slope_ * roi_sy_ + left_intercept_, roi_sy_);
+	// cv::Point lpt2(left_slope_ * roi_ey_ + left_intercept_, roi_ey_);
+	// cv::line(output_frame, lpt1, lpt2, cv::Scalar(255, 0, 255), 2);
+	// // *****************************************************
+	// cv::Point rpt1(right_slope_ * roi_sy_ + right_intercept_, roi_sy_);
+	// cv::Point rpt2(right_slope_ * roi_ey_ + right_intercept_, roi_ey_);
+	// cv::line(output_frame, rpt1, rpt2, cv::Scalar(255, 0, 255), 2);
+	// // *****************************************************
+	// <<<<< *****************************************************
 
     // Draw lane center line
     int lane_center = frame_width_ / 2 + static_cast<int>(offset);
