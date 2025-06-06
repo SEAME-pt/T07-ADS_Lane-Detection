@@ -258,20 +258,20 @@ void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_interc
 		offset = static_cast<float>(offset_pixels * METER_PER_PIXEL);
 	}
 
-		std::cout << "[" << __func__ << "] : "
-				<< "Left edge at y=" << frame_height_
-				<< ", xl =" << xl
-				<< ", xm =" << xm
-				<< ", xr =" << xr
-				<< ", xc =" << xc
-				<< ", offset_pixels = " << offset_pixels
-				<< std::endl;
 	// Calculate the average slope of the left and right lines
     double avg_slope = (left_slope + right_slope) / 2.0;
     float angle_image = std::atan(avg_slope);
+	std::cout << "[" << __func__ << "] : "
+			<< "Left edge at y=" << frame_height_
+			<< ", xl =" << xl
+			<< ", xm =" << xm
+			<< ", xr =" << xr
+			<< ", xc =" << xc
+			<< ", offset_pixels = " << offset_pixels
+			<< ", slope = " << avg_slope
+			<< std::endl;
     angle = angle_image;// Adjust for camera tilt
     //std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
-
 }
 
 void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle,
