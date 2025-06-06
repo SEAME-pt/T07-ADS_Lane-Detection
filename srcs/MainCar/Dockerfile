@@ -1,9 +1,8 @@
 FROM hmacielp/crosscompile-covesa
 
-RUN apt update && apt-get install -y \
+RUN apt update && apt-get install -y -f \
     libzmq3-dev \
     build-essential \
-    python3-pip \
     libgpiod-dev \
     libi2c-dev
 

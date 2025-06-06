@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+
 class Debug {
 public:
     // Constructor initializes with frame dimensions
@@ -14,13 +15,7 @@ public:
     ~Debug();
 
     // Display output video with lane information
-    void showOutputVideo(cv::Mat& output_frame, 
-                        const std::vector<cv::Point>& left_edges, 
-                        const std::vector<cv::Point>& right_edges, 
-                        float offset, 
-                        float angle,
-                        const cv::Mat& lane_mask,
-                        bool visualize_mask);
+    void showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept);
 
     // Save debug information to a file
     void saveToFile(const std::string& filename, 
