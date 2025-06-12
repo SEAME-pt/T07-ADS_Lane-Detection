@@ -37,7 +37,7 @@ static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calcu
 static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
 static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calculation
 static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation
-
+static constexpr double THRESHOLD = 0.3f; // Threshold for binary mask
 
 class Logger : public nvinfer1::ILogger {
 public:

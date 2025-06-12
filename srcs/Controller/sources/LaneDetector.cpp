@@ -1,5 +1,6 @@
 #include "LaneDetector.hpp"
 
+
 LaneDetector::LaneDetector(const std::string& trt_model_path) {
     cudaStreamCreate(&stream_);
 
@@ -158,15 +159,15 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 
     for (int y = roi.y; y < roi.y + roi.height; ++y) {
         int left_x = -1, right_x = -1;
-        for (int x = roi.width /2; x >= roi.x + ROI_X_BORDER; --x) {
-            if (lane_mask.at<float>(y, x) > 0.5f) {
+        for (int x = roi.width / 2 - 20; x >= roi.x + ROI_X_BORDER; --x) {
+            if (lane_mask.at<float>(y, x) > THRESHOLD) {
                 left_x = x;
 				left_edges_.emplace_back(left_x, y);
                 break;
             }
         }
-        for (int x = roi.width/2; x <= roi.width - ROI_X_BORDER; ++x) {
-            if (lane_mask.at<float>(y, x) > 0.5f) {
+        for (int x = roi.width / 2 - 20; x <= roi.width - ROI_X_BORDER; ++x) {
+            if (lane_mask.at<float>(y, x) > THRESHOLD) {
                 right_x = x;
 				right_edges_.emplace_back(right_x, y);
                 break;
@@ -177,6 +178,7 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
         //     right_edges_.emplace_back(right_x, y);
         // }
     }
+
 	std::cout << "[" << __func__ << "] : "
 				<< "Found " << left_edges_.size() << " left edges and "
 				<< right_edges_.size() << " right edges in the ROI." << std::endl;
@@ -207,7 +209,7 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
                                             double& slope, double& intercept) const {
     if (edges.size() < MIN_EDGE_POINTS) {
         slope = 0.0;
-        intercept = frame_width_ / 2.0; // 320
+        intercept = frame_width_ / 2.0 - 20; // 320
         return;
     }
 
@@ -334,10 +336,13 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
     cv::resize(frame, resized, cv::Size(input_width_, input_height_)); // resize to input size
 
     resized.convertTo(resized, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
+    //frame.convertTo(frame, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
 
     std::vector<cv::Mat> channels;
     cv::split(resized, channels);
+    //cv::split(frame, channels);
     for (int c = 0; c < 3; ++c) {
+        //memcpy(input_data_.data() + c * frame_height_ * frame_width_, channels[c].data, frame_height_ * frame_width_ * sizeof(float));
         memcpy(input_data_.data() + c * input_height_ * input_width_, channels[c].data, input_height_ * input_width_ * sizeof(float));
     }
 }
@@ -348,6 +353,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     infer();
 
     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
+
     cv::Mat exp_mask;
     cv::exp(-lane_mask_, exp_mask);
     lane_mask_ = 1.0 / (1.0 + exp_mask);
@@ -355,7 +361,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     double min_val, max_val;
     cv::minMaxLoc(lane_mask_, &min_val, &max_val);
     // Do not remove the comment below, it is useful for debugging
-    // std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
+    std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
 
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);

@@ -7,7 +7,7 @@ Debug::Debug(int frame_width, int frame_height, int roi_sy, int roi_ey)
       frame_height_(frame_height),
       roi_sy_(roi_sy),
       roi_ey_(roi_ey),
-      camera_center_(frame_width / 2) - 20 {
+      camera_center_(frame_width / 2 - 20) {
 }
 
 Debug::~Debug() {
