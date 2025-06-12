@@ -380,7 +380,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
         std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
     }
 
-    debug_->showOutputVideo(output_frame, left_edges_, right_edges_, offset, angle, lane_mask_, visualize_mask);
+    debug_->showOutputVideo(output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_);
 
     cv::imwrite("lane_mask.png", lane_mask_ * 255);
     cv::imwrite("binary_mask.png", binary_mask * 255);
