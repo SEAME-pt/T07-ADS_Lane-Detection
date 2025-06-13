@@ -13,7 +13,7 @@ Debug::Debug(int frame_width, int frame_height, int roi_sy, int roi_ey)
 Debug::~Debug() {
 }
 
-void Debug::showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept) {
+void Debug::showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset) {
     // Ensure output_frame is valid
     if (output_frame.empty()) {
         output_frame = cv::Mat(frame_height_, frame_width_, CV_8UC3, cv::Scalar(0));
@@ -21,6 +21,12 @@ void Debug::showOutputVideo(cv::Mat& output_frame, float left_slope, float left_
     if (output_frame.type() != CV_8UC3) {
         output_frame.convertTo(output_frame, CV_8UC3);
     }
+
+	// Draw angle and offset on top left corner
+	std::string angle_text = "Angle: " + std::to_string(angle * 180.0 / CV_PI) + " deg";
+	std::string offset_text = "Offset: " + std::to_string(offset) + " m";
+	cv::putText(output_frame, angle_text, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
+	cv::putText(output_frame, offset_text, cv::Point(10, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
 
     // Draw left and right lane lines using slopes and intercepts
     cv::Point lpt1(left_slope * roi_sy_ + left_intercept, roi_sy_);

@@ -100,9 +100,9 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     weightedLinearRegression(right_edges_, right_slope, right_intercept);
 	right_slope_ = right_slope;
 	right_intercept_ = right_intercept; // Reset right intercept to zero
-    std::cout << "[" << __func__ << "] "
-				<< "Left : slope = " << left_slope << " | intercept = " << left_intercept
-				<< " || " << "Right : slope = " << right_slope << " | intercept = " << right_intercept << std::endl;
+    // std::cout << "[" << __func__ << "] "
+	// 			<< "Left : slope = " << left_slope << " | intercept = " << left_intercept
+	// 			<< " || " << "Right : slope = " << right_slope << " | intercept = " << right_intercept << std::endl;
 
     // Step 4: Calculate offset and angle from the fitted lines
     float measured_offset, measured_angle;
@@ -124,12 +124,12 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     angle = smoothed_angle;
 	//std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
 
-	std::cout << "[" << __func__ << "] "
-			  << "Offset: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_offset
-			  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << offset << ") m"
-			  << "Angle: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_angle
-			  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << smoothed_angle << ") rad"
-			  << '\r' << std::flush;
+	// std::cout << "[" << __func__ << "] "
+	// 		  << "Offset: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_offset
+	// 		  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << offset << ") m"
+	// 		  << "Angle: M(" << std::fixed << std::setprecision(4) << std::setw(6) << measured_angle
+	// 		  << ") K(" << std::fixed << std::setprecision(4) << std::setw(6) << smoothed_angle << ") rad"
+	// 		  << '\r' << std::flush;
 
 
     return true;
@@ -159,14 +159,14 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 
     for (int y = roi.y; y < roi.y + roi.height; ++y) {
         int left_x = -1, right_x = -1;
-        for (int x = roi.width / 2 - 20; x >= roi.x + ROI_X_BORDER; --x) {
+        for (int x = roi.width / 2; x >= roi.x + ROI_X_BORDER; --x) {
             if (lane_mask.at<float>(y, x) > THRESHOLD) {
                 left_x = x;
 				left_edges_.emplace_back(left_x, y);
                 break;
             }
         }
-        for (int x = roi.width / 2 - 20; x <= roi.width - ROI_X_BORDER; ++x) {
+        for (int x = roi.width / 2; x <= roi.width - ROI_X_BORDER; ++x) {
             if (lane_mask.at<float>(y, x) > THRESHOLD) {
                 right_x = x;
 				right_edges_.emplace_back(right_x, y);
@@ -179,28 +179,28 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
         // }
     }
 
-	std::cout << "[" << __func__ << "] : "
-				<< "Found " << left_edges_.size() << " left edges and "
-				<< right_edges_.size() << " right edges in the ROI." << std::endl;
 	// Check if we found enough edges
 	if (left_edges_.size() < MIN_EDGE_POINTS || right_edges_.size() < MIN_EDGE_POINTS) {
 		std::cerr << "[" << __func__ << "] : "
-					<< "Not enough edge points found in ROI!" << std::endl;
+		<< "Not enough edge points found in ROI!" << std::endl;
 		return false; // Not enough edge points found
 	}
-	else {
-		std::cout << "[" << __func__ << "] : "
-				  << "Left edges: " << left_edges_.size()
-				  << ", Right edges: " << right_edges_.size() << std::endl;
-		std::cout << "[" << __func__ << "] : "
-				  << "Left edge first: (" << left_edges_[0].x << ", " << left_edges_[0].y << ")"
-				  << ", Right edge first: (" << right_edges_[0].x << ", " << right_edges_[0].y << ")"
-				  << std::endl;
-		std::cout << "[" << __func__ << "] : "
-				  << "Left edge last: (" << left_edges_.back().x << ", " << left_edges_.back().y << ")"
-				  << ", Right edge last: (" << right_edges_.back().x << ", " << right_edges_.back().y << ")"
-				  << std::endl;
-	}
+	// else {
+	// 	std::cout << "[" << __func__ << "] : "
+	// 			  << "Found " << left_edges_.size() << " left edges and "
+	// 			  << right_edges_.size() << " right edges in the ROI." << std::endl;
+	// 	std::cout << "[" << __func__ << "] : "
+	// 			  << "Left edges: " << left_edges_.size()
+	// 			  << ", Right edges: " << right_edges_.size() << std::endl;
+	// 	std::cout << "[" << __func__ << "] : "
+	// 			  << "Left edge first: (" << left_edges_[0].x << ", " << left_edges_[0].y << ")"
+	// 			  << ", Right edge first: (" << right_edges_[0].x << ", " << right_edges_[0].y << ")"
+	// 			  << std::endl;
+	// 	std::cout << "[" << __func__ << "] : "
+	// 			  << "Left edge last: (" << left_edges_.back().x << ", " << left_edges_.back().y << ")"
+	// 			  << ", Right edge last: (" << right_edges_.back().x << ", " << right_edges_.back().y << ")"
+	// 			  << std::endl;
+	// }
 
     return !left_edges_.empty() && !right_edges_.empty();
 }
@@ -247,34 +247,90 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
 void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
                                            double right_slope, double right_intercept,
                                            int y_bottom, float& offset, float& angle) const {
-    double xl = left_slope_ * frame_height_ + left_intercept_;
-    double xr = right_slope_ * frame_height_ + right_intercept_;
-    double xm = ((xl + xr) / 2.0);
-    double xc = frame_width_ / 2.0; // 320
+    // Calculate edge points at bottom and top (adjusted by ROI_START_Y_PERCENT)
+    double xlb = left_slope * y_bottom + left_intercept;
+    double xrb = right_slope * y_bottom + right_intercept;
+    double xlt = left_slope * (y_bottom * ROI_START_Y_PERCENT) + left_intercept;
+    double xrt = right_slope * (y_bottom * ROI_START_Y_PERCENT) + right_intercept;
+    double xm = ((xlb + xrb) / 2.0); // Midpoint at bottom
+    double xc = frame_width_ / 2.0 - CAMERA_OFFSET; // Camera center adjusted by offset
 
+    // Calculate offset in pixels
+    float offset_pixels = static_cast<float>(xm - xc);
+    if (std::abs(offset_pixels) < 1e-6) {
+        offset = 0.0f; // No offset
+    } else {
+        offset = static_cast<float>(offset_pixels * METER_PER_PIXEL);
+    }
 
-    float offset_pixels = static_cast<float>(xm - xc) + CAMERA_OFFSET;
-	if (std::abs(offset_pixels) < 1e-6) {
-		offset = 0.0f; // No offset
-	} else {
-		offset = static_cast<float>(offset_pixels * METER_PER_PIXEL);
-	}
-
-	// Calculate the average slope of the left and right lines
+    // Calculate the average slope of the left and right lines
     double avg_slope = (left_slope + right_slope) / 2.0;
-    float angle_image = std::atan(avg_slope);
-	std::cout << "[" << __func__ << "] : "
-			<< "Left edge at y=" << frame_height_
-			<< ", xl =" << xl
-			<< ", xm =" << xm
-			<< ", xr =" << xr
-			<< ", xc =" << xc
-			<< ", offset_pixels = " << offset_pixels
-			<< ", slope = " << avg_slope
-			<< std::endl;
-    angle = angle_image;// Adjust for camera tilt
-    //std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
+    float angle_apparent = static_cast<float>(std::atan(avg_slope)); // Apparent angle in radians
+
+    // Compensate for offset
+    float height = static_cast<float>(y_bottom * (1.0 - ROI_START_Y_PERCENT)); // Effective height for slope
+    float offset_angle = std::atan(offset_pixels / height); // Angle due to offset in radians
+    float angle_true = angle_apparent - offset_angle; // True angle in radians
+
+    // Debugging output
+    std::cout << "[" << __func__ << "] : "
+              << "\nLeft edge at y=" << y_bottom
+              << "\n\t xlb = " << xlb
+              << "\n\t xlt = " << xlt
+              << "\n\t xm  = " << xm
+              << "\n\t xrb = " << xrb
+              << "\n\t xrt = " << xrt
+              << "\n\t xc  = " << xc
+              << "\n\t avg slope = " << avg_slope
+              << "\n\t angle_apparent = " << angle_apparent * 180.0 / CV_PI << " deg"
+              << "\n\t angle_apparent = " << angle_apparent << " rad"
+              << "\n\t offset_pixels = " << offset_pixels
+              << "\n\t offset = " << offset
+              << "\n\t offset_angle = " << offset_angle * 180.0 / CV_PI << " deg"
+              << "\n\t angle_true = " << angle_true * 180.0 / CV_PI << " deg"
+              << std::endl;
+
+    angle = angle_true; // Return the compensated true angle
 }
+
+// void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
+//                                            double right_slope, double right_intercept,
+//                                            int y_bottom, float& offset, float& angle) const {
+//     double xlb = left_slope_ * frame_height_ + left_intercept_;
+//     double xrb = right_slope_ * frame_height_ + right_intercept_;
+// 	double xlt = left_slope_ * frame_height_* ROI_START_Y_PERCENT + left_intercept_;
+//     double xrt = right_slope_ * frame_height_ * ROI_START_Y_PERCENT + right_intercept_;
+//     double xm = ((xlb + xrb) / 2.0);
+//     double xc = frame_width_ / 2.0 - CAMERA_OFFSET; // 320
+
+
+//     float offset_pixels = static_cast<float>(xm - xc);
+// 	if (std::abs(offset_pixels) < 1e-6) {
+// 		offset = 0.0f; // No offset
+// 	} else {
+// 		offset = static_cast<float>(offset_pixels * METER_PER_PIXEL);
+// 	}
+
+// 	// Calculate the average slope of the left and right lines
+//     double avg_slope = (left_slope + right_slope) / 2.0;
+//     float angle_img = std::atan(avg_slope);
+// 	std::cout << "[" << __func__ << "] : "
+// 			<< "\nLeft edge at y=" << frame_height_
+// 			<< "\n\t xlb = " << xlb
+// 			<< "\n\t xlt = " << xlt
+// 			<< "\n\t xm  = " << xm
+// 			<< "\n\t xrb = " << xrb
+// 			<< "\n\t xrt = " << xrt
+// 			<< "\n\t xc  = " << xc
+// 			<< "\n\t avg slope = " << avg_slope
+// 			<< "\n\t angle_img = " << angle_img * 180.0 / CV_PI << " deg"
+// 			<< "\n\t angle_img = " << angle_img << " rad"
+// 			<< "\n\t offset_pixels = " << offset_pixels
+// 			<< "\n\t offset = " << offset
+// 			<< std::endl;
+//     angle = angle_img;// Adjust for camera tilt
+//     //std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
+// }
 
 void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle,
                                      float& smoothed_offset, float& smoothed_angle) {
@@ -361,7 +417,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     double min_val, max_val;
     cv::minMaxLoc(lane_mask_, &min_val, &max_val);
     // Do not remove the comment below, it is useful for debugging
-    std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
+    // std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
 
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
@@ -386,7 +442,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
         std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
     }
 
-    debug_->showOutputVideo(output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_);
+    debug_->showOutputVideo(output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_, angle, offset);
 
     cv::imwrite("lane_mask.png", lane_mask_ * 255);
     cv::imwrite("binary_mask.png", binary_mask * 255);

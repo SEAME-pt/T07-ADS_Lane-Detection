@@ -57,7 +57,7 @@ public:
     void setMode(const int &mode);
     int  getMode();
     void listen();
-    void autonomous();
+    void autonomous(float prev_delta);
     void setLaneDetector(std::unique_ptr<LaneDetector> detector);
 
 private:
@@ -72,28 +72,31 @@ private:
     std::atomic<float> currentSpeed;
     cv::VideoWriter video_writer;
     cv::Mat frame, output_frame;
-    State current_state_;
+
+	// State variables
+    Vector3d current_state_;
     TimeTracker tracker;
     int _currentMode;
 
     // CSV logging
     std::ofstream csv_file_;
     std::mutex csv_mutex_;
+	float delta_;
+	MPC mpc_;
+    // // MPC parameters
+    // static constexpr int N = 10;  // Prediction horizon
+    // static constexpr float DT = 0.03f;  // Time step
+    // static constexpr float L = 0.15f;   // Wheelbase
+    // static constexpr float MAX_DELTA = 0.52f;  // Max steering angle (radians) => 30graus
+    // static constexpr float Q_y = 100.0f;      // Weight for lateral offset
+    // static constexpr float Q_theta = 50.0f;   // Weight for heading error
+    // static constexpr float R_delta = 10.0f;   // Weight for steering effort
+    // static constexpr float R_a = 5.0f;        // Weight for acceleration effort
+    // static constexpr float R_d_delta = 20.0f; // Weight for steering rate
 
-    // MPC parameters
-    static constexpr int N = 10;  // Prediction horizon
-    static constexpr float DT = 0.03f;  // Time step
-    static constexpr float L = 0.15f;   // Wheelbase
-    static constexpr float MAX_DELTA = 0.52f;  // Max steering angle (radians) => 30graus
-    static constexpr float Q_y = 100.0f;      // Weight for lateral offset
-    static constexpr float Q_theta = 50.0f;   // Weight for heading error
-    static constexpr float R_delta = 10.0f;   // Weight for steering effort
-    static constexpr float R_a = 5.0f;        // Weight for acceleration effort
-    static constexpr float R_d_delta = 20.0f; // Weight for steering rate
-
-    State kinematicModel(const State& state, float delta, float a);
-    void setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref);
-    Eigen::VectorXd solveMPC(const State& initial_state, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref);
+    // State kinematicModel(const State& state, float delta, float a);
+    // void setupCostFunction(Eigen::MatrixXd& H, Eigen::VectorXd& f, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref);
+    // Eigen::VectorXd solveMPC(const State& initial_state, const Eigen::VectorXd& y_ref, const Eigen::VectorXd& theta_ref);
 
 };
 

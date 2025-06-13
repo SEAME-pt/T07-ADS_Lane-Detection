@@ -15,13 +15,13 @@ public:
     ~Debug();
 
     // Display output video with lane information
-    void showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept);
+    void showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset);
 
     // Save debug information to a file
-    void saveToFile(const std::string& filename, 
-                    const std::vector<cv::Point>& left_edges, 
-                    const std::vector<cv::Point>& right_edges, 
-                    float offset, 
+    void saveToFile(const std::string& filename,
+                    const std::vector<cv::Point>& left_edges,
+                    const std::vector<cv::Point>& right_edges,
+                    float offset,
                     float angle,
                     const cv::Mat& lane_mask);
 

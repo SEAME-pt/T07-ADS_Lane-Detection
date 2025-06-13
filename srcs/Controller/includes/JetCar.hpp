@@ -17,6 +17,7 @@ public:
 
     void set_servo_angle(int angle);  // Função para ajustar o ângulo do servo
     void set_motor_speed(int speed);  // Função para controlar a velocidade do motor
+	float get_servo_angle() const;  // Função para obter o ângulo atual do servo
 
 private:
     void open_motor_i2c_bus();
@@ -37,7 +38,7 @@ private:
     int _servoRightPwm;
     int _servoCenterPwm;
     int _steeringChannel;
-    int _currentAngle;
+    float _currentAngle;
 };
 
 #endif  // JETCAR_HPP
