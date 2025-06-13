@@ -82,9 +82,9 @@ private:
 
     // MPC parameters
     static constexpr int N = 10;  // Prediction horizon
-    static constexpr float DT = 0.1f;  // Time step
-    static constexpr float L = 0.3f;   // Wheelbase
-    static constexpr float MAX_DELTA = CV_PI / 2.0f;  // Max steering angle (radians)
+    static constexpr float DT = 0.03f;  // Time step
+    static constexpr float L = 0.15f;   // Wheelbase
+    static constexpr float MAX_DELTA = 0.52f;  // Max steering angle (radians) => 30graus
     static constexpr float Q_y = 100.0f;      // Weight for lateral offset
     static constexpr float Q_theta = 50.0f;   // Weight for heading error
     static constexpr float R_delta = 10.0f;   // Weight for steering effort

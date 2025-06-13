@@ -223,8 +223,9 @@ void Controller::autonomous() {
     prev_angle = angle;
 
     // Convert to MPC inputs
+	// ?? ?????? acho que ja esta feito
     float y_ref = offset * (1.0f / 640.0f);  // Convert pixels to meters (adjust scale if needed)
-    float theta_ref = -angle * (CV_PI / 180.0f);  // Invert angle to correct for possible detection error
+    float theta_ref = -angle; // * (CV_PI / 180.0f);  // Invert angle to correct for possible detection error
 
     // Predict future trajectory over horizon with dynamic offset
     Eigen::VectorXd y_ref_vec(N);
@@ -243,12 +244,16 @@ void Controller::autonomous() {
     float a = control[1];      // Acceleration (m/s²)
 
     // Apply constraints
-    float steering = std::max(-MAX_DELTA, std::min(MAX_DELTA, delta));  // Limit to ±90 deg in radians
+    float steering = std::max(-MAX_DELTA, std::min(MAX_DELTA, delta));  // Limit to ±30 deg in radians
     //std::cout << "Final steering calculation " << (steering * (180.0f / CV_PI)) << std::endl;
     jetCar->set_servo_angle(static_cast<int>(steering * (180.0f / CV_PI)));  // Convert radians to degrees
 
+	float velocidade = velocidade + a * DT;  // Update speed based on acceleration
     // Update vehicle state
     current_state_ = kinematicModel(current_state_, steering, a);
+	jetCar->set_motor_speed(static_cast<int>(velocidade * 100.0f / 2.8f));  // Convert m/s to cm/s
+	std::cout << "motor speed: " << static_cast<int>(velocidade * 100.0f / 2.8f) << std::endl;
+	std::cout << "Servor angle: " << static_cast<int>(steering * (180.0f / CV_PI)) << std::endl;
 
     // Log data to CSV (unchanged)
     auto now = std::chrono::system_clock::now();
