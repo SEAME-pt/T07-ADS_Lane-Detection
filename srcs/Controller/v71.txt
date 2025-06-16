@@ -1,0 +1,26 @@
+sourced from v52 : lane geometry + mpc
+started 20250616
+feature : mask
+subtask :
+
+NO HOST
+go inside container
+docker exec -it t07-ads_lane-detection-controller-1 /bin/bash
+
+cd build
+make
+scp ControllerExec team07@10.21.221.47:/home/team07/car_services
+team07
+
+
+
+
+entrar no jetson:
+ssh team07@10.21.221.47
+team07
+cd car_services
+./ControllerExec ../models/model-v2.trt
+
+START para toggle entre autonomous e parado
+
+SELECT + START para sair do programa
