@@ -244,6 +244,61 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
     }
 }
 
+double LaneDetector::calculateThirdSegmentSlope(double x_start_left, double x_end_left,
+                                 double x_start_right, double x_end_right,
+                                 double x_start_3rd, double y_start, double y_end,
+                                 double s_left_slope, double s_right_slope) const {
+    // Validate x_start_3rd is between x_start_left and x_start_right
+    if (x_start_3rd < std::min(x_start_left, x_start_right) || x_start_3rd > std::max(x_start_left, x_start_right)) {
+        std::cout << "[calculateThirdSegmentSlope] : Error: x_start_3rd (" << x_start_3rd
+                  << ") is outside range [" << x_start_left << ", " << x_start_right << "]" << std::endl;
+        // Clamp x_start_3rd to the nearest boundary
+        x_start_3rd = std::max(x_start_left, std::min(x_start_right, x_start_3rd));
+    }
+
+    // Calculate the relative position of x_start_3rd
+    double delta_x_start = x_start_right - x_start_left;
+    if (std::abs(delta_x_start) < 1e-6) {
+        std::cout << "[calculateThirdSegmentSlope] : Error: x_start_left and x_start_right are too close" << std::endl;
+        return (x_end_left + x_end_right) / 2.0 - x_start_3rd / (y_end - y_start); // Fallback slope
+    }
+    double t = (x_start_3rd - x_start_left) / delta_x_start;
+
+    // Interpolate x_end_3rd between x_end_left and x_end_right
+    double x_end_3rd = x_end_left + t * (x_end_right - x_end_left);
+
+    // Validate x_end_3rd is between x_end_left and x_end_right
+    if (x_end_3rd < std::min(x_end_left, x_end_right) || x_end_3rd > std::max(x_end_left, x_end_right)) {
+        std::cout << "[calculateThirdSegmentSlope] : Warning: x_end_3rd (" << x_end_3rd
+                  << ") is outside range [" << x_end_left << ", " << x_end_right << "]" << std::endl;
+        x_end_3rd = std::max(x_end_left, std::min(x_end_right, x_end_3rd));
+    }
+
+    // Calculate the slope of the third segment
+    double delta_y = y_end - y_start;
+    if (std::abs(delta_y) < 1e-6) {
+        std::cout << "[calculateThirdSegmentSlope] : Error: y_end and y_start are too close" << std::endl;
+        return 0.0; // Avoid division by zero
+    }
+
+    double s_3rd_slope = (x_end_3rd - x_start_3rd) / delta_y;
+
+    // Debugging output
+    // std::cout << "[calculateThirdSegmentSlope] : "
+    //           << "\n\t x_start_left = " << x_start_left
+    //           << "\n\t x_end_left = " << x_end_left
+    //           << "\n\t x_start_right = " << x_start_right
+    //           << "\n\t x_end_right = " << x_end_right
+    //           << "\n\t x_start_3rd = " << x_start_3rd
+    //           << "\n\t x_end_3rd = " << x_end_3rd
+    //           << "\n\t s_left_slope = " << s_left_slope
+    //           << "\n\t s_right_slope = " << s_right_slope
+    //           << "\n\t s_3rd_slope = " << s_3rd_slope
+    //           << std::endl;
+
+    return s_3rd_slope;
+}
+
 void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
                                            double right_slope, double right_intercept,
                                            int y_bottom, float& offset, float& angle) const {
@@ -252,11 +307,11 @@ void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_interc
     double xrb = right_slope * y_bottom + right_intercept;
     double xlt = left_slope * (y_bottom * ROI_START_Y_PERCENT) + left_intercept;
     double xrt = right_slope * (y_bottom * ROI_START_Y_PERCENT) + right_intercept;
-    double xm = ((xlb + xrb) / 2.0); // Midpoint at bottom
-    double xc = frame_width_ / 2.0 - CAMERA_OFFSET; // Camera center adjusted by offset
+    double xmb = ((xlb + xrb) / 2.0); // Midpoint at bottom
+    double xcb = frame_width_ / 2.0 - CAMERA_OFFSET; // Camera center adjusted by offset
 
     // Calculate offset in pixels
-    float offset_pixels = static_cast<float>(xm - xc);
+    float offset_pixels = static_cast<float>(xmb - xcb);
     if (std::abs(offset_pixels) < 1e-6) {
         offset = 0.0f; // No offset
     } else {
@@ -264,33 +319,29 @@ void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_interc
     }
 
     // Calculate the average slope of the left and right lines
-    double avg_slope = (left_slope + right_slope) / 2.0;
-    float angle_apparent = static_cast<float>(std::atan(avg_slope)); // Apparent angle in radians
+	double x_start_3rd = xcb; // Midpoint at top
+	double s_3rd_slope = calculateThirdSegmentSlope(xlt, xlb, xrt, xrb, x_start_3rd, y_bottom * ROI_START_Y_PERCENT, y_bottom, left_slope, right_slope);
+    float angle_real = static_cast<float>(std::atan(s_3rd_slope)); // Apparent angle in radians
 
     // Compensate for offset
     float height = static_cast<float>(y_bottom * (1.0 - ROI_START_Y_PERCENT)); // Effective height for slope
-    float offset_angle = std::atan(offset_pixels / height); // Angle due to offset in radians
-    float angle_true = angle_apparent - offset_angle; // True angle in radians
-
     // Debugging output
+	angle = angle_real; // Adjust for camera tilt
     std::cout << "[" << __func__ << "] : "
-              << "\nLeft edge at y=" << y_bottom
-              << "\n\t xlb = " << xlb
-              << "\n\t xlt = " << xlt
-              << "\n\t xm  = " << xm
-              << "\n\t xrb = " << xrb
-              << "\n\t xrt = " << xrt
-              << "\n\t xc  = " << xc
-              << "\n\t avg slope = " << avg_slope
-              << "\n\t angle_apparent = " << angle_apparent * 180.0 / CV_PI << " deg"
-              << "\n\t angle_apparent = " << angle_apparent << " rad"
-              << "\n\t offset_pixels = " << offset_pixels
-              << "\n\t offset = " << offset
-              << "\n\t offset_angle = " << offset_angle * 180.0 / CV_PI << " deg"
-              << "\n\t angle_true = " << angle_true * 180.0 / CV_PI << " deg"
+              << "y_bottom[" << y_bottom << "]\n"
+              << "\t"
+			  << "xlt[" << xlt << "], "
+              << "xlb[" << xlb << "], "
+              << "xmm[" << xmb << "], "
+              << "xrt[" << xrt << "], "
+              << "xrb[" << xrb << "], "
+              << "xcb[" << xcb << "], "
+              << "\n\tyaw appa[" << angle_real * 180.0 / CV_PI << " deg], "
+              << "\n\tey pixels[" << offset_pixels <<"], "
+              << "meters[" << offset << "]"
               << std::endl;
 
-    angle = angle_true; // Return the compensated true angle
+    // angle = angle_real; // Return the compensated true angle
 }
 
 // void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
@@ -409,10 +460,19 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     infer();
 
     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
+    //cv::imwrite("lane_mask_original.png", lane_mask_ * 255);
 
     cv::Mat exp_mask;
     cv::exp(-lane_mask_, exp_mask);
     lane_mask_ = 1.0 / (1.0 + exp_mask);
+
+	cv::Mat binaryMat;
+	cv::threshold(lane_mask_, binaryMat, 0.5, 255.0, cv::THRESH_BINARY);
+	binaryMat.convertTo(binaryMat, CV_8U);
+	if (!binaryMat.empty()) {
+		cv::imwrite("raw_lane.png", binaryMat );
+		// cv::waitKey(1);
+	}
 
     double min_val, max_val;
     cv::minMaxLoc(lane_mask_, &min_val, &max_val);
@@ -444,6 +504,8 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 
     debug_->showOutputVideo(output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_, angle, offset);
 
+	cv::Mat lane_mask_8u;
+	lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
     cv::imwrite("lane_mask.png", lane_mask_ * 255);
     cv::imwrite("binary_mask.png", binary_mask * 255);
 }

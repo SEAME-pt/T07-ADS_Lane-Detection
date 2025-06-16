@@ -68,7 +68,11 @@ private:
     bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
     void weightedLinearRegression(const std::vector<cv::Point>& points,
                                   double& slope, double& intercept) const;
-    void calculateOffsetAndAngle(double left_slope, double left_intercept,
+	double calculateThirdSegmentSlope(double x_start_left, double x_end_left,
+                                 double x_start_right, double x_end_right,
+                                 double x_start_3rd, double y_start, double y_end,
+                                 double s_left_slope, double s_right_slope) const;
+	void calculateOffsetAndAngle(double left_slope, double left_intercept,
                                  double right_slope, double right_intercept,
                                  int y_bottom, float& offset, float& angle) const;
     void applyKalmanFilter(float measured_offset, float measured_angle,
