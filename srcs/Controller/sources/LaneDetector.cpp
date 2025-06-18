@@ -509,3 +509,48 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     cv::imwrite("lane_mask.png", lane_mask_ * 255);
     cv::imwrite("binary_mask.png", binary_mask * 255);
 }
+
+
+// new
+void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
+    preprocess(frame);
+    infer();
+
+    lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
+
+    cv::Mat exp_mask;
+    cv::exp(-lane_mask_, exp_mask);
+    lane_mask_ = 1.0 / (1.0 + exp_mask); // Aplica sigmoide, equivalente a torch.sigmoid
+
+    double min_val, max_val;
+    cv::minMaxLoc(lane_mask_, &min_val, &max_val);
+    // Do not remove the comment below, it is useful for debugging
+    // std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
+
+    cv::Mat binary_mask;
+    float threshold = 0.5; // Limiar fixo, equivalente a (preds > 0.5).float()
+    cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
+
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7)); // Larger kernel
+    cv::morphologyEx(binary_mask, binary_mask, cv::MORPH_DILATE, kernel);
+    cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
+
+    // Visualização da máscara binarizada
+    cv::Mat display_mask;
+    lane_mask_.convertTo(display_mask, CV_8U, 255); // Converte para [0, 255] para exibição
+    cv::imshow("Lane Mask", display_mask);
+    cv::waitKey(1); // Atualiza janela sem bloquear, adequado para vídeo
+
+    cv::resize(lane_mask_, lane_mask_, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_NEAREST);
+
+    output_frame = frame.clone();
+
+    // if (!calculateLaneGeometry(offset, angle)) {
+    //     std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
+    // }
+
+    debug_->showOutputVideo(output_frame, left_edges_, right_edges_, offset, angle, lane_mask_, visualize_mask);
+
+    cv::imwrite("lane_mask.png", lane_mask_ * 255);
+    cv::imwrite("binary_mask.png", binary_mask * 255);
+}
