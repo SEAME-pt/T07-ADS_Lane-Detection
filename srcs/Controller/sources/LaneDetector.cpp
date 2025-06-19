@@ -438,77 +438,93 @@ void LaneDetector::infer() {
     if (err != cudaSuccess) throw std::runtime_error("CUDA error after inference: " + std::string(cudaGetErrorString(err)));
 }
 
+// void LaneDetector::preprocess(const cv::Mat& frame) {
+//     cv::Mat resized;
+//     cv::resize(frame, resized, cv::Size(input_width_, input_height_)); // resize to input size
+
+//     resized.convertTo(resized, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
+//     //frame.convertTo(frame, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
+
+//     std::vector<cv::Mat> channels;
+//     cv::split(resized, channels);
+//     //cv::split(frame, channels);
+//     for (int c = 0; c < 3; ++c) {
+//         //memcpy(input_data_.data() + c * frame_height_ * frame_width_, channels[c].data, frame_height_ * frame_width_ * sizeof(float));
+//         memcpy(input_data_.data() + c * input_height_ * input_width_, channels[c].data, input_height_ * input_width_ * sizeof(float));
+//     }
+// }
+
 void LaneDetector::preprocess(const cv::Mat& frame) {
     cv::Mat resized;
-    cv::resize(frame, resized, cv::Size(input_width_, input_height_)); // resize to input size
+    cv::resize(frame, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_CUBIC); // Interpolação cúbica
 
-    resized.convertTo(resized, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
-    //frame.convertTo(frame, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
+    cv::Mat rgb;
+    cv::cvtColor(resized, rgb, cv::COLOR_BGR2RGB); // Converte de BGR para RGB
+
+    rgb.convertTo(rgb, CV_32F, 1.0 / 255.0); // Normaliza para [0,1]
 
     std::vector<cv::Mat> channels;
-    cv::split(resized, channels);
-    //cv::split(frame, channels);
+    cv::split(rgb, channels); // Canais na ordem R, G, B
     for (int c = 0; c < 3; ++c) {
-        //memcpy(input_data_.data() + c * frame_height_ * frame_width_, channels[c].data, frame_height_ * frame_width_ * sizeof(float));
         memcpy(input_data_.data() + c * input_height_ * input_width_, channels[c].data, input_height_ * input_width_ * sizeof(float));
     }
 }
 
 // yellow NOT processFrame():
-void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
-    preprocess(frame);
-    infer();
+// void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
+//     preprocess(frame);
+//     infer();
 
-    lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
-    //cv::imwrite("lane_mask_original.png", lane_mask_ * 255);
+//     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
+//     //cv::imwrite("lane_mask_original.png", lane_mask_ * 255);
 
-    cv::Mat exp_mask;
-    cv::exp(-lane_mask_, exp_mask);
-    lane_mask_ = 1.0 / (1.0 + exp_mask);
+//     cv::Mat exp_mask;
+//     cv::exp(-lane_mask_, exp_mask);
+//     lane_mask_ = 1.0 / (1.0 + exp_mask);
 
-	cv::Mat binaryMat;
-	cv::threshold(lane_mask_, binaryMat, 0.5, 255.0, cv::THRESH_BINARY);
-	binaryMat.convertTo(binaryMat, CV_8U);
-	if (!binaryMat.empty()) {
-		cv::imwrite("raw_lane.png", binaryMat );
-		// cv::waitKey(1);
-	}
+// 	cv::Mat binaryMat;
+// 	cv::threshold(lane_mask_, binaryMat, 0.5, 255.0, cv::THRESH_BINARY);
+// 	binaryMat.convertTo(binaryMat, CV_8U);
+// 	if (!binaryMat.empty()) {
+// 		cv::imwrite("raw_lane.png", binaryMat );
+// 		// cv::waitKey(1);
+// 	}
 
-    double min_val, max_val;
-    cv::minMaxLoc(lane_mask_, &min_val, &max_val);
-    // Do not remove the comment below, it is useful for debugging
-    // std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
+//     double min_val, max_val;
+//     cv::minMaxLoc(lane_mask_, &min_val, &max_val);
+//     // Do not remove the comment below, it is useful for debugging
+//     // std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
 
-    cv::Mat gray;
-    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-    cv::Scalar mean_intensity = cv::mean(gray);
-    float brightness = mean_intensity[0];
-    float threshold = brightness < 100 ? 0.1 : 0.3; // Even lower for yellow
-    // Do not remove the comment below, it is useful for debugging
-	// std::cout << "["<<__func__<< "] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
+//     cv::Mat gray;
+//     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+//     cv::Scalar mean_intensity = cv::mean(gray);
+//     float brightness = mean_intensity[0];
+//     float threshold = brightness < 100 ? 0.1 : 0.3; // Even lower for yellow
+//     // Do not remove the comment below, it is useful for debugging
+// 	// std::cout << "["<<__func__<< "] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
 
-    cv::Mat binary_mask;
-    cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
+//     cv::Mat binary_mask;
+//     cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
 
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7)); // Larger kernel
-    cv::morphologyEx(binary_mask, binary_mask, cv::MORPH_DILATE, kernel);
-    cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
+//     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7)); // Larger kernel
+//     cv::morphologyEx(binary_mask, binary_mask, cv::MORPH_DILATE, kernel);
+//     cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
 
-    cv::resize(lane_mask_, lane_mask_, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_NEAREST);
+//     cv::resize(lane_mask_, lane_mask_, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_NEAREST);
 
-    output_frame = frame.clone();
+//     output_frame = frame.clone();
 
-    // if (!calculateLaneGeometry(offset, angle)) {
-    //     std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
-    // }
+//     // if (!calculateLaneGeometry(offset, angle)) {
+//     //     std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
+//     // }
 
-    debug_->showOutputVideo(output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_, angle, offset);
+//     debug_->showOutputVideo(output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_, angle, offset);
 
-	cv::Mat lane_mask_8u;
-	lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
-    cv::imwrite("lane_mask.png", lane_mask_ * 255);
-    cv::imwrite("binary_mask.png", binary_mask * 255);
-}
+// 	cv::Mat lane_mask_8u;
+// 	lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
+//     cv::imwrite("lane_mask.png", lane_mask_ * 255);
+//     cv::imwrite("binary_mask.png", binary_mask * 255);
+// }
 
 
 // new
@@ -531,9 +547,28 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     float threshold = 0.5; // Limiar fixo, equivalente a (preds > 0.5).float()
     cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
 
+
+	// Ver máscara ante Morph
+	// cv::Mat display_mask_pre_morph;
+	// binary_mask.convertTo(display_mask_pre_morph, CV_8U, 255);
+	// cv::imshow("Binary Mask Pre-Morphology", display_mask_pre_morph);
+
+
+
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7)); // Larger kernel
     cv::morphologyEx(binary_mask, binary_mask, cv::MORPH_DILATE, kernel);
     cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
+
+
+
+	// um teste será comentar as três linhas anteriores e  fazer
+	// lane_mask = binary_mask
+	// outro teste é mudar o kernel para 3x3
+	// cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)); // Larger kernel
+    // cv::morphologyEx(binary_mask, binary_mask, cv::MORPH_DILATE, kernel);
+    // cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
+
+	
 
     // Visualização da máscara binarizada
     cv::Mat display_mask;
