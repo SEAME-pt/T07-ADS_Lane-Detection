@@ -7,13 +7,13 @@ Debug::Debug(int frame_width, int frame_height, int roi_sy, int roi_ey)
       frame_height_(frame_height),
       roi_sy_(roi_sy),
       roi_ey_(roi_ey),
-      camera_center_(frame_width / 2 - 20) {
+      camera_center_(frame_width / 2) {
 }
 
 Debug::~Debug() {
 }
 
-void Debug::showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset) {
+void Debug::showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset, int camera_offset) {
     // Ensure output_frame is valid
     if (output_frame.empty()) {
         output_frame = cv::Mat(frame_height_, frame_width_, CV_8UC3, cv::Scalar(0));
@@ -23,6 +23,8 @@ void Debug::showOutputVideo(cv::Mat& output_frame, float left_slope, float left_
     }
 
 	// Draw angle and offset on top left corner
+	std::string camera_center_text = "CarCenter: " + std::to_string(camera_center_ + camera_offset) + " px";
+	cv::putText(output_frame, camera_center_text, cv::Point(320, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
 	std::string angle_text = "Angle: " + std::to_string(angle * 180.0 / CV_PI) + " deg";
 	std::string offset_text = "Offset: " + std::to_string(offset) + " m";
 	cv::putText(output_frame, angle_text, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
@@ -52,7 +54,7 @@ void Debug::showOutputVideo(cv::Mat& output_frame, float left_slope, float left_
     cv::line(output_frame, ptm1, ptm2, cv::Scalar(0, 255, 255), 2); // Yellow for central lane
 
     // Draw camera center line (vertical, red)
-    cv::line(output_frame, cv::Point(camera_center_, roi_sy_), cv::Point(camera_center_, roi_ey_), cv::Scalar(0, 0, 255), 2);
+    cv::line(output_frame, cv::Point(camera_center_ - camera_offset, roi_sy_), cv::Point(camera_center_ - camera_offset, roi_ey_), cv::Scalar(0, 0, 255), 2);
 }
 
 void Debug::saveToFile(const std::string& filename,

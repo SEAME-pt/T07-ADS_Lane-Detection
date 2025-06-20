@@ -15,7 +15,7 @@ public:
     ~Debug();
 
     // Display output video with lane information
-    void showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset);
+    void showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset, int camera_offset = 0);
 
     // Save debug information to a file
     void saveToFile(const std::string& filename,

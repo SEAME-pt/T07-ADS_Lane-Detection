@@ -144,14 +144,14 @@ private:
         // Fixed parameters as constants
     static constexpr double CAMERA_TILT = 0.296706; // 17 degrees in radians (17 * pi/180)
     static constexpr double CAMERA_HEIGHT = 0.15;   // 15 cm in meters
-	static constexpr double CAMERA_OFFSET = 20; // Offset in pixels, adjust if needed
+	static constexpr double CAMERA_OFFSET = 5; // Offset in pixels, adjust if needed
     static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
     // static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
     static constexpr float ROI_START_Y_PERCENT = 0.5f; // ROI starts at 50% of image height
     static constexpr float ROI_END_Y_PERCENT = 0.9f;   // ROI ends at 80% of image height
     static constexpr int MAX_SEARCH_DISTANCE = 310;    // Max distance (pixels) to search for edges
-	static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
-	static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
+	static constexpr double SY_A = -4.01e-6; // s(y) = a * y + b Coefficient for distance calculation
+	static constexpr double SY_B = 1.8e-3;   // s(y) = a * y + b Coefficient for distance calculation
 
     std::unique_ptr<Debug> debug_;
 };
