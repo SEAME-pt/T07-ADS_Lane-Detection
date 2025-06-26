@@ -439,18 +439,34 @@ void LaneDetector::infer() {
     if (err != cudaSuccess) throw std::runtime_error("CUDA error after inference: " + std::string(cudaGetErrorString(err)));
 }
 
+// void LaneDetector::preprocess(const cv::Mat& frame) {
+//     cv::Mat resized;
+//     cv::resize(frame, resized, cv::Size(input_width_, input_height_)); // resize to input size
+
+//     resized.convertTo(resized, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
+//     //frame.convertTo(frame, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
+
+//     std::vector<cv::Mat> channels;
+//     cv::split(resized, channels);
+//     //cv::split(frame, channels);
+//     for (int c = 0; c < 3; ++c) {
+//         //memcpy(input_data_.data() + c * frame_height_ * frame_width_, channels[c].data, frame_height_ * frame_width_ * sizeof(float));
+//         memcpy(input_data_.data() + c * input_height_ * input_width_, channels[c].data, input_height_ * input_width_ * sizeof(float));
+//     }
+// }
+
 void LaneDetector::preprocess(const cv::Mat& frame) {
     cv::Mat resized;
-    cv::resize(frame, resized, cv::Size(input_width_, input_height_)); // resize to input size
+    cv::resize(frame, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_CUBIC); // Interpolação cúbica
 
-    resized.convertTo(resized, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
-    //frame.convertTo(frame, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
+    cv::Mat rgb;
+    cv::cvtColor(resized, rgb, cv::COLOR_BGR2RGB); // Converte de BGR para RGB
+
+    rgb.convertTo(rgb, CV_32F, 1.0 / 255.0); // Normaliza para [0,1]
 
     std::vector<cv::Mat> channels;
-    cv::split(resized, channels);
-    //cv::split(frame, channels);
+    cv::split(rgb, channels); // Canais na ordem R, G, B
     for (int c = 0; c < 3; ++c) {
-        //memcpy(input_data_.data() + c * frame_height_ * frame_width_, channels[c].data, frame_height_ * frame_width_ * sizeof(float));
         memcpy(input_data_.data() + c * input_height_ * input_width_, channels[c].data, input_height_ * input_width_ * sizeof(float));
     }
 }
