@@ -143,12 +143,10 @@ private:
 
         // Fixed parameters as constants
     static constexpr double CAMERA_TILT = 19.0 * CV_PI / 180.0; // 19 degrees in radians (19 * pi/180)
-    static constexpr double CAMERA_HEIGHT = 0.115;   // 11.5 cm in meters
 	static constexpr double CAMERA_X_POS = 0.09f;    // 9 cm in meters, forward of the car's CM
 	static constexpr double CAMERA_Y_POS = 0.0f;     // 0 cm in meters, centered on the car's CM
-	static constexpr double CAMERA_Z_POS = 0.0f;     // 0 cm in meters, centered on the car's CM
-	static constexpr double CAMERA_FOCAL_LENGTH = 0.002; // Focal length in meters (2 mm)
-	static constexpr double CAMERA_HEIGHT_OFFSET = 0.05; // Height offset in meters (5 cm)
+    static constexpr double CAMERA_Z_POS = 0.115;   // 11.5 cm in meters
+	static constexpr double CAMERA_FOCAL_LENGTH = 0.00315; // Focal length in meters (2 mm)
 	static constexpr double CAMERA_OFFSET = 5; // Offset in pixels, adjust if needed
     static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
     // static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
