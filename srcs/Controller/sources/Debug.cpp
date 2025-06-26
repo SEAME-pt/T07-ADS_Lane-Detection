@@ -55,6 +55,12 @@ void Debug::showOutputVideo(cv::Mat& output_frame, float left_slope, float left_
 
     // Draw camera center line (vertical, red)
     cv::line(output_frame, cv::Point(camera_center_ - camera_offset, roi_sy_), cv::Point(camera_center_ - camera_offset, roi_ey_), cv::Scalar(0, 0, 255), 2);
+
+	// Draw mask thumb
+	cv::Mat mask_thumb;
+	cv::resize(mask_vis, mask_thumb, cv::Size(frame_width_ / 4, frame_height_ / 4), 0, 0, cv::INTER_NEAREST);
+	cv::cvtColor(mask_thumb, mask_thumb, cv::COLOR_GRAY2BGR);
+	mask_thumb.copyTo(output_frame(cv::Rect(frame_width_ - mask_thumb.cols, 0, mask_thumb.cols, mask_thumb.rows)));
 }
 
 void Debug::saveToFile(const std::string& filename,

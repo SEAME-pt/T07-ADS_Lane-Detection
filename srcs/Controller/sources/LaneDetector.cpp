@@ -488,30 +488,33 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 	binaryMat.convertTo(binaryMat, CV_8U);
 	if (!binaryMat.empty()) {
 		cv::imwrite("raw_lane.png", binaryMat );
-		// cv::waitKey(1);
 	}
 
-    double min_val, max_val;
-    cv::minMaxLoc(lane_mask_, &min_val, &max_val);
+    // double min_val, max_val;
+    // cv::minMaxLoc(lane_mask_, &min_val, &max_val);
     // Do not remove the comment below, it is useful for debugging
-    std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
+    // std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
 
-    cv::Mat gray;
-    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-    cv::Scalar mean_intensity = cv::mean(gray);
-    float brightness = mean_intensity[0];
-    float threshold = brightness < 100 ? 0.1 : 0.3; // Even lower for yellow
+    // cv::Mat gray;
+    // cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+    // cv::Scalar mean_intensity = cv::mean(gray);
+    // float brightness = mean_intensity[0];
+    // float threshold = brightness < 100 ? 0.1 : 0.3; // Even lower for yellow
     // Do not remove the comment below, it is useful for debugging
 	// std::cout << "["<<__func__<< "] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
+    // cv::Mat binary_mask;
+    float threshold = 0.5; // Limiar fixo, equivalente a (preds > 0.5).float()
+    // cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
+
 
     cv::Mat binary_mask;
     cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
 
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(7, 7)); // Larger kernel
-    cv::morphologyEx(binary_mask, binary_mask, cv::MORPH_DILATE, kernel);
-    cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
+    // cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)); // Larger kernel
+    // cv::morphologyEx(binary_mask, binary_mask, cv::MORPH_DILATE, kernel);
+    // cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
 
-    cv::resize(lane_mask_, lane_mask_, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_NEAREST);
+    cv::resize(lane_mask_, lane_mask_, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_CUBIC); // Resize to original frame size
 
     output_frame = frame.clone();
 
@@ -519,7 +522,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
         std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
     }
 
-    debug_->showOutputVideo(output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_, angle, offset, CAMERA_OFFSET);
+    debug_->showOutputVideo(binary_mask, output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_, angle, offset, CAMERA_OFFSET);
 
 	cv::Mat lane_mask_8u;
 	lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
