@@ -25,7 +25,7 @@ enum KalmanProcessCovIndex { PROCESS_COV_OFFSET = 0, PROCESS_COV_ANGLE = 1 };
 enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITION_ANGLE = 2 };
 enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
 
-static constexpr int ROI_X_BORDER = 0; // Pixels from the left and right edges to avoid noise
+static constexpr int ROI_X_BORDER = 20; // Pixels from the left and right edges to avoid noise
 static constexpr int I_W = 256;
 static constexpr int I_H = 128;
 static constexpr int F_W = 640; // Frame width

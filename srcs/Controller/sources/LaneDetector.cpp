@@ -179,9 +179,9 @@ cv::Mat LaneDetector::birdsEyeTransform(const cv::Mat& rawLane) const {
 	}
 	// Define the source points for the perspective transform
 	std::vector<cv::Point2f> src_points = {
-		cv::Point2f(ROI_X_BORDER,
+		cv::Point2f(100,
 					static_cast<int>(rawLaneHeight * ROI_START_Y_PERCENT)), // Top-left
-		cv::Point2f(rawLaneWidth - ROI_X_BORDER,
+		cv::Point2f(rawLaneWidth - (100),
 					static_cast<int>(rawLaneHeight * ROI_START_Y_PERCENT)), // Top-right
 		cv::Point2f(rawLaneWidth - ROI_X_BORDER,
 					static_cast<int>(rawLaneHeight * ROI_END_Y_PERCENT)), // Bottom-right
@@ -209,7 +209,7 @@ cv::Mat LaneDetector::birdsEyeTransform(const cv::Mat& rawLane) const {
     // cv::imwrite("lane_mask.png", lane_mask_8U * 255);
 
 
-	cv::imwrite("birdEyeMask.png", birdEyeMask);
+	cv::imwrite("birdEyeMask1.png", birdEyeMask);
 	// Normalize the warped frame to the range [0, 1]
 	cv::Mat normalized_mask;
 	cv::normalize(birdEyeMask, normalized_mask, 0, 1, cv::NORM_MINMAX, CV_32F);
@@ -223,7 +223,13 @@ cv::Mat LaneDetector::birdsEyeTransform(const cv::Mat& rawLane) const {
 	cv::resize(float_mask_3ch, warped_frame, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_LINEAR);
 	// Convert the warped frame to a 32-bit float image
 	if (warped_frame.type() != CV_32F) {
+		std::cout << "[" << __func__ << "] : "
+				  << "Converting warped frame to CV_32F type." << std::endl;
 		warped_frame.convertTo(warped_frame, CV_32F);
+		if (warped_frame.empty()) {
+			std::cerr << "Failed to convert warped frame to CV_32F!" << std::endl;
+			return cv::Mat(); // Return an empty matrix if the conversion fails
+		}
 	}
 	// Normalize the warped frame to the range [0, 1]
 	cv::normalize(warped_frame, warped_frame, 0, 1, cv::NORM_MINMAX, CV_32F);
