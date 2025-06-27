@@ -160,11 +160,21 @@ cv::Mat LaneDetector::birdsEyeTransform(const cv::Mat& rawLane) const {
 		std::cerr << "Input frame is empty!" << std::endl;
 		return warped_frame; // Return an empty matrix if the input is empty
 	}
+	std::cout << "[" << __func__ << "] : "
+			  << "Raw lane size: " << rawLane.size()
+			  << ", Type: " << rawLane.type()
+			  << ", Channels: " << rawLane.channels() << std::endl;
+
+	cv::Mat lane_mask_8u ;
+	rawLane.convertTo(lane_mask_8u, CV_8U, 255.0);
+
+	cv::Mat lane_mask_color;
+	cv:cvtColor(lane_mask_8u, lane_mask_color, cv::COLOR_GRAY2BGR);
 	// Define sources point based on rawLane size
-	int rawLaneWidth = rawLane.cols;
-	int rawLaneHeight = rawLane.rows;
+	int rawLaneWidth = lane_mask_color.cols;
+	int rawLaneHeight = lane_mask_color.rows;
 	if (rawLaneWidth <= 0 || rawLaneHeight <= 0) {
-		std::cerr << "Invalid rawLane dimensions!" << std::endl;
+		std::cerr << "Invalid lane_mask_color dimensions!" << std::endl;
 		return warped_frame; // Return an empty matrix if the input is invalid
 	}
 	// Define the source points for the perspective transform
@@ -192,7 +202,13 @@ cv::Mat LaneDetector::birdsEyeTransform(const cv::Mat& rawLane) const {
 
 	// Apply the perspective warp to the input frame
 	cv::Mat birdEyeMask;
-	cv::warpPerspective(rawLane, birdEyeMask, T, rawLane.size());
+	cv::warpPerspective(lane_mask_color, birdEyeMask, T, lane_mask_color.size());
+
+	// cv::Mat lane_mask_8u;
+	// lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
+    // cv::imwrite("lane_mask.png", lane_mask_8U * 255);
+
+
 	cv::imwrite("birdEyeMask.png", birdEyeMask);
 	// Normalize the warped frame to the range [0, 1]
 	cv::Mat normalized_mask;
@@ -524,6 +540,12 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     preprocess(frame);
     infer();
 
+	std::cout << "[" << __func__ << "] : "
+			<< "lane_mask_ size: " << lane_mask_.size()
+			<< ", Type: " << lane_mask_.type()
+			<< ", Channels: " << lane_mask_.channels() << std::endl;
+	// Convert output data to cv::Mat
+	cv::Mat birdEyeMask = birdsEyeTransform(lane_mask_); // Transformação de perspectiva
     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
     //cv::imwrite("lane_mask_original.png", lane_mask_ * 255);
 
@@ -537,6 +559,8 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 	if (!rawLane.empty()) {
 		cv::imwrite("rawLane.png", rawLane );
 	}
+
+
 
     // double min_val, max_val;
     // cv::minMaxLoc(lane_mask_, &min_val, &max_val);
@@ -566,11 +590,12 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 
     output_frame = frame.clone();
 
+
     if (!calculateLaneGeometry(offset, angle)) {
         std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
     }
 
-    debug_->showOutputVideo(binaryMat, output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_, angle, offset, CAMERA_OFFSET);
+    debug_->showOutputVideo(rawLane, output_frame, left_slope_, left_intercept_, right_slope_, right_intercept_, angle, offset, CAMERA_OFFSET);
 
 	cv::Mat lane_mask_8u;
 	lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);

@@ -216,7 +216,12 @@ void Controller::autonomous(float prev_delta) {
 
     // Check if LaneDetector is initialized and capture frame
     if (!laneDetector || !laneDetector->cap_.read(frame)) {
-        std::cerr << "Error: Could not capture frame or LaneDetector not initialized!" << std::endl;
+		if (!laneDetector) {
+			std::cerr << "Error: LaneDetector not initialized!" << std::endl;
+		} else {
+			std::cerr << "Error: Could not read frame from camera!" << std::endl;
+		}
+       // std::cerr << "Error: Could not capture frame or LaneDetector not initialized!" << std::endl;
         return;
     }
 
