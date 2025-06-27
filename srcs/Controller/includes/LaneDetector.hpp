@@ -65,7 +65,8 @@ private:
     // bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
     //                    std::vector<cv::Point>& left_edges,
     //                    std::vector<cv::Point>& right_edges) const;
-    bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
+    cv::Mat birdsEyeTransform(const cv::Mat& frame) const;
+	bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
     void weightedLinearRegression(const std::vector<cv::Point>& points,
                                   double& slope, double& intercept) const;
 	double calculateThirdSegmentSlope(double x_start_left, double x_end_left,
@@ -77,6 +78,7 @@ private:
                                  int y_bottom, float& offset, float& angle) const;
     void applyKalmanFilter(float measured_offset, float measured_angle,
                            float& smoothed_offset, float& smoothed_angle);
+
     // void drawDebugInfo(cv::Mat* debug_img, const std::vector<cv::Point>& left_edges,
     //                    const std::vector<cv::Point>& right_edges,
     //                    float offset, float angle) const;
