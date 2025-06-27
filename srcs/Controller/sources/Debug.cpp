@@ -13,7 +13,14 @@ Debug::Debug(int frame_width, int frame_height, int roi_sy, int roi_ey)
 Debug::~Debug() {
 }
 
-void Debug::showOutputVideo(cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset, int camera_offset) {
+void Debug::showOutputVideo(cv::Mat& output_frame,
+							float left_slope,
+							float left_intercept,
+							float right_slope,
+							float right_intercept,
+							float angle,
+							float offset,
+							int camera_offset) {
     // Ensure output_frame is valid
     if (output_frame.empty()) {
         output_frame = cv::Mat(frame_height_, frame_width_, CV_8UC3, cv::Scalar(0));
