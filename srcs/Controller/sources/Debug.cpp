@@ -13,14 +13,7 @@ Debug::Debug(int frame_width, int frame_height, int roi_sy, int roi_ey)
 Debug::~Debug() {
 }
 
-void Debug::showOutputVideo(cv::Mat& output_frame,
-							float left_slope,
-							float left_intercept,
-							float right_slope,
-							float right_intercept,
-							float angle,
-							float offset,
-							int camera_offset) {
+void Debug::showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset, int camera_offset) {
     // Ensure output_frame is valid
     if (output_frame.empty()) {
         output_frame = cv::Mat(frame_height_, frame_width_, CV_8UC3, cv::Scalar(0));
@@ -65,7 +58,7 @@ void Debug::showOutputVideo(cv::Mat& output_frame,
 
 	// Draw mask thumb
 	cv::Mat mask_thumb;
-	cv::resize(mask_vis, mask_thumb, cv::Size(frame_width_ / 4, frame_height_ / 4), 0, 0, cv::INTER_NEAREST);
+	cv::resize(binary_mask, mask_thumb, cv::Size(frame_width_ / 4, frame_height_ / 4), 0, 0, cv::INTER_NEAREST);
 	cv::cvtColor(mask_thumb, mask_thumb, cv::COLOR_GRAY2BGR);
 	mask_thumb.copyTo(output_frame(cv::Rect(frame_width_ - mask_thumb.cols, 0, mask_thumb.cols, mask_thumb.rows)));
 }
