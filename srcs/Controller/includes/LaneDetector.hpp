@@ -33,11 +33,22 @@ static constexpr int F_H = 360; // Frame height
 static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 50% of image height
 static constexpr float ROI_EY_PERCENT = 0.9f;   // ROI ends at 90% of image height
 static constexpr double METER_PER_PIXEL = 0.0005556; // Example scale factor, should be calibrated [m/pixel]
-static constexpr double A_DISTANCE = -2.62e-6; // Coefficient for distance calculation
-static constexpr double B_DISTANCE = 1.4722e-3;   // Coefficient for distance calculation
+
+// Coefficients for distance calculation, converting pixels to meters
+// Equations :
+//  d(m) = s(y) * x
+// 	s(y) = a * y + b
+// x and y are pixel coordinates
+static constexpr double Asy = -4.57e-6; // Coefficient for distance calculation
+static constexpr double Bsy = 1.98e-3;   // Coefficient for distance calculation
+
+
 static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calculation
 static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation
 static constexpr double THRESHOLD = 0.3f; // Threshold for binary mask
+
+static constexpr double X_IMG_ROI_TOP_CAR_FRAME = 0.33f; // X coordinate of the car center in the image frame
+static constexpr double X_IMG_ROI_BOTTOM_CAR_FRAME = 0.11f; // X coordinate of the bottom ROI in the image frame
 
 class Logger : public nvinfer1::ILogger {
 public:
@@ -68,14 +79,15 @@ private:
     cv::Mat birdsEyeTransform(const cv::Mat& frame) const;
 	bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
     void weightedLinearRegression(const std::vector<cv::Point>& points,
-                                  double& slope, double& intercept) const;
+                                  double& slope, double& intercept) ;
 	double calculateThirdSegmentSlope(double x_start_left, double x_end_left,
                                  double x_start_right, double x_end_right,
                                  double x_start_3rd, double y_start, double y_end,
                                  double s_left_slope, double s_right_slope) const;
-	void calculateOffsetAndAngle(double left_slope, double left_intercept,
-                                 double right_slope, double right_intercept,
-                                 int y_bottom, float& offset, float& angle) const;
+	// void calculateOffsetAndAngle(double left_slope, double left_intercept,
+    //                              double right_slope, double right_intercept,
+    //                              int y_bottom, float& offset, float& angle) const;
+	void calculateOffsetAndAngle(float& offset, float& angle) const;
     void applyKalmanFilter(float measured_offset, float measured_angle,
                            float& smoothed_offset, float& smoothed_angle);
 
@@ -142,26 +154,24 @@ private:
 	float right_slope_ = 0.0f; // Slope of the right lane line
 	float left_intercept_ = 0.0f;  // Intercept of the left lane line
 	float right_intercept_ = 0.0f; // Intercept of the right lane line
+	// image vertical useful range of the edges
+	float current_y_top_ = 0.0f; // Y-coordinate of the top of the ROI
+	float current_y_bottom_ = 0.0f; // Y-coordinate of the bottom of the ROI
+	float current_y_range_ = 0.0f;// = current_y_bottom_ - current_y_top_; // Range of Y-coordinates in the ROI
 
-        // Fixed parameters as constants
+	// Fixed parameters as constants
     static constexpr double CAMERA_TILT = 19.0 * CV_PI / 180.0; // 19 degrees in radians (19 * pi/180)
 	static constexpr double CAMERA_X_POS = 0.09f;    // 9 cm in meters, forward of the car's CM
 	static constexpr double CAMERA_Y_POS = 0.0f;     // 0 cm in meters, centered on the car's CM
     static constexpr double CAMERA_Z_POS = 0.115;   // 11.5 cm in meters
 	static constexpr double CAMERA_FOCAL_LENGTH = 0.00315; // Focal length in meters (2 mm)
-	static constexpr double CAMERA_OFFSET = 5; // Offset in pixels, adjust if needed
+	static constexpr int CAMERA_OFFSET = 5; // Offset in pixels, adjust if needed
     static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
-    // static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
+
+	// static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
     static constexpr float ROI_START_Y_PERCENT = 0.5f; // ROI starts at 50% of image height
     static constexpr float ROI_END_Y_PERCENT = 0.9f;   // ROI ends at 80% of image height
     static constexpr int MAX_SEARCH_DISTANCE = 310;    // Max distance (pixels) to search for edges
-	// Coefficients for distance calculation, converting pixels to meters
-	// Equations :
-	//  d(m) = s(y) * x
-	// 	s(y) = a * y + b
-	// x and y are pixel coordinates
-	static constexpr double SY_A = -4.57e-6; // s(y) = a * y + b Coefficient for distance calculation
-	static constexpr double SY_B = 1.98e-3;   // s(y) = a * y + b Coefficient for distance calculation
 
     std::unique_ptr<Debug> debug_;
 };

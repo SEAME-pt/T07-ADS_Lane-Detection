@@ -104,10 +104,13 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
 	// 			<< "Left : slope = " << left_slope << " | intercept = " << left_intercept
 	// 			<< " || " << "Right : slope = " << right_slope << " | intercept = " << right_intercept << std::endl;
 
+
+
     // Step 4: Calculate offset and angle from the fitted lines
     float measured_offset, measured_angle;
-    calculateOffsetAndAngle(left_slope, left_intercept, right_slope, right_intercept,
-                            roi_ey_, measured_offset, measured_angle);
+    // calculateOffsetAndAngle(left_slope, left_intercept, right_slope, right_intercept,
+    //                         roi_ey_, measured_offset, measured_angle);
+	calculateOffsetAndAngle(measured_offset, measured_angle);
 	// std::cout << "[" << __func__ << "] "
 	// 		  << "Measured Offset: " << std::setw(6) << measured_offset
 	// 		  << " m, Measured Angle: " << std::setw(6) << measured_angle << " rad"
@@ -291,7 +294,7 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 	// Check if we found enough edges
 	if (left_edges_.size() < MIN_EDGE_POINTS || right_edges_.size() < MIN_EDGE_POINTS) {
 		std::cerr << "[" << __func__ << "] : "
-		<< "Not enough edge points found in ROI!" << std::endl;
+				  << "Not enough edge points found in ROI!" << std::endl;
 		return false; // Not enough edge points found
 	}
 	// else {
@@ -315,7 +318,7 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 }
 
 void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
-                                            double& slope, double& intercept) const {
+                                            double& slope, double& intercept) {
     if (edges.size() < MIN_EDGE_POINTS) {
         slope = 0.0;
         intercept = frame_width_ / 2.0 - CAMERA_OFFSET; // 320
@@ -323,15 +326,14 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
     }
 
     double sum_w = 0.0, sum_wy = 0.0, sum_wx = 0.0, sum_wyy = 0.0, sum_wyx = 0.0;
-    int start_y = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252
-    int end_y = static_cast<int>(start_y + std::min(left_edges_.size(), right_edges_.size()));     // 360
-    // int end_y = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
-    double range_y = end_y - start_y;
+    current_y_top_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252
+    current_y_bottom_ =static_cast<int>(current_y_top_ + std::min(left_edges_.size(), right_edges_.size()));     // 360
+    current_y_range_ = current_y_bottom_ - current_y_top_;
 
     for (const auto& pt : edges) {
         double y = pt.y;
         double x = pt.x;
-        double weight = (y - start_y) / range_y;
+        double weight = (y - current_y_top_) / current_y_range_;
         weight = std::max(0.1, weight);
 
         sum_w += weight;
@@ -409,48 +411,68 @@ double LaneDetector::calculateThirdSegmentSlope(double xLeftTop, double xLeftBot
     return sCarSlope;
 }
 
-void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
-                                           double right_slope, double right_intercept,
-                                           int y_bottom, float& offset, float& angle) const {
+// void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
+//                                            double right_slope, double right_intercept,
+//                                            int y_bottom, float& offset, float& angle) const {
+void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
     // Calculate edge points at bottom and top (adjusted by ROI_START_Y_PERCENT)
-    double xlb = left_slope * y_bottom + left_intercept;
-    double xrb = right_slope * y_bottom + right_intercept;
-    double xlt = left_slope * (y_bottom * ROI_START_Y_PERCENT) + left_intercept;
-    double xrt = right_slope * (y_bottom * ROI_START_Y_PERCENT) + right_intercept;
-    double xmb = ((xlb + xrb) / 2.0); // Midpoint at bottom
-    double xct = frame_width_ / 2.0 - CAMERA_OFFSET; // Camera center adjusted by offset
+	// All values in pixels
+    int xlb = left_edges_[current_y_range_].x;
+    int xrb = right_edges_[current_y_range_].x;
+    int xlt = left_edges_[0].x;
+    int xrt = right_edges_[0].x;
+    int xc = frame_width_ / 2 - CAMERA_OFFSET; // Camera center adjusted by offset
+	int xmt = xc - (xlt + xrt) / 2; // Midpoint at top
+    int xmb = xc - (xlb + xrb) / 2; // Midpoint at bottom
 
-    // Calculate offset in pixels
-    float offset_pixels = static_cast<float>(xmb - xct);
-    if (std::abs(offset_pixels) < 1e-6) {
-        offset = 0.0f; // No offset
-    } else {
-        offset = static_cast<float>(offset_pixels * METER_PER_PIXEL);
-    }
 
-    // Calculate the average slope of the left and right lines
-	//double x_start_3rd = xcb; // Midpoint at top
-	double sCarSlope = calculateThirdSegmentSlope(xlt, xlb, xrt, xrb, xct, y_bottom * ROI_START_Y_PERCENT, y_bottom, left_slope, right_slope);
-    float angle_real = static_cast<float>(std::atan(sCarSlope)); // Apparent angle in radians
+	// Convert image midlane points [pixels] to image Frame midlane [meters]
+	// using the equation d = s(y[pixels]) * x_img(pixel)
+	double xmt_imgFrame = (Asy * current_y_top_ + Bsy) * xmt;
+	double xmb_imgFrame = (Asy * current_y_bottom_ + Bsy) * xmb;
 
-    // Compensate for offset
-    //float height = static_cast<float>(y_bottom * (1.0 - ROI_START_Y_PERCENT)); // Effective height for slope
+	// Convert image Frame to car Frame
+	// x image Frame maps into y car Frame
+	// y image Frame maps into x car Frame
+	// TOP point:
+	// img Frame : y = roi_sy_ and x = xmt_imgFrame
+	// car Frame : y = xmt_imgFrame, x = calibration point measured in meters
+	double xmt_carFrame = X_IMG_ROI_TOP_CAR_FRAME; // calibrated(measured) distance car CM to dash cam center in the groiund
+	double ymt_carFrame = xmt_imgFrame;
+	// BOTTOM point:
+	// img Frame : y = roi_sy_ + current_y_range_ and x = xmb_imgFrame
+	// car Frame : y = xmb_imgFrame, x = calculated xmb_carFrame
+	// Calculate bottom distance at the Car Frame
+	// x car Frame at image center is 33 cm.
+	// At any point near the car then the image center:
+	// xmb_imgFrame = SUM(n =[0..y_range][-(Asy * (roi_sy_ + n_) + Bsy)];
+	double xmb_carFrame = X_IMG_ROI_TOP_CAR_FRAME;
+	for (double n = 0; n < current_y_range_; ++n) xmb_carFrame -= (Asy * (roi_sy_ + n) + Bsy) * 1;
+	double ymb_carFrame = xmb_imgFrame;
+
+	// Calculate slope of the car direction
+	double slope_carFrame = (ymb_carFrame - ymt_carFrame) / (xmb_carFrame - xmt_carFrame);
+	// Calculate the intersect at the car Frame
+	double intercept_carFrame = ymt_carFrame - slope_carFrame * xmt_carFrame;
+	// Calculate the yaw angle
+	double yaw_angle = std::atan(slope_carFrame); // in radians
+
+	angle = static_cast<float>(yaw_angle); // Set the angle in radians
+	offset = static_cast<float>(intercept_carFrame); // Set the offset in pmeters
+
     // Debugging output
-	angle = angle_real; // Adjust for camera tilt
     std::cout << "[" << __func__ << "] : "
-              << "y_bottom[" << y_bottom << "]\n"
+              << "y_bottom[" << current_y_bottom_ << "]\n"
               << "\t"
 			  << "xlt[" << xlt << "], "
               << "xlb[" << xlb << "], "
               << "xmm[" << xmb << "], "
               << "xrt[" << xrt << "], "
               << "xrb[" << xrb << "], "
-              << "xcb[" << xct << "], "
-              << "\n\tyaw appa[" << angle_real * 180.0 / CV_PI << " deg], "
-              << "\n\tey pixels[" << offset_pixels <<"], "
-              << "meters[" << offset << "]"
+              << "xc [" << xc << "], "
+              << "\n\tyaw [" << angle * 180.0 / CV_PI << " deg], "
+              << "\n\tey  [" << offset << "]"
               << std::endl;
-
     // angle = angle_real; // Return the compensated true angle
 }
 
