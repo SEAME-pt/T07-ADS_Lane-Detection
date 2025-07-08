@@ -111,10 +111,10 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     // calculateOffsetAndAngle(left_slope, left_intercept, right_slope, right_intercept,
     //                         roi_ey_, measured_offset, measured_angle);
 	calculateOffsetAndAngle(measured_offset, measured_angle);
-	// std::cout << "[" << __func__ << "] "
-	// 		  << "Measured Offset: " << std::setw(6) << measured_offset
-	// 		  << " m, Measured Angle: " << std::setw(6) << measured_angle << " rad"
-	// 		  << '\r' << std::flush;
+	std::cout << "[" << __func__ << "] "
+			  << "\n\tMeasured Offset: " << std::setw(6) << measured_offset << " m,"
+			  << "\n\tMeasured Angle: " << std::setw(6) << measured_angle << " rad"
+			  << '\r' << std::flush;
 
 
 	//std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
@@ -573,7 +573,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 			<< ", Type: " << lane_mask_.type()
 			<< ", Channels: " << lane_mask_.channels() << std::endl;
 	// Convert output data to cv::Mat
-	cv::Mat birdEyeMask = birdsEyeTransform(lane_mask_); // Transformação de perspectiva
+	// cv::Mat birdEyeMask = birdsEyeTransform(lane_mask_); // Transformação de perspectiva
     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
     //cv::imwrite("lane_mask_original.png", lane_mask_ * 255);
 

@@ -47,8 +47,8 @@ static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calcula
 static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation
 static constexpr double THRESHOLD = 0.3f; // Threshold for binary mask
 
-static constexpr double X_IMG_ROI_TOP_CAR_FRAME = 0.33f; // X coordinate of the car center in the image frame
-static constexpr double X_IMG_ROI_BOTTOM_CAR_FRAME = 0.11f; // X coordinate of the bottom ROI in the image frame
+static constexpr double X_IMG_ROI_TOP_CAR_FRAME = 0.40f; // X coordinate of the car center in the image frame
+static constexpr double X_IMG_ROI_BOTTOM_CAR_FRAME = 0.f; // X coordinate of the bottom ROI in the image frame
 
 class Logger : public nvinfer1::ILogger {
 public:
