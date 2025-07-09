@@ -102,7 +102,8 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
 	// right_intercept_ = right_intercept; // Reset right intercept to zero
 	std::cout << "[" << __func__ << "] "
 				<< "Left : slope = " << iGeo_.left_slope << " | intercept = " << iGeo_.left_intercept
-				<< " || " << "Right : slope = " << iGeo_.right_slope << " | intercept = " << iGeo_.right_intercept << std::endl;
+				<< " || "
+				<< "Right : slope = " << iGeo_.right_slope << " | intercept = " << iGeo_.right_intercept << std::endl;
 
 
 
@@ -125,6 +126,10 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     // Step 6: Set output parameters
     offset = smoothed_offset;
     angle = smoothed_angle;
+
+	iGeo_.angle = angle * 180 / CV_PI; // Store angle in imgGeometry
+	iGeo_.offset = offset ; // Store offset in imgGeometry
+
 	//std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
 
 	// std::cout << "[" << __func__ << "] "
@@ -415,27 +420,31 @@ double LaneDetector::calculateThirdSegmentSlope(double xLeftTop, double xLeftBot
 //                                            double right_slope, double right_intercept,
 //                                            int y_bottom, float& offset, float& angle) const {
 void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
-    // Calculate edge points at bottom and top (adjusted by ROI_START_Y_PERCENT)
 	// All values in pixels
-    int xlb = left_slope_ * frame_height_ + left_intercept_ ;//edges_[current_y_range_].x;
-    int xlt = left_slope_ * (frame_height_ / 2) + left_intercept_; //edges_[0].x;
-    // int xlb = left_edges_[current_y_range_].x;
-    int xrb = right_slope_ * frame_height_ + right_intercept_;//edges_[current_y_range_].x;
-    int xrt = right_slope_ * (frame_height_ / 2) + right_intercept_;
     int xc = frame_width_ / 2 - CAMERA_OFFSET; // Camera center adjusted by offset
-	int xmt = xc - (xlt + xrt) / 2; // Midpoint at top
+    // Calculate edge points at bottom and top (adjusted by ROI_START_Y_PERCENT)
+    int xlb = iGeo_.left_slope * frame_height_ + iGeo_.left_intercept ;//edges_[current_y_range_].x;
+    int xrb = iGeo_.right_slope * frame_height_ + iGeo_.right_intercept;//edges_[current_y_range_].x;
     int xmb = xc - (xlb + xrb) / 2; // Midpoint at bottom
 
+	// int xlb = left_edges_[current_y_range_].x;
+    int xlt = iGeo_.left_slope * (frame_height_ / 2) + iGeo_.left_intercept; //edges_[0].x;
+    int xrt = iGeo_.right_slope * (frame_height_ / 2) + iGeo_.right_intercept;
+	int xmt = xc - (xlt + xrt) / 2; // Midpoint distance at top
 
 	// Convert image midlane points [pixels] to image Frame midlane [meters]
 	// using the equation d = s(y[pixels]) * x_img(pixel)
-	double xmt_imgFrame = (Asy * current_y_top_ + Bsy) * xmt;
-	double xmb_imgFrame = (Asy * current_y_bottom_ + Bsy) * xmb;
+	// Points at center of image
+	double xmt_imgFrame = (Asy * roi_sy_ + Bsy) * xmt;
+	//Point at bottom of image
+	double xmb_imgFrame = (Asy * frame_height_ + Bsy) * xmb;
 
 	// Convert image Frame to car Frame
 	// x image Frame maps into y car Frame
 	// y image Frame maps into x car Frame
-	// TOP point:
+
+	// TOP point: (xmt_carFrame, ymt_carFrame)
+
 	// img Frame : y = roi_sy_ and x = xmt_imgFrame
 	// car Frame : y = xmt_imgFrame, x = calibration point measured in meters
 	double xmt_carFrame = X_IMG_ROI_TOP_CAR_FRAME; // calibrated(measured) distance car CM to dash cam center in the groiund
@@ -447,9 +456,8 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
 	// x car Frame at image center is 33 cm.
 	// At any point near the car then the image center:
 	// xmb_imgFrame = SUM(n =[0..y_range][-(Asy * (roi_sy_ + n_) + Bsy)];
-	double xmb_carFrame = X_IMG_ROI_TOP_CAR_FRAME;
-	for (double n = 0; n < current_y_range_; ++n) xmb_carFrame -= (Asy * (roi_sy_ + n) + Bsy) * 1;
-	double ymb_carFrame = xmb_imgFrame;
+	double xmb_carFrame = X_IMG_ROI_BOTTOM_CAR_FRAME;
+	double ymb_carFrame = -xmb_imgFrame;
 
 	// Calculate slope of the car direction
 	double slope_carFrame = (ymt_carFrame - ymb_carFrame) / (xmt_carFrame - xmb_carFrame);
@@ -460,6 +468,7 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
 
 	angle = static_cast<float>(yaw_angle); // Set the angle in radians
 	offset = static_cast<float>(intercept_carFrame); // Set the offset in pmeters
+	float angle_deg = angle * 180 / CV_PI;
 
     // Debugging output
     std::cout << "[" << __func__ << "] : "

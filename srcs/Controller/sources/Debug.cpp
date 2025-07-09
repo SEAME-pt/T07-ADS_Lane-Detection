@@ -31,19 +31,21 @@ void Debug::showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, imgGeom
 	cv::putText(output_frame, offset_text, cv::Point(10, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
 
     // Draw left and right lane lines using slopes and intercepts
-    cv::Point lpt1(iGeo.left_slope * (frame_height_ / 2) + iGeo.left_intercept, (frame_height_ / 2) );
+    cv::Point lpt1(iGeo.left_slope * 0 + iGeo.left_intercept, 0 );
+    // cv::Point lpt1(iGeo.left_slope * (frame_height_ / 2) + iGeo.left_intercept, (frame_height_ / 2) );
     cv::Point lpt2(iGeo.left_slope * (frame_height_ - 1)  + iGeo.left_intercept, (frame_height_ - 1));
     cv::line(output_frame, lpt1, lpt2, cv::Scalar(255, 0, 255), 2); // Purple for left lane
 
-    cv::Point rpt1(iGeo.right_slope * (frame_height_ / 2) + iGeo.right_intercept, (frame_height_ / 2) );
+    cv::Point rpt1(iGeo.right_slope * 0 + iGeo.right_intercept, 0 );
+    // cv::Point rpt1(iGeo.right_slope * (frame_height_ / 2) + iGeo.right_intercept, (frame_height_ / 2) );
     cv::Point rpt2(iGeo.right_slope * (frame_height_ - 1) + iGeo.right_intercept, (frame_height_ - 1));
     cv::line(output_frame, rpt1, rpt2, cv::Scalar(255, 0, 255), 2); // Purple for right lane
 
     // Calculate central lane points (ptm1 at roi_sy_, ptm2 at roi_ey_)
-    float xl1 = iGeo.left_slope * (frame_height_ / 2)  + iGeo.left_intercept; // Left edge at top (roi_sy_)
-    float xr1 = iGeo.right_slope * (frame_height_ / 2)  + iGeo.right_intercept; // Right edge at top (roi_sy_)
+    float xl1 = iGeo.left_slope * (0)  + iGeo.left_intercept; // Left edge at top (roi_sy_)
+    float xr1 = iGeo.right_slope * (0)  + iGeo.right_intercept; // Right edge at top (roi_sy_)
     float xm1 = (xr1 + xl1) / 2.0f; // Midpoint at top
-    cv::Point ptm1(static_cast<int>(xm1), (frame_height_ / 2) );
+    cv::Point ptm1(static_cast<int>(xm1), (0) );
 
     float xl2 = iGeo.left_slope * (frame_height_ - 1) + iGeo.left_intercept; // Left edge at bottom (roi_ey_)
     float xr2 = iGeo.right_slope * (frame_height_ - 1) + iGeo.right_intercept; // Right edge at bottom (roi_ey_)
@@ -51,12 +53,15 @@ void Debug::showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, imgGeom
     cv::Point ptm2(static_cast<int>(xm2), (frame_height_ - 1) );
 
     // Draw central lane line (yellow, solid)
-    cv::line(output_frame, ptm1, ptm2, cv::Scalar(0, 255, 255), 2); // Yellow for central lane
+    cv::line(output_frame, ptm1, ptm2, cv::Scalar(0, 255, 255), 1); // Yellow for central lane
+    // Draw central horizontal line (red, solid)
+    cv::line(output_frame, cv::Point(0,frame_height_ / 2), cv::Point(frame_width_, frame_height_ / 2), cv::Scalar(255, 0, 0), 1); // Yellow for central lane
 
     // Draw camera center line (vertical, red)
-	cv::Point xc1(camera_center_ - camera_offset, (frame_height_ / 2)) ; // Camera center adjusted by offset
+	cv::Point xc1(camera_center_ - camera_offset, (0)) ; // Camera center adjusted by offset
+	// cv::Point xc1(camera_center_ - camera_offset, (frame_height_ / 2)) ; // Camera center adjusted by offset
 	cv::Point xc2(camera_center_ - camera_offset, (frame_height_ -1)); // Camera center adjusted by offset
-    cv::line(output_frame, xc1, xc2, cv::Scalar(0, 0, 255), 2);
+    cv::line(output_frame, xc1, xc2, cv::Scalar(0, 0, 255), 1);
 
 	// Draw mask thumb
 	cv::Mat mask_thumb;
