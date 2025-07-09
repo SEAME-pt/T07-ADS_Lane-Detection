@@ -15,6 +15,16 @@
 #include <stdexcept>
 #include <cmath>
 
+
+// typedef struct s_imgGeometry {
+// 	float left_slope;       // Slope of the left lane line
+// 	float left_intercept;   // Intercept of the left lane line
+// 	float right_slope;      // Slope of the right lane line
+// 	float right_intercept;  // Intercept of the right lane line
+// 	float offset;           // Offset from the center of the lane
+// 	float angle;            // Angle of the lane in radians
+// } imgGeometry;
+
 enum KalmanStateIndex { OFFSET = 0, OFFSET_VEL = 1, ANGLE = 2 };
 enum KalmanMeasurementIndex { MEASUREMENT_OFFSET = 0, MEASUREMENT_ANGLE = 1 };
 enum KalmanPredictionIndex { PREDICTION_OFFSET = 0, PREDICTION_ANGLE = 1 };
@@ -48,7 +58,7 @@ static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculati
 static constexpr double THRESHOLD = 0.3f; // Threshold for binary mask
 
 static constexpr double X_IMG_ROI_TOP_CAR_FRAME = 0.40f; // X coordinate of the car center in the image frame
-static constexpr double X_IMG_ROI_BOTTOM_CAR_FRAME = 0.f; // X coordinate of the bottom ROI in the image frame
+static constexpr double X_IMG_ROI_BOTTOM_CAR_FRAME = 0.19f; // X coordinate of the bottom ROI in the image frame
 
 class Logger : public nvinfer1::ILogger {
 public:
@@ -78,7 +88,7 @@ private:
     //                    std::vector<cv::Point>& right_edges) const;
     cv::Mat birdsEyeTransform(const cv::Mat& frame) const;
 	bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
-    void weightedLinearRegression(const std::vector<cv::Point>& points,
+    void weightedLinearRegression(const std::vector<cv::Point>& points, 
                                   double& slope, double& intercept) ;
 	double calculateThirdSegmentSlope(double x_start_left, double x_end_left,
                                  double x_start_right, double x_end_right,
@@ -172,6 +182,8 @@ private:
     static constexpr float ROI_START_Y_PERCENT = 0.5f; // ROI starts at 50% of image height
     static constexpr float ROI_END_Y_PERCENT = 0.9f;   // ROI ends at 80% of image height
     static constexpr int MAX_SEARCH_DISTANCE = 310;    // Max distance (pixels) to search for edges
+
+	imgGeometry iGeo_; // Structure to hold lane geometry parameters
 
     std::unique_ptr<Debug> debug_;
 };

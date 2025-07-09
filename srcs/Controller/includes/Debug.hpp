@@ -4,7 +4,17 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
+// #include "LaneDetector.hpp"
 
+
+typedef struct s_imgGeometry {
+	double left_slope;       // Slope of the left lane line
+	double left_intercept;   // Intercept of the left lane line
+	double right_slope;      // Slope of the right lane line
+	double right_intercept;  // Intercept of the right lane line
+	float offset;           // Offset from the center of the lane
+	float angle;            // Angle of the lane in radians
+} imgGeometry;
 
 class Debug {
 public:
@@ -15,7 +25,8 @@ public:
     ~Debug();
 
     // Display output video with lane information
-    void showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset, int camera_offset = 0);
+	void showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, imgGeometry iGeo, int camera_offset = 0);
+    // void showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, float left_slope, float left_intercept, float right_slope, float right_intercept, float angle, float offset, int camera_offset = 0);
 
     // Save debug information to a file
     void saveToFile(const std::string& filename,
