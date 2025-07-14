@@ -25,7 +25,7 @@ void Debug::showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, imgGeom
 	// Draw angle and offset on top left corner
 	std::string camera_center_text = "CarCenter: " + std::to_string(camera_center_ + camera_offset) + " px";
 	cv::putText(output_frame, camera_center_text, cv::Point(320, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
-	std::string angle_text = "Angle: " + std::to_string(iGeo.angle * 180.0 / CV_PI) + " deg";
+	std::string angle_text = "Angle: " + std::to_string(iGeo.angle) + " deg";
 	std::string offset_text = "Offset: " + std::to_string(iGeo.offset) + " m";
 	cv::putText(output_frame, angle_text, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
 	cv::putText(output_frame, offset_text, cv::Point(10, 60), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
@@ -76,6 +76,7 @@ void Debug::saveToFile(const std::string& filename,
                        float offset,
                        float angle,
                        const cv::Mat& lane_mask) {
+	return;
     std::ofstream file(filename, std::ios::app);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << filename << std::endl;

@@ -100,10 +100,10 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     weightedLinearRegression(right_edges_, iGeo_.right_slope, iGeo_.right_intercept);
 	// right_slope_ = right_slope;
 	// right_intercept_ = right_intercept; // Reset right intercept to zero
-	std::cout << "[" << __func__ << "] "
-				<< "Left : slope = " << iGeo_.left_slope << " | intercept = " << iGeo_.left_intercept
-				<< " || "
-				<< "Right : slope = " << iGeo_.right_slope << " | intercept = " << iGeo_.right_intercept << std::endl;
+	// std::cout << "[" << __func__ << "] "
+	// 			<< "Left : slope = " << iGeo_.left_slope << " | intercept = " << iGeo_.left_intercept
+	// 			<< " || "
+	// 			<< "Right : slope = " << iGeo_.right_slope << " | intercept = " << iGeo_.right_intercept << std::endl;
 
 
 
@@ -112,10 +112,10 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     // calculateOffsetAndAngle(left_slope, left_intercept, right_slope, right_intercept,
     //                         roi_ey_, measured_offset, measured_angle);
 	calculateOffsetAndAngle(measured_offset, measured_angle);
-	std::cout << "[" << __func__ << "] "
-			  << "\n\tMeasured Offset: " << std::setw(6) << measured_offset << " m,"
-			  << "\n\tMeasured Angle: " << std::setw(6) << measured_angle << " rad"
-			  << '\r' << std::flush;
+	// std::cout << "[" << __func__ << "] "
+	// 		  << "\n\tMeasured Offset: " << std::setw(6) << measured_offset << " m,"
+	// 		  << "\n\tMeasured Angle: " << std::setw(6) << measured_angle << " rad"
+	// 		  << '\r' << std::flush;
 
 
 	//std::cout << "Offset: " << offset << " m, Angle: " << angle << " rad" << std::endl;
@@ -145,8 +145,8 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
 
 void LaneDetector::defineROI() {
 		std::cout << "Defining ROI..." << std::endl;
-		roi_sy_ = static_cast<int>(frame_height_ * ROI_START_Y_PERCENT); // 252 for 360
-		roi_ey_ = static_cast<int>(frame_height_ * ROI_END_Y_PERCENT);     // 360
+		roi_sy_ = static_cast<int>(frame_height_ * ROI_SY_PERCENT); // 252 for 360
+		roi_ey_ = static_cast<int>(frame_height_ * ROI_EY_PERCENT);     // 360
 		roi_sx_ = ROI_X_BORDER; // 20
 		roi_ex_ = frame_width_ - ROI_X_BORDER; // 620
 		roi_w_ = roi_ex_ - roi_sx_; // 620 - 20 = 600
@@ -400,18 +400,7 @@ double LaneDetector::calculateThirdSegmentSlope(double xLeftTop, double xLeftBot
     double sCarSlope = (xCarBottom - xCarTop) / yDelta;
 	//double isCarSlope = yDelta / (xCarBottom - xCarTop); // Inverse slope for debugging
 
-    // Debugging output
-    // std::cout << "[calculateThirdSegmentSlope] : "
-    //           << "\n\t xLeftTop = " << xLeftTop
-    //           << "\n\t xLeftBottom = " << xLeftBottom
-    //           << "\n\t xRightTop = " << xRightTop
-    //           << "\n\t xRightBottom = " << xRightBottom
-    //           << "\n\t xCarTop = " << x_start_3rd
-    //           << "\n\t xCarBottom = " << xCarBottom
-    //           << "\n\t s_left_slope = " << s_left_slope
-    //           << "\n\t s_right_slope = " << s_right_slope
-    //           << "\n\t sCarSlope = " << sCarSlope
-    //           << std::endl;
+
 
     return sCarSlope;
 }
@@ -421,7 +410,7 @@ double LaneDetector::calculateThirdSegmentSlope(double xLeftTop, double xLeftBot
 //                                            int y_bottom, float& offset, float& angle) const {
 void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
 	// All values in pixels
-    int xc = frame_width_ / 2 - CAMERA_OFFSET; // Camera center adjusted by offset
+    int xc = frame_width_ / 2 + CAMERA_OFFSET; // Camera center adjusted by offset
     // Calculate edge points at bottom and top (adjusted by ROI_START_Y_PERCENT)
     int xlb = iGeo_.left_slope * frame_height_ + iGeo_.left_intercept ;//edges_[current_y_range_].x;
     int xrb = iGeo_.right_slope * frame_height_ + iGeo_.right_intercept;//edges_[current_y_range_].x;
@@ -438,6 +427,17 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
 	double xmt_imgFrame = (Asy * roi_sy_ + Bsy) * xmt;
 	//Point at bottom of image
 	double xmb_imgFrame = (Asy * frame_height_ + Bsy) * xmb;
+
+	// Debugging output
+	std::cout << "[" << __func__ << "] : "
+			  << "IMAGE FRAME"
+			  << "\n\tdelta x top    = " << (Asy * (frame_height_ / 2) + Bsy) * (xrt - xlt)
+			  << "\n\tdelta x bottom = " << (Asy * frame_height_ + Bsy) * (xrb - xlb)
+			  << "\n\txmt_imgFrame   = " << xmt_imgFrame
+			  << ", xmb_imgFrame = " << xmb_imgFrame
+			  << "\n\troi_sy_ = " << roi_sy_
+			  << ", frame_height_ = " << frame_height_
+			  << std::endl;
 
 	// Convert image Frame to car Frame
 	// x image Frame maps into y car Frame
@@ -470,19 +470,28 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
 	offset = static_cast<float>(intercept_carFrame); // Set the offset in pmeters
 	float angle_deg = angle * 180 / CV_PI;
 
-    // Debugging output
-    std::cout << "[" << __func__ << "] : "
-              << "y_bottom[" << current_y_bottom_ << "]\n"
-              << "\t"
-			  << "xlt[" << xlt << "], "
-              << "xlb[" << xlb << "], "
-              << "xmm[" << xmb << "], "
-              << "xrt[" << xrt << "], "
-              << "xrb[" << xrb << "], "
-              << "xc [" << xc << "], "
-              << "\n\tyaw [" << angle * 180.0 / CV_PI << " deg], "
-              << "\n\tey  [" << offset << "]"
-              << std::endl;
+    // Debugging output CAR FRAME
+    std::cout << "[" << __func__ << "] : CAR FRAME"
+				<< "\n\txmt_carFrame[" << xmt_carFrame << "], "
+				<< "ymt_carFrame[" << ymt_carFrame << "], "
+				<< "\n\txmb_carFrame[" << xmb_carFrame << "], "
+				<< "ymb_carFrame[" << ymb_carFrame << "], "
+				<< "\n\tslope car frame[" << slope_carFrame << "]"
+				<< "\n\tyaw [" << angle * 180.0 / CV_PI << " deg], "
+				<< "\n\tey  [" << offset << "]"
+				<< std::endl;
+	// Debugging output PIXEL
+	std::cout << "[" << __func__ << "] PIXELS"
+				<< "\n\tLeft  : slope = [" << iGeo_.left_slope << "] | intercept = [" << iGeo_.left_intercept << "]"
+				<< "\n\tRight : slope = [" << iGeo_.right_slope << "] | intercept = [" << iGeo_.right_intercept << "]" << std::endl;
+    std::cout << "[" << __func__ << "] : PIXELS"
+				<< "\n\txlt[" << xlt << "], "
+				<< "xmm[" << xmb << "], "
+				<< "xrt[" << xrt << "], "
+				<< "\n\txlb[" << xlb << "], "
+				<< "xc [" << xc << "], "
+				<< "xrb[" << xrb << "], "
+				<< std::endl;
     // angle = angle_real; // Return the compensated true angle
 }
 
@@ -541,22 +550,6 @@ void LaneDetector::infer() {
     if (err != cudaSuccess) throw std::runtime_error("CUDA error after inference: " + std::string(cudaGetErrorString(err)));
 }
 
-// void LaneDetector::preprocess(const cv::Mat& frame) {
-//     cv::Mat resized;
-//     cv::resize(frame, resized, cv::Size(input_width_, input_height_)); // resize to input size
-
-//     resized.convertTo(resized, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
-//     //frame.convertTo(frame, CV_32F, 1.0 / 255.0);  // Normaliza para [0,1]
-
-//     std::vector<cv::Mat> channels;
-//     cv::split(resized, channels);
-//     //cv::split(frame, channels);
-//     for (int c = 0; c < 3; ++c) {
-//         //memcpy(input_data_.data() + c * frame_height_ * frame_width_, channels[c].data, frame_height_ * frame_width_ * sizeof(float));
-//         memcpy(input_data_.data() + c * input_height_ * input_width_, channels[c].data, input_height_ * input_width_ * sizeof(float));
-//     }
-// }
-
 void LaneDetector::preprocess(const cv::Mat& frame) {
     cv::Mat resized;
     cv::resize(frame, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_CUBIC); // Interpolação cúbica
@@ -578,10 +571,10 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     preprocess(frame);
     infer();
 
-	std::cout << "[" << __func__ << "] : "
-			<< "lane_mask_ size: " << lane_mask_.size()
-			<< ", Type: " << lane_mask_.type()
-			<< ", Channels: " << lane_mask_.channels() << std::endl;
+	// std::cout << "[" << __func__ << "] : "
+	// 		<< "lane_mask_ size: " << lane_mask_.size()
+	// 		<< ", Type: " << lane_mask_.type()
+	// 		<< ", Channels: " << lane_mask_.channels() << std::endl;
 	// Convert output data to cv::Mat
 	// cv::Mat birdEyeMask = birdsEyeTransform(lane_mask_); // Transformação de perspectiva
     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
@@ -597,8 +590,6 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 	if (!rawLane.empty()) {
 		cv::imwrite("rawLane.png", rawLane );
 	}
-
-
 
     // double min_val, max_val;
     // cv::minMaxLoc(lane_mask_, &min_val, &max_val);
@@ -635,8 +626,8 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 
     debug_->showOutputVideo(rawLane, output_frame, iGeo_, CAMERA_OFFSET);
 
-	cv::Mat lane_mask_8u;
-	lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
-    cv::imwrite("lane_mask.png", lane_mask_ * 255);
-    cv::imwrite("binary_mask.png", binary_mask * 255);
+	// cv::Mat lane_mask_8u;
+	// lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
+    // cv::imwrite("lane_mask.png", lane_mask_ * 255);
+    // cv::imwrite("binary_mask.png", binary_mask * 255);
 }

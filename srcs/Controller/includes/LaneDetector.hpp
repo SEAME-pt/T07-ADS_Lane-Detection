@@ -41,7 +41,7 @@ static constexpr int I_H = 128;
 static constexpr int F_W = 640; // Frame width
 static constexpr int F_H = 360; // Frame height
 static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 50% of image height
-static constexpr float ROI_EY_PERCENT = 0.9f;   // ROI ends at 90% of image height
+static constexpr float ROI_EY_PERCENT = 0.8f;   // ROI ends at 90% of image height
 static constexpr double METER_PER_PIXEL = 0.0005556; // Example scale factor, should be calibrated [m/pixel]
 
 // Coefficients for distance calculation, converting pixels to meters
@@ -49,16 +49,19 @@ static constexpr double METER_PER_PIXEL = 0.0005556; // Example scale factor, sh
 //  d(m) = s(y) * x
 // 	s(y) = a * y + b
 // x and y are pixel coordinates
-static constexpr double Asy = -4.57e-6; // Coefficient for distance calculation
-static constexpr double Bsy = 1.98e-3;   // Coefficient for distance calculation
+static constexpr double Asy = -2.6e-6; // Coefficient for distance calculation
+static constexpr double Bsy = 1.35e-3;   // Coefficient for distance calculation
+
+// static constexpr double Asy = -4.57e-6; // Coefficient for distance calculation
+// static constexpr double Bsy = 1.98e-3;   // Coefficient for distance calculation
 
 
 static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calculation
 static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation
 static constexpr double THRESHOLD = 0.3f; // Threshold for binary mask
 
-static constexpr double X_IMG_ROI_TOP_CAR_FRAME = 0.40f; // X coordinate of the car center in the image frame
-static constexpr double X_IMG_ROI_BOTTOM_CAR_FRAME = 0.19f; // X coordinate of the bottom ROI in the image frame
+static constexpr double X_IMG_ROI_TOP_CAR_FRAME = 0.41f; // X coordinate of the car center in the image frame
+static constexpr double X_IMG_ROI_BOTTOM_CAR_FRAME = 0.20f; // X coordinate of the bottom ROI in the image frame
 
 class Logger : public nvinfer1::ILogger {
 public:
@@ -88,7 +91,7 @@ private:
     //                    std::vector<cv::Point>& right_edges) const;
     cv::Mat birdsEyeTransform(const cv::Mat& frame) const;
 	bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
-    void weightedLinearRegression(const std::vector<cv::Point>& points, 
+    void weightedLinearRegression(const std::vector<cv::Point>& points,
                                   double& slope, double& intercept) ;
 	double calculateThirdSegmentSlope(double x_start_left, double x_end_left,
                                  double x_start_right, double x_end_right,
@@ -175,7 +178,7 @@ private:
 	static constexpr double CAMERA_Y_POS = 0.0f;     // 0 cm in meters, centered on the car's CM
     static constexpr double CAMERA_Z_POS = 0.115;   // 11.5 cm in meters
 	static constexpr double CAMERA_FOCAL_LENGTH = 0.00315; // Focal length in meters (2 mm)
-	static constexpr int CAMERA_OFFSET = 5; // Offset in pixels, adjust if needed
+	static constexpr int CAMERA_OFFSET = 0; // Offset in pixels, adjust if needed
     static constexpr double METER_PER_PIXEL = 0.0005556;  // Example scale factor, should be calibrated [m/pixel]
 
 	// static constexpr double METER_PER_PIXEL = 0.00022224;  // Example scale factor, should be calibrated [m/pixel]
