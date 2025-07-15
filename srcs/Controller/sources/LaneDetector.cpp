@@ -414,12 +414,12 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
     // Calculate edge points at bottom and top (adjusted by ROI_START_Y_PERCENT)
     int xlb = iGeo_.left_slope * frame_height_ + iGeo_.left_intercept ;//edges_[current_y_range_].x;
     int xrb = iGeo_.right_slope * frame_height_ + iGeo_.right_intercept;//edges_[current_y_range_].x;
-    int xmb = xc - (xlb + xrb) / 2; // Midpoint at bottom
+    int xmb = xc - (xlb + xrb) / 2; // Midpoint distance to car center at bottom
 
 	// int xlb = left_edges_[current_y_range_].x;
     int xlt = iGeo_.left_slope * (frame_height_ / 2) + iGeo_.left_intercept; //edges_[0].x;
     int xrt = iGeo_.right_slope * (frame_height_ / 2) + iGeo_.right_intercept;
-	int xmt = xc - (xlt + xrt) / 2; // Midpoint distance at top
+	int xmt = xc - (xlt + xrt) / 2; // Midpoint distance to car center at top
 
 	// Convert image midlane points [pixels] to image Frame midlane [meters]
 	// using the equation d = s(y[pixels]) * x_img(pixel)

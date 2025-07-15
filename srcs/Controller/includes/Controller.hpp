@@ -74,7 +74,7 @@ private:
     cv::Mat frame, output_frame;
 
 	// State variables
-    Vector3d current_state_;
+    // Vector3d current_state_;
     TimeTracker tracker;
     int _currentMode;
 
@@ -82,7 +82,7 @@ private:
     std::ofstream csv_file_;
     std::mutex csv_mutex_;
 	float delta_;
-	MPC mpc_;
+	MPCController mpc_;
     // // MPC parameters
     // static constexpr int N = 10;  // Prediction horizon
     // static constexpr float DT = 0.03f;  // Time step

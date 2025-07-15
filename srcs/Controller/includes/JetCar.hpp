@@ -10,6 +10,8 @@
 #include <linux/i2c-dev.h>  // Para I2C_SLAVE
 #include <cmath>      // Para std::floor
 
+const int V_MAX_PWM = 100; // Max PWM value for speed (0-100%)
+
 class JetCar {
 public:
     JetCar(int motorAddr, int servoAddr);
