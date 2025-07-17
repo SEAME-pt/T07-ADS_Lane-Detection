@@ -12,9 +12,11 @@ typedef struct s_imgGeometry {
 	double left_intercept{0.0};   // Intercept of the left lane line
 	double right_slope{0.0};      // Slope of the right lane line
 	double right_intercept{0.0};  // Intercept of the right lane line
+	double middle_slope{0.0};      // Slope of the right lane line
+	double middle_intercept{0.0};  // Intercept of the right lane line
 	float offset{0.0f};           // Offset from the center of the lane
-	float angle{0.0};            // Angle of the lane in radians
-	float estimated_lane_width{0.0f};      // Width of the lane in meters
+	float angle{0.0f};            // Angle of the lane in radians
+	float lane_width{-1.0f};      // Width of the lane in meters
 } imgGeometry;
 
 class Debug {

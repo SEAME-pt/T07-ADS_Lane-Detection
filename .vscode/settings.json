@@ -81,7 +81,11 @@
 	"__tree": "cpp",
 	"queue": "cpp",
 	"stack": "cpp",
-	"locale": "cpp"
+	"locale": "cpp",
+	"charconv": "cpp",
+	"format": "cpp",
+	"span": "cpp",
+	"variant": "cpp"
 },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",
@@ -140,5 +144,5 @@
   "C_Cpp_Runner.showCompilationTime": false,
   "C_Cpp_Runner.useLinkTimeOptimization": false,
 "C_Cpp_Runner.msvcSecureNoWarnings": false,
-"cmake.sourceDirectory": "/home/team07/SEAME/T07-ADS_Lane-Detection/srcs/Controller"
+"cmake.sourceDirectory": "/workspaces/T07-ADS_Lane-Detection/srcs/Controller"
 }

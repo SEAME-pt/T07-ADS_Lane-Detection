@@ -16,14 +16,28 @@
 #include <cmath>
 
 
-// typedef struct s_imgGeometry {
-// 	float left_slope;	   // Slope of the left lane line
-// 	float left_intercept;   // Intercept of the left lane line
-// 	float right_slope;	  // Slope of the right lane line
-// 	float right_intercept;  // Intercept of the right lane line
-// 	float offset;		   // Offset from the center of the lane
-// 	float angle;			// Angle of the lane in radians
-// } imgGeometry;
+typedef struct s_carFrame {
+	float xT{X_CAR_FRAME_CENTER};	// X coordinate
+	float yT{0.0f};	// Intercept of the left lane line
+	float xB{X_CAR_FRAME_BOTTOM};	// Slope of the right lane line
+	float yB{0.0f};	// Intercept of the right lane line
+	float xDelta{X_CAR_FRAME_CENTER - X_CAR_FRAME_BOTTOM};	// Delta X between top and bottom points
+	float slope{0.0f};	// Slope of the right lane line
+	float intercept{0.0f};	// Intercept of the right lane line
+	float angle{0.0f};	// Angle of the lane in radians
+} t_carFrame;
+
+typedef struct s_imgFrame {
+	int xltPX{0};	// Left edge at top
+	int xrtPX{0};	// Right edge at top
+	int xlbPX{0};	// Left edge at bottom
+	int xrbPX{0};	// Right edge at bottom
+	int xmtPX{0};	// Midpoint at top
+	int xmbPX{0};	// Midpoint at bottom
+	int xcPX{frame_width_ / 2 - CAMERA_OFFSET};	// Center of the image
+	float xmt{0.0f};	// Midpoint at top in meters
+	float xmb{0.0f};	// Midpoint at bottom in meters
+} t_imgFrame
 
 enum KalmanStateIndex { OFFSET = 0, OFFSET_VEL = 1, ANGLE = 2 };
 enum KalmanMeasurementIndex { MEASUREMENT_OFFSET = 0, MEASUREMENT_ANGLE = 1 };
@@ -68,6 +82,7 @@ private:
 	bool calculateLaneGeometry(float& offset, float& angle);
 	bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
 	void weightedLinearRegression(const std::vector<cv::Point>& points, double& slope, double& intercept) ;
+	void calculateMiddleLaneLine(void) ;
 	void calculateOffsetAndAngle(float& offset, float& angle) const;
 	void applyKalmanFilter(float measured_offset, float measured_angle, float& smoothed_offset, float& smoothed_angle);
 
@@ -87,12 +102,14 @@ private:
 	Logger logger_;
 	std::unique_ptr<Debug> debug_;
 	imgGeometry iGeo_; // Structure to hold lane geometry parameters
+	t_carFrame carFrame_;
+	t_imgFrame imgFrame_;
 	std::vector<cv::Point> left_edges_;
 	std::vector<cv::Point> right_edges_;
 	// Prediction
 	float offset_kalman_{0.0f};
 	float angle_kalman_{0.0f};
-	float estimated_lane_width_{200.0f}; // when one lane edge is missing
+	float estimated_lane_width_{-1.0f}; // when one lane edge is missing
 	// Dimensions
 	int input_height_{I_H};
 	int input_width_{I_W};
