@@ -58,7 +58,7 @@ static constexpr double Bsy = 1.35e-3;   // Coefficient for distance calculation
 
 static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calculation
 static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation
-static constexpr double THRESHOLD = 0.3f; // Threshold for binary mask
+static constexpr double THRESHOLD = 0.5; // Threshold for binary mask
 
 static constexpr double X_IMG_ROI_TOP_CAR_FRAME = 0.41f; // X coordinate of the car center in the image frame
 static constexpr double X_IMG_ROI_BOTTOM_CAR_FRAME = 0.20f; // X coordinate of the bottom ROI in the image frame
@@ -79,36 +79,19 @@ public:
     cv::VideoCapture cap_;
 
 private:
+	void defineROI() ;
     void loadEngine(const std::string& trt_model_path);
     void preprocess(const cv::Mat& frame);
     void infer();
     // void calculateLaneGeometry(float& offset, float& angle);
     bool calculateLaneGeometry(float& offset, float& angle);
     // Helper functions
-    void defineROI() ;
-    // bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi,
-    //                    std::vector<cv::Point>& left_edges,
-    //                    std::vector<cv::Point>& right_edges) const;
-    cv::Mat birdsEyeTransform(const cv::Mat& frame) const;
 	bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
     void weightedLinearRegression(const std::vector<cv::Point>& points,
                                   double& slope, double& intercept) ;
-	double calculateThirdSegmentSlope(double x_start_left, double x_end_left,
-                                 double x_start_right, double x_end_right,
-                                 double x_start_3rd, double y_start, double y_end,
-                                 double s_left_slope, double s_right_slope) const;
-	// void calculateOffsetAndAngle(double left_slope, double left_intercept,
-    //                              double right_slope, double right_intercept,
-    //                              int y_bottom, float& offset, float& angle) const;
 	void calculateOffsetAndAngle(float& offset, float& angle) const;
     void applyKalmanFilter(float measured_offset, float measured_angle,
                            float& smoothed_offset, float& smoothed_angle);
-
-    // void drawDebugInfo(cv::Mat* debug_img, const std::vector<cv::Point>& left_edges,
-    //                    const std::vector<cv::Point>& right_edges,
-    //                    float offset, float angle) const;
-	// double calculateDistance(int pixel_y, int x_length) const;
-
     // TensorRT
     std::unique_ptr<nvinfer1::IRuntime> runtime_;
     std::unique_ptr<nvinfer1::ICudaEngine> engine_;
@@ -132,7 +115,7 @@ private:
 	std::vector<cv::Point> left_edges_;
 	std::vector<cv::Point> right_edges_;
     // Valores
-    float estimated_lane_width_;
+    float estimated_lane_width_; // when one lane edge is missing
     int prev_left_edge_;
     int prev_right_edge_;
 
@@ -163,6 +146,17 @@ private:
 	// This helps to maintain a consistent lane detection experience.
 	float last_left_edge_ = -1.0f;  // Store last known left edge position
     float last_right_edge_ = -1.0f; // Store last known right edge position
+	// Lane geometry parameters
+	// These parameters represent the geometry of the detected lane lines.
+	// They are calculated based on the detected edges in the ROI.
+	// The slopes and intercepts are used to define the lane lines in the image.
+	// The slopes represent the angle of the lane lines with respect to the horizontal axis.
+	// The intercepts represent the vertical position of the lane lines in the image.
+	// These parameters are used to calculate the offset and angle of the lane with respect to the car's center.
+	// The slopes and intercepts are calculated using linear regression on the detected edges.
+	// These values are updated based on the detected edges in the ROI.
+	// The slopes and intercepts are used to define the lane lines in the image.
+	// The slopes and intercepts are used to calculate the offset and angle of the lane with respect to the car's center.
 	float left_slope_ = 0.0f;  // Slope of the left lane line
 	float right_slope_ = 0.0f; // Slope of the right lane line
 	float left_intercept_ = 0.0f;  // Intercept of the left lane line

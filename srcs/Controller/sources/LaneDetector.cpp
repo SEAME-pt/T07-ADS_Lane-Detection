@@ -161,114 +161,114 @@ void LaneDetector::defineROI() {
 					<< std::endl;
 }
 
-cv::Mat LaneDetector::birdsEyeTransform(const cv::Mat& rawLane) const {
+// cv::Mat LaneDetector::birdsEyeTransform(const cv::Mat& rawLane) const {
 
-	cv::Mat warped_frame = cv::Mat::zeros(frame_height_, frame_width_, CV_8UC3);
-	if (rawLane.empty()) {
-		std::cerr << "Input frame is empty!" << std::endl;
-		return warped_frame; // Return an empty matrix if the input is empty
-	}
-	std::cout << "[" << __func__ << "] : "
-			  << "Raw lane size: " << rawLane.size()
-			  << ", Type: " << rawLane.type()
-			  << ", Channels: " << rawLane.channels() << std::endl;
+// 	cv::Mat warped_frame = cv::Mat::zeros(frame_height_, frame_width_, CV_8UC3);
+// 	if (rawLane.empty()) {
+// 		std::cerr << "Input frame is empty!" << std::endl;
+// 		return warped_frame; // Return an empty matrix if the input is empty
+// 	}
+// 	std::cout << "[" << __func__ << "] : "
+// 			  << "Raw lane size: " << rawLane.size()
+// 			  << ", Type: " << rawLane.type()
+// 			  << ", Channels: " << rawLane.channels() << std::endl;
 
-	cv::Mat lane_mask_8u ;
-	rawLane.convertTo(lane_mask_8u, CV_8U, 255.0);
+// 	cv::Mat lane_mask_8u ;
+// 	rawLane.convertTo(lane_mask_8u, CV_8U, 255.0);
 
-	cv::Mat lane_mask_color;
-	cv:cvtColor(lane_mask_8u, lane_mask_color, cv::COLOR_GRAY2BGR);
-	// Define sources point based on rawLane size
-	int rawLaneWidth = lane_mask_color.cols;
-	int rawLaneHeight = lane_mask_color.rows;
-	if (rawLaneWidth <= 0 || rawLaneHeight <= 0) {
-		std::cerr << "Invalid lane_mask_color dimensions!" << std::endl;
-		return warped_frame; // Return an empty matrix if the input is invalid
-	}
-	// Define the source points for the perspective transform
-	std::vector<cv::Point2f> src_points = {
-		cv::Point2f(100,
-					static_cast<int>(rawLaneHeight * ROI_START_Y_PERCENT)), // Top-left
-		cv::Point2f(rawLaneWidth - (100),
-					static_cast<int>(rawLaneHeight * ROI_START_Y_PERCENT)), // Top-right
-		cv::Point2f(rawLaneWidth - ROI_X_BORDER,
-					static_cast<int>(rawLaneHeight * ROI_END_Y_PERCENT)), // Bottom-right
-		cv::Point2f(ROI_X_BORDER,
-					static_cast<int>(rawLaneHeight * ROI_END_Y_PERCENT))  // Bottom-left
-	};
+// 	cv::Mat lane_mask_color;
+// 	cv:cvtColor(lane_mask_8u, lane_mask_color, cv::COLOR_GRAY2BGR);
+// 	// Define sources point based on rawLane size
+// 	int rawLaneWidth = lane_mask_color.cols;
+// 	int rawLaneHeight = lane_mask_color.rows;
+// 	if (rawLaneWidth <= 0 || rawLaneHeight <= 0) {
+// 		std::cerr << "Invalid lane_mask_color dimensions!" << std::endl;
+// 		return warped_frame; // Return an empty matrix if the input is invalid
+// 	}
+// 	// Define the source points for the perspective transform
+// 	std::vector<cv::Point2f> src_points = {
+// 		cv::Point2f(100,
+// 					static_cast<int>(rawLaneHeight * ROI_START_Y_PERCENT)), // Top-left
+// 		cv::Point2f(rawLaneWidth - (100),
+// 					static_cast<int>(rawLaneHeight * ROI_START_Y_PERCENT)), // Top-right
+// 		cv::Point2f(rawLaneWidth - ROI_X_BORDER,
+// 					static_cast<int>(rawLaneHeight * ROI_END_Y_PERCENT)), // Bottom-right
+// 		cv::Point2f(ROI_X_BORDER,
+// 					static_cast<int>(rawLaneHeight * ROI_END_Y_PERCENT))  // Bottom-left
+// 	};
 
-	// Define the destination points for the perspective transform
-	std::vector<cv::Point2f> dst_points = {
-		cv::Point2f(0, 0),             // Top-left
-		cv::Point2f(frame_width_, 0),  // Top-right
-		cv::Point2f(frame_width_, frame_height_), // Bottom-right
-		cv::Point2f(0, frame_height_)   // Bottom-left
-	};
+// 	// Define the destination points for the perspective transform
+// 	std::vector<cv::Point2f> dst_points = {
+// 		cv::Point2f(0, 0),             // Top-left
+// 		cv::Point2f(frame_width_, 0),  // Top-right
+// 		cv::Point2f(frame_width_, frame_height_), // Bottom-right
+// 		cv::Point2f(0, frame_height_)   // Bottom-left
+// 	};
 
-	// Compute the perspective transform matrix
-	cv::Mat T = cv::getPerspectiveTransform(src_points, dst_points);
+// 	// Compute the perspective transform matrix
+// 	cv::Mat T = cv::getPerspectiveTransform(src_points, dst_points);
 
-	// Apply the perspective warp to the input frame
-	cv::Mat birdEyeMask;
-	cv::warpPerspective(lane_mask_color, birdEyeMask, T, lane_mask_color.size());
+// 	// Apply the perspective warp to the input frame
+// 	cv::Mat birdEyeMask;
+// 	cv::warpPerspective(lane_mask_color, birdEyeMask, T, lane_mask_color.size());
 
-	// cv::Mat lane_mask_8u;
-	// lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
-    // cv::imwrite("lane_mask.png", lane_mask_8U * 255);
+// 	// cv::Mat lane_mask_8u;
+// 	// lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
+//     // cv::imwrite("lane_mask.png", lane_mask_8U * 255);
 
 
-	cv::imwrite("birdEyeMask1.png", birdEyeMask);
-	// Normalize the warped frame to the range [0, 1]
-	cv::Mat normalized_mask;
-	cv::normalize(birdEyeMask, normalized_mask, 0, 1, cv::NORM_MINMAX, CV_32F);
-	// Convert the normalized mask to a single channel float image
-	cv::Mat float_mask;
-	cv::cvtColor(normalized_mask, float_mask, cv::COLOR_BGR2GRAY);
-	// Convert the single channel float image to a 3-channel float image
-	cv::Mat float_mask_3ch;
-	cv::cvtColor(float_mask, float_mask_3ch, cv::COLOR_GRAY2BGR);
-	// Resize the warped frame to the desired output size
-	cv::resize(float_mask_3ch, warped_frame, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_LINEAR);
-	// Convert the warped frame to a 32-bit float image
-	if (warped_frame.type() != CV_32F) {
-		std::cout << "[" << __func__ << "] : "
-				  << "Converting warped frame to CV_32F type." << std::endl;
-		warped_frame.convertTo(warped_frame, CV_32F);
-		if (warped_frame.empty()) {
-			std::cerr << "Failed to convert warped frame to CV_32F!" << std::endl;
-			return cv::Mat(); // Return an empty matrix if the conversion fails
-		}
-	}
-	// Normalize the warped frame to the range [0, 1]
-	cv::normalize(warped_frame, warped_frame, 0, 1, cv::NORM_MINMAX, CV_32F);
-	// Debugging output
-	std::cout << "[" << __func__ << "] : "
-			  << "Warped frame size: " << warped_frame.size()
-			  << ", Type: " << warped_frame.type()
-			  << ", Channels: " << warped_frame.channels() << std::endl;
-	// Return the warped frame
-	if (warped_frame.empty()) {
-		std::cerr << "Warped frame is empty!" << std::endl;
-		return cv::Mat(); // Return an empty matrix if the warped frame is empty
-	} else if (warped_frame.type() != CV_32F) {
-		std::cerr << "Warped frame type is not CV_32F!" << std::endl;
-		return cv::Mat(); // Return an empty matrix if the warped frame type is not CV_32F
-	} else if (warped_frame.channels() != 3) {
-		std::cerr << "Warped frame does not have 3 channels!" << std::endl;
-		return cv::Mat(); // Return an empty matrix if the warped frame does not have 3 channels
-	} else if (warped_frame.size() != cv::Size(frame_width_, frame_height_)) {
-		std::cerr << "Warped frame size does not match expected size!" << std::endl;
-		return cv::Mat(); // Return an empty matrix if the warped frame size does not match expected size
-	}
-	else {
-		std::cout << "[" << __func__ << "] : "
-			  << "Warped frame successfully created with size: " << warped_frame.size()
-			  << ", Type: " << warped_frame.type()
-			  << ", Channels: " << warped_frame.channels() << std::endl;
-	}
-	// Return the warped frame
-	return warped_frame;
-}
+// 	cv::imwrite("birdEyeMask1.png", birdEyeMask);
+// 	// Normalize the warped frame to the range [0, 1]
+// 	cv::Mat normalized_mask;
+// 	cv::normalize(birdEyeMask, normalized_mask, 0, 1, cv::NORM_MINMAX, CV_32F);
+// 	// Convert the normalized mask to a single channel float image
+// 	cv::Mat float_mask;
+// 	cv::cvtColor(normalized_mask, float_mask, cv::COLOR_BGR2GRAY);
+// 	// Convert the single channel float image to a 3-channel float image
+// 	cv::Mat float_mask_3ch;
+// 	cv::cvtColor(float_mask, float_mask_3ch, cv::COLOR_GRAY2BGR);
+// 	// Resize the warped frame to the desired output size
+// 	cv::resize(float_mask_3ch, warped_frame, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_LINEAR);
+// 	// Convert the warped frame to a 32-bit float image
+// 	if (warped_frame.type() != CV_32F) {
+// 		std::cout << "[" << __func__ << "] : "
+// 				  << "Converting warped frame to CV_32F type." << std::endl;
+// 		warped_frame.convertTo(warped_frame, CV_32F);
+// 		if (warped_frame.empty()) {
+// 			std::cerr << "Failed to convert warped frame to CV_32F!" << std::endl;
+// 			return cv::Mat(); // Return an empty matrix if the conversion fails
+// 		}
+// 	}
+// 	// Normalize the warped frame to the range [0, 1]
+// 	cv::normalize(warped_frame, warped_frame, 0, 1, cv::NORM_MINMAX, CV_32F);
+// 	// Debugging output
+// 	std::cout << "[" << __func__ << "] : "
+// 			  << "Warped frame size: " << warped_frame.size()
+// 			  << ", Type: " << warped_frame.type()
+// 			  << ", Channels: " << warped_frame.channels() << std::endl;
+// 	// Return the warped frame
+// 	if (warped_frame.empty()) {
+// 		std::cerr << "Warped frame is empty!" << std::endl;
+// 		return cv::Mat(); // Return an empty matrix if the warped frame is empty
+// 	} else if (warped_frame.type() != CV_32F) {
+// 		std::cerr << "Warped frame type is not CV_32F!" << std::endl;
+// 		return cv::Mat(); // Return an empty matrix if the warped frame type is not CV_32F
+// 	} else if (warped_frame.channels() != 3) {
+// 		std::cerr << "Warped frame does not have 3 channels!" << std::endl;
+// 		return cv::Mat(); // Return an empty matrix if the warped frame does not have 3 channels
+// 	} else if (warped_frame.size() != cv::Size(frame_width_, frame_height_)) {
+// 		std::cerr << "Warped frame size does not match expected size!" << std::endl;
+// 		return cv::Mat(); // Return an empty matrix if the warped frame size does not match expected size
+// 	}
+// 	else {
+// 		std::cout << "[" << __func__ << "] : "
+// 			  << "Warped frame successfully created with size: " << warped_frame.size()
+// 			  << ", Type: " << warped_frame.type()
+// 			  << ", Channels: " << warped_frame.channels() << std::endl;
+// 	}
+// 	// Return the warped frame
+// 	return warped_frame;
+// }
 
 bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) {
     left_edges_.clear();
@@ -360,50 +360,50 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
     }
 }
 
-double LaneDetector::calculateThirdSegmentSlope(double xLeftTop, double xLeftBottom,
-                                 double xRightTop, double xRightBottom,
-                                 double xCarTop, double yRoiTop, double yRoiBottom,
-                                 double s_left_slope, double s_right_slope) const {
-    // Validate xCarTop is between xLeftTop and xRightTop
-    if (xCarTop < std::min(xLeftTop, xRightTop) || xCarTop > std::max(xLeftTop, xRightTop)) {
-        std::cout << "[" << __func__ << "] : Error: xCarTop (" << xCarTop
-                  << ") is outside range [" << xLeftTop << ", " << xRightTop << "]" << std::endl;
-        // Clamp xCarTop to the nearest boundary
-        xCarTop = std::max(xLeftTop, std::min(xRightTop, xCarTop));
-    }
+// double LaneDetector::calculateThirdSegmentSlope(double xLeftTop, double xLeftBottom,
+//                                  double xRightTop, double xRightBottom,
+//                                  double xCarTop, double yRoiTop, double yRoiBottom,
+//                                  double s_left_slope, double s_right_slope) const {
+//     // Validate xCarTop is between xLeftTop and xRightTop
+//     if (xCarTop < std::min(xLeftTop, xRightTop) || xCarTop > std::max(xLeftTop, xRightTop)) {
+//         std::cout << "[" << __func__ << "] : Error: xCarTop (" << xCarTop
+//                   << ") is outside range [" << xLeftTop << ", " << xRightTop << "]" << std::endl;
+//         // Clamp xCarTop to the nearest boundary
+//         xCarTop = std::max(xLeftTop, std::min(xRightTop, xCarTop));
+//     }
 
-    // Calculate the relative position of xCarTop
-    double delta_x_start = xRightTop - xLeftTop;
-    if (std::abs(delta_x_start) < 1e-6) {
-        std::cout << "[" << __func__ << "] : Error: xLeftTop and xRightTop are too close" << std::endl;
-        return (xLeftBottom + xRightBottom) / 2.0 - xCarTop / (yRoiBottom - yRoiTop); // Fallback slope
-    }
-    double t = (xCarTop - xLeftTop) / delta_x_start;
+//     // Calculate the relative position of xCarTop
+//     double delta_x_start = xRightTop - xLeftTop;
+//     if (std::abs(delta_x_start) < 1e-6) {
+//         std::cout << "[" << __func__ << "] : Error: xLeftTop and xRightTop are too close" << std::endl;
+//         return (xLeftBottom + xRightBottom) / 2.0 - xCarTop / (yRoiBottom - yRoiTop); // Fallback slope
+//     }
+//     double t = (xCarTop - xLeftTop) / delta_x_start;
 
-    // Interpolate xCarBottom between xLeftBottom and xRightBottom
-    double xCarBottom = xLeftBottom + t * (xRightBottom - xLeftBottom);
+//     // Interpolate xCarBottom between xLeftBottom and xRightBottom
+//     double xCarBottom = xLeftBottom + t * (xRightBottom - xLeftBottom);
 
-    // Validate xCarBottom is between xLeftBottom and xRightBottom
-    if (xCarBottom < std::min(xLeftBottom, xRightBottom) || xCarBottom > std::max(xLeftBottom, xRightBottom)) {
-        std::cout << "[" << __func__ << "] : Warning: xCarBottom (" << xCarBottom
-                  << ") is outside range [" << xLeftBottom << ", " << xRightBottom << "]" << std::endl;
-        xCarBottom = std::max(xLeftBottom, std::min(xRightBottom, xCarBottom));
-    }
+//     // Validate xCarBottom is between xLeftBottom and xRightBottom
+//     if (xCarBottom < std::min(xLeftBottom, xRightBottom) || xCarBottom > std::max(xLeftBottom, xRightBottom)) {
+//         std::cout << "[" << __func__ << "] : Warning: xCarBottom (" << xCarBottom
+//                   << ") is outside range [" << xLeftBottom << ", " << xRightBottom << "]" << std::endl;
+//         xCarBottom = std::max(xLeftBottom, std::min(xRightBottom, xCarBottom));
+//     }
 
-    // Calculate the slope of the third segment
-    double yDelta = yRoiBottom - yRoiTop;
-    if (std::abs(yDelta) < 1e-6) {
-        std::cout << "[" << __func__ << "] : Error: yRoiBottom and yRoiTop are too close" << std::endl;
-        return 0.0; // Avoid division by zero
-    }
+//     // Calculate the slope of the third segment
+//     double yDelta = yRoiBottom - yRoiTop;
+//     if (std::abs(yDelta) < 1e-6) {
+//         std::cout << "[" << __func__ << "] : Error: yRoiBottom and yRoiTop are too close" << std::endl;
+//         return 0.0; // Avoid division by zero
+//     }
 
-    double sCarSlope = (xCarBottom - xCarTop) / yDelta;
-	//double isCarSlope = yDelta / (xCarBottom - xCarTop); // Inverse slope for debugging
+//     double sCarSlope = (xCarBottom - xCarTop) / yDelta;
+// 	//double isCarSlope = yDelta / (xCarBottom - xCarTop); // Inverse slope for debugging
 
 
 
-    return sCarSlope;
-}
+//     return sCarSlope;
+// }
 
 // void LaneDetector::calculateOffsetAndAngle(double left_slope, double left_intercept,
 //                                            double right_slope, double right_intercept,
@@ -468,7 +468,7 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
 
 	angle = static_cast<float>(yaw_angle); // Set the angle in radians
 	offset = static_cast<float>(intercept_carFrame); // Set the offset in pmeters
-	float angle_deg = angle * 180 / CV_PI;
+	// float angle_deg = angle * 180 / CV_PI;
 
     // Debugging output CAR FRAME
     std::cout << "[" << __func__ << "] : CAR FRAME"
@@ -571,14 +571,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
     preprocess(frame);
     infer();
 
-	// std::cout << "[" << __func__ << "] : "
-	// 		<< "lane_mask_ size: " << lane_mask_.size()
-	// 		<< ", Type: " << lane_mask_.type()
-	// 		<< ", Channels: " << lane_mask_.channels() << std::endl;
-	// Convert output data to cv::Mat
-	// cv::Mat birdEyeMask = birdsEyeTransform(lane_mask_); // Transformação de perspectiva
     lane_mask_ = cv::Mat(input_height_, input_width_, CV_32F, output_data_.data());
-    //cv::imwrite("lane_mask_original.png", lane_mask_ * 255);
 
     cv::Mat exp_mask;
     cv::exp(-lane_mask_, exp_mask);
@@ -591,43 +584,18 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 		cv::imwrite("rawLane.png", rawLane );
 	}
 
-    // double min_val, max_val;
-    // cv::minMaxLoc(lane_mask_, &min_val, &max_val);
-    // Do not remove the comment below, it is useful for debugging
-    // std::cout << "["<<__func__<< "] : lane_mask_ min: " << min_val << ", max: " << max_val << std::endl;
-
-    // cv::Mat gray;
-    // cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-    // cv::Scalar mean_intensity = cv::mean(gray);
-    // float brightness = mean_intensity[0];
-    // float threshold = brightness < 100 ? 0.1 : 0.3; // Even lower for yellow
-    // Do not remove the comment below, it is useful for debugging
-	// std::cout << "["<<__func__<< "] : Brightness: " << brightness << ", Threshold: " << threshold << std::endl;
-    // cv::Mat binary_mask;
-    float threshold = 0.5; // Limiar fixo, equivalente a (preds > 0.5).float()
+	float threshold = THRESHOLD; // Limiar fixo, equivalente a (preds > 0.5).float()
     // cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
-
 
     cv::Mat binary_mask;
     cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
-
-    // cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)); // Larger kernel
-    // cv::morphologyEx(binary_mask, binary_mask, cv::MORPH_DILATE, kernel);
-    // cv::morphologyEx(binary_mask, lane_mask_, cv::MORPH_CLOSE, kernel);
-
     cv::resize(lane_mask_, lane_mask_, cv::Size(frame_width_, frame_height_), 0, 0, cv::INTER_CUBIC); // Resize to original frame size
 
     output_frame = frame.clone();
-
 
     if (!calculateLaneGeometry(offset, angle)) {
         std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
     }
 
     debug_->showOutputVideo(rawLane, output_frame, iGeo_, CAMERA_OFFSET);
-
-	// cv::Mat lane_mask_8u;
-	// lane_mask_.convertTo(lane_mask_8u, CV_8U, 255.0);
-    // cv::imwrite("lane_mask.png", lane_mask_ * 255);
-    // cv::imwrite("binary_mask.png", binary_mask * 255);
 }
