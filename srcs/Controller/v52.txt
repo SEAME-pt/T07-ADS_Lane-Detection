@@ -1,6 +1,0 @@
-sourced from v15 : lane geometry basic
-started 20250604
-feature : mpc
-subtask : lane geometry advance
- - (interpolation full after linear regression)
- - (lane find from missing edge)

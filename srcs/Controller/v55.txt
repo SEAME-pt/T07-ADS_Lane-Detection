@@ -1,0 +1,53 @@
+sourced from 54 : lane geometry basic
+started 20250717
+feature : mpc
+subtask : lane geometry advance
+ - (lane find from missing edge)
+
+1 . Problem Analysis
+1.1 Issue: During tight left curves, the left lane mark exits the dash cam’s FOV,
+and during tight right curves, the right lane mark disappears.
+This causes findLaneEdges to fail for one edge, leading to calculateLaneGeometry
+returning invalid or zeroed values, which disrupts the MPC controller.
+1.2 Current Behavior: If left_edges_ or right_edges_ has fewer than
+MIN_EDGE_POINTS, weightedLinearRegression sets slope = 0.0 and
+intercept = frame_width_ / 2.0 - CAMERA_OFFSET, which may cause abrupt changes
+in ey and yaw.
+1.3 Goal: When one edge is missing, estimate the missing edge’s position using
+the visible edge and historical lane width, then compute the middle lane line’s
+slope and intercept for smooth ey and yaw estimates.
+
+Assumptions:
+Lane width is relatively constant (the code uses estimated_lane_width_ = 200.0f
+pixels as a starting point).
+Historical geometry (from iGeo_) and Kalman-filtered states (offset_kalman_,
+angle_kalman_) are reliable for short-term predictions.
+The dash cam’s FOV is limited (640x360, ROI 600x108 pixels), and tight curves
+reduce visibility of one edge.
+
+Potential Missing Details:
+Lane Width Estimation: estimated_lane_width_ is initialized but not updated
+dynamically, which could lead to errors if the actual lane width varies.
+Edge Persistence: No mechanism to store or use historical edge data when one
+edge is missing.
+Kalman Filter Tuning: The Kalman filter may need adjustment to balance
+responsiveness and stability during edge loss.
+
+ROI Adjustment: The ROI (y: 252-360, x: 20-620) may need dynamic adjustment for
+tight curves to capture more of the visible lane.
+Solution Approach
+Store Historical Geometry: Maintain a history of iGeo_.left_slope,
+iGeo_.left_intercept, iGeo_.right_slope, iGeo_.right_intercept,
+and estimated_lane_width_ to estimate missing edges.
+Estimate Missing Edge:
+If the left edge is missing, estimate its position using the right edge and
+historical lane width.
+If the right edge is missing, estimate its position using the left edge and
+historical lane width.
+Use the Kalman filter to smooth the estimates.
+Update Lane Width: Dynamically update estimated_lane_width_ when both edges are
+visible to improve accuracy.
+Fallback Strategy: If both edges are missing, rely on Kalman filter predictions
+alone.
+Code Modifications: Update findLaneEdges, calculateLaneGeometry, and related
+methods to handle missing edges gracefully.
