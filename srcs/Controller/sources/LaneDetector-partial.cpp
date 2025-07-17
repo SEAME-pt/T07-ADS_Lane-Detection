@@ -184,6 +184,17 @@ bool LaneDetector::calculateMiddleLaneLine() {
         imgFrame_.xrtPX = xrt_img / (Asy * (frame_height_ / 2.0f) + Bsy) + imgFrame_.xcPX;
         iGeo_.right_slope = (imgFrame_.xrtPX - imgFrame_.xrbPX) / ((frame_height_ / 2.0f) - frame_height_);
         iGeo_.right_intercept = imgFrame_.xrbPX - iGeo_.right_slope * frame_height_;
+        if (estimated_lane_width_ > 0.0f) {
+            float lane_width_pixels = imgFrame_.xrbPX - imgFrame_.xlbPX;
+            float lane_width_meters_new = (Asy * frame_height_ + Bsy) * lane_width_pixels;
+            lane_width_history_.push_back(lane_width_meters_new);
+            if (lane_width_history_.size() > MAX_HISTORY_SIZE) {
+                lane_width_history_.erase(lane_width_history_.begin());
+            }
+            estimated_lane_width_ = std::accumulate(lane_width_history_.begin(), lane_width_history_.end(), 0.0f) / lane_width_history_.size();
+            iGeo_.lane_width = estimated_lane_width_;
+        }
+
     } else if (!left_valid && right_valid) {
         // Case 3: No/Yes - Estimate left edge in car frame
         float xrb_img = (Asy * frame_height_ + Bsy) * (imgFrame_.xrbPX - imgFrame_.xcPX);
@@ -201,6 +212,16 @@ bool LaneDetector::calculateMiddleLaneLine() {
         imgFrame_.xltPX = xlt_img / (Asy * (frame_height_ / 2.0f) + Bsy) + imgFrame_.xcPX;
         iGeo_.left_slope = (imgFrame_.xltPX - imgFrame_.xlbPX) / ((frame_height_ / 2.0f) - frame_height_);
         iGeo_.left_intercept = imgFrame_.xlbPX - iGeo_.left_slope * frame_height_;
+        if (estimated_lane_width_ > 0.0f) {
+            float lane_width_pixels = imgFrame_.xrbPX - imgFrame_.xlbPX;
+            float lane_width_meters_new = (Asy * frame_height_ + Bsy) * lane_width_pixels;
+            lane_width_history_.push_back(lane_width_meters_new);
+            if (lane_width_history_.size() > MAX_HISTORY_SIZE) {
+                lane_width_history_.erase(lane_width_history_.begin());
+            }
+            estimated_lane_width_ = std::accumulate(lane_width_history_.begin(), lane_width_history_.end(), 0.0f) / lane_width_history_.size();
+            iGeo_.lane_width = estimated_lane_width_;
+        }
     } else {
         // Case 4: No/No
         return false;
