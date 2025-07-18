@@ -16,6 +16,30 @@
 #include <cmath>
 
 
+static constexpr int ROI_X_BORDER = 0; // Pixels from the left and right edges to avoid noise
+static constexpr int I_W = 256;
+static constexpr int I_H = 128;
+static constexpr int F_W = 640; // Frame width
+static constexpr int F_H = 360; // Frame height
+
+static constexpr double X_CAR_FRAME_CENTER = 0.41f; // X coordinate of the car center in the image frame
+static constexpr double X_CAR_FRAME_BOTTOM = 0.20f; // X coordinate of the bottom ROI in the image frame
+
+// Fixed parameters as constants
+static constexpr double CAMERA_TILT = 19.0 * CV_PI / 180.0; // 19 degrees in radians (19 * pi/180)
+static constexpr double CAMERA_X_POS = 0.09f;	// 9 cm in meters, forward of the car's CM
+static constexpr double CAMERA_Y_POS = 0.0f;	 // 0 cm in meters, centered on the car's CM
+static constexpr double CAMERA_Z_POS = 0.115;   // 11.5 cm in meters
+static constexpr double CAMERA_FOCAL_LENGTH = 0.00315; // Focal length in meters (2 mm)
+static constexpr int CAMERA_OFFSET = 0; // Offset in pixels, adjust if needed
+
+static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 50% of image height
+static constexpr float ROI_EY_PERCENT = 0.7f;   // ROI ends at 80% of image height
+static constexpr int MAX_SEARCH_DISTANCE = 310;	// Max distance (pixels) to search for edges
+// static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calculation
+static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation
+static constexpr double THRESHOLD = 0.5; // Threshold for binary mask
+
 typedef struct s_carFrame {
 	float xT{X_CAR_FRAME_CENTER};	// X coordinate
 	float yT{0.0f};	// Intercept of the left lane line
@@ -34,10 +58,10 @@ typedef struct s_imgFrame {
 	int xrbPX{0};	// Right edge at bottom
 	int xmtPX{0};	// Midpoint at top
 	int xmbPX{0};	// Midpoint at bottom
-	int xcPX{frame_width_ / 2 - CAMERA_OFFSET};	// Center of the image
+	int xcPX{F_W / 2 - CAMERA_OFFSET};	// Center of the image
 	float xmt{0.0f};	// Midpoint at top in meters
 	float xmb{0.0f};	// Midpoint at bottom in meters
-} t_imgFrame
+} t_imgFrame;
 
 enum KalmanStateIndex { OFFSET = 0, OFFSET_VEL = 1, ANGLE = 2 };
 enum KalmanMeasurementIndex { MEASUREMENT_OFFSET = 0, MEASUREMENT_ANGLE = 1 };
@@ -48,15 +72,6 @@ enum KalmanErrorCovIndex { ERROR_COV_OFFSET = 0, ERROR_COV_ANGLE = 1 };
 enum KalmanProcessCovIndex { PROCESS_COV_OFFSET = 0, PROCESS_COV_ANGLE = 1 };
 enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITION_ANGLE = 2 };
 enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
-
-static constexpr int ROI_X_BORDER = 20; // Pixels from the left and right edges to avoid noise
-static constexpr int I_W = 256;
-static constexpr int I_H = 128;
-static constexpr int F_W = 640; // Frame width
-static constexpr int F_H = 360; // Frame height
-
-static constexpr double X_CAR_FRAME_CENTER = 0.41f; // X coordinate of the car center in the image frame
-static constexpr double X_CAR_FRAME_BOTTOM = 0.20f; // X coordinate of the bottom ROI in the image frame
 
 class Logger : public nvinfer1::ILogger {
 public:
@@ -83,7 +98,7 @@ private:
 	bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
 	void weightedLinearRegression(const std::vector<cv::Point>& points, double& slope, double& intercept) ;
 	void calculateMiddleLaneLine(void) ;
-	void calculateOffsetAndAngle(float& offset, float& angle) const;
+	void calculateOffsetAndAngle(float& offset, float& angle);
 	void applyKalmanFilter(float measured_offset, float measured_angle, float& smoothed_offset, float& smoothed_angle);
 
 	// Kalman Filter
@@ -165,21 +180,6 @@ private:
 	float current_y_top_ = 0.0f; // Y-coordinate of the top of the ROI
 	float current_y_bottom_ = 0.0f; // Y-coordinate of the bottom of the ROI
 	float current_y_range_ = 0.0f;// = current_y_bottom_ - current_y_top_; // Range of Y-coordinates in the ROI
-
-	// Fixed parameters as constants
-	static constexpr double CAMERA_TILT = 19.0 * CV_PI / 180.0; // 19 degrees in radians (19 * pi/180)
-	static constexpr double CAMERA_X_POS = 0.09f;	// 9 cm in meters, forward of the car's CM
-	static constexpr double CAMERA_Y_POS = 0.0f;	 // 0 cm in meters, centered on the car's CM
-	static constexpr double CAMERA_Z_POS = 0.115;   // 11.5 cm in meters
-	static constexpr double CAMERA_FOCAL_LENGTH = 0.00315; // Focal length in meters (2 mm)
-	static constexpr int CAMERA_OFFSET = 0; // Offset in pixels, adjust if needed
-
-	static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 50% of image height
-	static constexpr float ROI_EY_PERCENT = 0.7f;   // ROI ends at 80% of image height
-	static constexpr int MAX_SEARCH_DISTANCE = 310;	// Max distance (pixels) to search for edges
-	// static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calculation
-	static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation
-	static constexpr double THRESHOLD = 0.5; // Threshold for binary mask
 
 	//New members for lane geometry historical data
 	std::vector<imgGeometry> history_; // History of lane geometry parameters

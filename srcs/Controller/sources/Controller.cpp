@@ -182,17 +182,18 @@ void Controller::autonomous(float prev_delta) {
     tracker.mark();
     laneDetector->processFrame(frame, ey, yaw, output_frame, true);
 
-	std::cout << "Offset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
+	// std::cout << "["<< __func__ <<"]"
+	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
     mpc.update(ey, yaw, currentSpeed.load(std::memory_order_relaxed));
 	float delta = mpc.getSteeringAngle();  // Get steering angle from MPC
 	float a = mpc.getAcceleration();  // Get acceleration from MPC
 
 	// Debug mpc output
-	std::cout << "[" << __func__ << "]"
-				<< "\n\t MPC Steering Angle : " << delta * (180.0f / CV_PI) << " deg, Acceleration: " << a << " m/s²"
-				<< "\n\t MPC Yaw            : " << yaw * (180.0f / CV_PI) << " deg, Cross-track error: " << ey << " m"
-				<< "\n\t MPC Current Speed  : " << currentSpeed.load(std::memory_order_relaxed) << " m/s"
-				<< "\n\t MPC Previous Delta : " << prev_delta * (180.0f / CV_PI) << " deg" << std::endl;
+	// std::cout << "[" << __func__ << "]"
+	// 			<< "\n\t MPC Steering Angle : " << delta * (180.0f / CV_PI) << " deg, Acceleration: " << a << " m/s²"
+	// 			<< "\n\t MPC Yaw            : " << yaw * (180.0f / CV_PI) << " deg, Cross-track error: " << ey << " m"
+	// 			<< "\n\t MPC Current Speed  : " << currentSpeed.load(std::memory_order_relaxed) << " m/s"
+	// 			<< "\n\t MPC Previous Delta : " << prev_delta * (180.0f / CV_PI) << " deg" << std::endl;
 
 	// Limit steering angle to ±30 degrees in radians
 	float steering = std::max(-DELTA_MAX, std::min(DELTA_MAX, static_cast<double>(delta)));  // Limit to ±30 deg in radians
@@ -207,8 +208,8 @@ void Controller::autonomous(float prev_delta) {
 		speedPWM = 0;  // Ensure speed is non-negative
 	}
 
-	std::cout << "[" << __func__ << "]\n\t Speed    : " << speed << " m/s,\n\t PWM: " << speedPWM << " %" << "\n\t read speed :" << currentSpeed.load(std::memory_order_relaxed) << std::endl;
-	std::cout << "[" << __func__ << "]\n\t Steering : " << steering << " rad,\n\t PWM: " << steeringPWM << " %"<< std::endl;
+	// std::cout << "[" << __func__ << "]\n\t Speed    : " << speed << " m/s,\n\t PWM: " << speedPWM << " %" << "\n\t read speed :" << currentSpeed.load(std::memory_order_relaxed) << std::endl;
+	// std::cout << "[" << __func__ << "]\n\t Steering : " << steering << " rad,\n\t PWM: " << steeringPWM << " %"<< std::endl;
 	// Update vehicle state
 	jetCar->set_servo_angle(static_cast<int>(steeringPWM));  // Convert radians to degrees
 	//jetCar->set_motor_speed(static_cast<int>(speedPWM));  // Convert m/s to cm/s

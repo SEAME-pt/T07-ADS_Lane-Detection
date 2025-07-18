@@ -59,6 +59,12 @@ bool LaneDetector::initialize() {
     return cap_.isOpened();
 }
 
+/// @brief Calculate lane geometry based on detected edges.
+/// This function estimates the offset and angle of the lane based on the detected left and right edges.
+/// It uses the slopes and intercepts of the detected edges to compute the lane geometry.
+/// @param offset	The offset from the center of the lane in meters, in the car frame system of coordinates.
+/// @param angle	The angle of the lane in radians, in the car frame system of coordinates.
+/// @return 		True if lane geometry was successfully calculated, false otherwise.
 void LaneDetector::defineROI() {
     std::cout << "[" << __func__ << "] Started..." << std::endl;
     roi_sy_ = static_cast<int>(frame_height_ * ROI_SY_PERCENT);
@@ -72,6 +78,13 @@ void LaneDetector::defineROI() {
     std::cout << "[" << __func__ << "] Ready ROI" << std::endl;
 }
 
+/// @brief 				Create left and right edges vectors from lane mask.
+/// This function scans the lane mask within the specified ROI to find the left and right edges of the lane.
+/// It uses a dense sampling approach to identify the first detected lane pixel in each row.
+/// @note 				The function clears the left_edges_ and right_edges_ vectors before populating them.
+/// @param lane_mask 	The lane mask image containing the detected lane pixels.
+/// @param roi			 The region of interest (ROI) within the lane mask to search for edges.
+/// @return 			True if enough edge points were found, false otherwise.
 bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) {
     left_edges_.clear();
     right_edges_.clear();
@@ -97,6 +110,14 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
     return left_edges_.size() >= MIN_EDGE_POINTS || right_edges_.size() >= MIN_EDGE_POINTS;
 }
 
+/// @brief 	Calculate the weighted linear regression for the detected edges.
+/// This function computes the slope and intercept of the line that best fits
+/// the detected edges using a weighted linear regression.
+/// @note 	The function uses a weighted approach where the weight is based
+/// on the vertical position of the edge points.
+/// @param edges		The vector of edge points detected in the lane mask.
+/// @param slope		The slope of the fitted line.
+/// @param intercept 	The intercept of the fitted line.
 void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges, double& slope, double& intercept) {
     if (edges.size() < MIN_EDGE_POINTS) {
         slope = 0.0;
@@ -134,6 +155,16 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
     }
 }
 
+/// @brief Calculate the middle lane line based on the detected edges.
+/// This function calculates the left and right edges of the lane at the top and bottom of the
+/// image frame, and computes the midpoints at the top and bottom.
+/// It uses the slopes and intercepts of the detected edges to compute the midpoints.
+/// It also calculates the lane width based on the detected edges.
+/// @note This function assumes that the left and right edges have been detected and stored in the
+/// `left_edges_` and `right_edges_` vectors.
+/// It updates the `imgFrame_` structure with the calculated midpoints and lane width.
+/// If any edge is missing, it estimates the missing edge based on the available edge and the estimated lane width.
+/// @return 	True if the middle lane line was successfully calculated, false otherwise.
 bool LaneDetector::calculateMiddleLaneLine() {
     bool left_valid = left_edges_.size() >= MIN_EDGE_POINTS;
     bool right_valid = right_edges_.size() >= MIN_EDGE_POINTS;
@@ -257,6 +288,15 @@ bool LaneDetector::calculateMiddleLaneLine() {
     return true;
 }
 
+/// @brief 	Calculate the offset and angle of the lane in the car frame.
+/// This function converts the image frame midlane points from pixels to meters and calculates the offset and
+/// angle of the lane in the car frame system of coordinates.
+/// The offset is the distance from the center of the car to the lane, and the angle
+/// is the yaw angle of the lane in radians.
+/// The conversion uses a scale function defined by the slope (Asy) and intercept (Bsy) of the scale function.
+/// @note 	The function assumes that the image frame midlane points have been calculated and stored in the `imgFrame_` structure.
+/// @param offset 	The offset from the center of the car to the lane in meters.
+/// @param angle 	The yaw angle of the lane in radians.
 void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
     carFrame_.yT = -imgFrame_.xmt;
     carFrame_.yB = -imgFrame_.xmb;
@@ -281,6 +321,12 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) const {
               << "\n\tRight : slope = [" << iGeo_.right_slope << "] | intercept = [" << iGeo_.right_intercept << "]" << std::endl;
 }
 
+/// @brief Calculate lane geometry based on detected edges.
+/// This function estimates the offset and angle of the lane based on the detected left and right edges.
+/// It uses the slopes and intercepts of the detected edges to compute the lane geometry.
+/// @param offset	The offset from the center of the lane in meters, in the car frame system of coordinates.
+/// @param angle	The angle of the lane in radians, in the car frame system of coordinates.
+/// @return 		True if lane geometry was successfully calculated, false otherwise.
 bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
     if (lane_mask_.empty() || lane_mask_.type() != CV_32F) {
         std::cerr << "Invalid lane mask!" << std::endl;
