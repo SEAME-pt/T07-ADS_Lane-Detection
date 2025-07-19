@@ -88,48 +88,45 @@ void LaneDetector::defineROI() {
 bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) {
 	left_edges_.clear();
 	right_edges_.clear();
-	bool left_edge_ready = false;
-	bool right_edge_ready = false;
-	int start_xl_sweep = roi.width / 2 - 10;
-	int end_xl_sweep = roi.x + 10;
-	int start_xr_sweep = roi.width / 2 + 10;
-	int end_xr_sweep = (roi.width - 1) - 10;
+	int scan_padding = 10; // Padding to avoid edge effects
+	bool left_edge_ready, right_edge_ready;
+
+	// scan limits
+	int left_scan_start = roi.width / 2 - scan_padding;
+	int left_scan_end = roi.x + scan_padding;
+	int right_scan_start = roi.width / 2 + scan_padding;
+	int right_scan_end = (roi.width - 1) - scan_padding;
+
+	// Reset edge readiness
+	left_edge_ready = false;
+	right_edge_ready = false;
+	// std::cout << "[" << __func__ << "] : Scanning for lane edges in ROI: " << roi << std::endl;
+	// Scan from bottom to top of the ROI
 	for (int y = roi.y + roi.height; y > roi.y; --y) {
+		// Reset edge readiness for each row
 		int left_x = -1, right_x = -1;
-		for (int x = start_xl_sweep + 10; x >= end_xl_sweep - 10; --x) {
+
+		for (int x = left_scan_start; x >= left_scan_end; --x) {
 			if (lane_mask.at<float>(y, x) > THRESHOLD && !left_edge_ready) {
-				if (x >= roi.width / 2 + 10 && x <= roi.width / 2 - 10) {
-					left_edge_ready = true;
-					if (left_edges_.size() < MIN_EDGE_POINTS) {
-						left_edges_.clear();
-					}
-					std::cout << "[" << __func__ << "] : Left edge upper bound found at x = " << x << " at y = " << y << ", left edges size = " << left_edges_.size() << std::endl;
-					break;
-				}
 				left_x = x;
-				start_xl_sweep = x; // Update start_x_sweep for next row
-				end_xl_sweep = std::max(x - 10, 0);
+				// Update left_scan_start for next row
+				left_scan_start = std::min(x + scan_padding, roi.width / 2 - scan_padding); // Update start_x_sweep for next row
+				left_scan_end = std::max(x - scan_padding, 0);
 				left_edges_.emplace_back(left_x, y);
-				break;
+				break;left_scan_start
 			}
 		}
-		for (int x = start_xr_sweep - 10 ; x <= end_xr_sweep + 10; ++x) {
+
+		for (int x = right_scan_start; x <= right_scan_end; ++x) {
 			if (lane_mask.at<float>(y, x) > THRESHOLD && !right_edge_ready) {
-				if (x >= roi.width / 2 + 10 && x <= roi.width / 2 - 10) {
-					right_edge_ready = true;
-					if (right_edges_.size() < MIN_EDGE_POINTS) {
-						right_edges_.clear();
-					}
-					std::cout << "[" << __func__ << "] : Right edge upper bound found at x = " << x << " at y = " << y << ", right edges size = " << right_edges_.size() << std::endl;
-					break;
-				}
 				right_x = x;
-				start_xr_sweep = x; // Update start_xr_sweep for next row
-				end_xr_sweep = std::min(x + 10, roi.width - 1);
+				right_scan_start = std::max(x + scan_padding, roi.width / 2 + scan_padding); // Update right_scan_start for next row
+				right_scan_end = std::min(x + scan_padding, roi.width - 1);
 				right_edges_.emplace_back(right_x, y);
 				break;
 			}
 		}
+
 	}
 	std::cout << "[" << __func__ << "] : Left edges found: " << left_edges_.size() << ", Right edges found: " << right_edges_.size() << std::endl;
 	return left_edges_.size() >= MIN_EDGE_POINTS || right_edges_.size() >= MIN_EDGE_POINTS;
@@ -364,6 +361,28 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle) {
 	if (right_edges_.size() >= MIN_EDGE_POINTS)
 		weightedLinearRegression(right_edges_, iGeo_.right_slope, iGeo_.right_intercept);
 
+	if (iGeo_.left_slope >= 0.0f) {
+		std::cerr << "Invalid LEFT slope detected, resetting to default values." << std::endl;
+		if (!history_.empty()) {
+        	iGeo_.left_slope = history_.back().left_slope;
+        	iGeo_.left_intercept = history_.back().left_intercept;
+    	} else {
+        	iGeo_.left_slope = 0.0f;
+        	iGeo_.left_intercept = F_W / 2.0f - CAMERA_OFFSET;
+    	}
+		left_edges_.clear();
+	}
+	if (iGeo_.right_slope <= 0.0f) {
+		std::cerr << "Invalid RIGHT slope detected, resetting to default values." << std::endl;
+		if (!history_.empty()) {
+        	iGeo_.right_slope = history_.back().right_slope;
+        	iGeo_.right_intercept = history_.back().right_intercept;
+    	} else {
+        	iGeo_.right_slope = 0.0f;
+        	iGeo_.right_intercept = F_W / 2.0f - CAMERA_OFFSET;
+    	}
+		right_edges_.clear();
+	}
 	// Step 4: Calculate offset and angle from the fitted lines
 	float measured_offset, measured_angle;
 	float smoothed_offset, smoothed_angle;
