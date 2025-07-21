@@ -69,6 +69,26 @@ Controller::~Controller() {
     }
 }
 
+bool Controller::initialize() {
+
+	std::string pipeline = "nvarguscamerasrc exposuretimerange=\"1000000 50000000\" gainrange=\"1 16\" !"
+	                       "video/x-raw(memory:NVMM), width=640, height=360, "
+                           "format=(string)NV12, framerate=30/1 ! nvvidconv ! video/x-raw, format=BGRx ! "
+                           "videoconvert ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=1";
+    cap_.open(pipeline, cv::CAP_GSTREAMER);
+	if (!cap_.isOpened()) {
+		std::cerr << "Failed to open camera pipeline!" << std::endl;
+		return false;
+	}
+	std::cout << "[" << __func__ << "] "
+				<< "Camera pipeline opened successfully: \n"
+				<< pipeline << std::endl;
+	std::cout << "[" << __func__ << "] "
+				<< "LaneDetector initialization concluded!"
+				<< std::endl;
+    return cap_.isOpened();
+}
+
 void Controller::setButtonAction(int button, Actions actions) {
     buttonActions[button] = actions;
 }
@@ -139,14 +159,23 @@ int Controller::getMode() {
 void Controller::listen() {
     SDL_Event event;
     while (true) {
+
+        if (!cap_.read(frame) || frame.empty()) {
+            std::cerr << "Fail to obtain frame!" << std::endl;
+            continue;
+        }
+
         while (SDL_PollEvent(&event)) {
             processEvent(event);
         }
 
+        float ey, yaw;
+        laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
+
         if (_currentMode == MODE_AUTONOMOUS) {
 			//delta must contain last value from servor motor
 			delta_ = jetCar->get_servo_angle();
-            autonomous(delta_);
+            autonomous(delta_, ey, yaw);
 			visualize_mask_ = false;  // Reset visualization flag after processing
         } else {
 			visualize_mask_ = true;
@@ -161,30 +190,26 @@ void Controller::listen() {
             break;
         }
 
+        // Display mode on output_frame bottom right corner
+        std::string modeText = (_currentMode == MODE_JOYSTICK) ? "Joystick Mode" : "Autonomous Mode";
+        cv::putText(output_frame, modeText, cv::Point(450, 340), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
+        video_writer.write(output_frame);
+    
         SDL_Delay(10);  // Small delay to avoid overloading CPU
     }
 }
 
 
 
-void Controller::autonomous(float prev_delta) {
+void Controller::autonomous(float prev_delta, float ey, float yaw) {
+    // Ensure MPCController is initialized with correct parameters
+    // MPCController mpc(DT, L, N);  // Already initialized in constructor
 
 	MPCController mpc(DT, L, N);
 
-	// Check if LaneDetector is initialized and capture frame
-    if (!laneDetector || !laneDetector->cap_.read(frame)) {
-		if (!laneDetector) {
-			std::cerr << "Error: LaneDetector not initialized!" << std::endl;
-		} else {
-			std::cerr << "Error: Could not read frame from camera!" << std::endl;
-		}
-       // std::cerr << "Error: Could not capture frame or LaneDetector not initialized!" << std::endl;
-        return;
-    }
-
-    float ey, yaw;
+    // float ey, yaw;
     tracker.mark();
-    laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
+    // laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
 
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
@@ -244,7 +269,7 @@ void Controller::autonomous(float prev_delta) {
 	cv::putText(output_frame, servo_text, cv::Point(10, 270), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 	cv::putText(output_frame, delta_text, cv::Point(10, 300), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 	cv::putText(output_frame, speed_text, cv::Point(10, 330), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
-    video_writer.write(output_frame);
+    
 }
 void Controller::setLaneDetector(std::unique_ptr<LaneDetector> detector) {
     laneDetector = std::move(detector);

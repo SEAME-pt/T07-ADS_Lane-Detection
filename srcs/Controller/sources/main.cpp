@@ -45,12 +45,6 @@ int main(int argc, char *argv[]) {
     std::string modelPath = argv[1];
     auto laneDetector = std::make_unique<LaneDetector>(modelPath); // Criar com unique_ptr
 
-    std::cout << "[Main] Chamando laneDetector->initialize()" << std::endl;
-    if (!laneDetector->initialize()) {
-        std::cerr << "Erro ao inicializar o detector de faixas!" << std::endl;
-        return -1;
-    }
-
 	std::cout << "[Main] LaneDetector inicializado com sucesso!" << std::endl;
 	std::cout << "[Main] Versao..." << VERSAO << std::endl;
 
@@ -62,6 +56,12 @@ int main(int argc, char *argv[]) {
     try {
         Controller controller(&jetCar); // Passar ponteiro para JetCar
         controller.setLaneDetector(std::move(laneDetector)); // Transferir posse
+
+        std::cout << "[Main] Initializing controller" << std::endl;
+        if (!controller.initialize()) {
+            std::cerr << "Error initializing camera pipeline" << std::endl;
+            return -1;
+        }
 
         changeModeActions.onPress = nullptr;
         changeModeActions.onRelease = [&](){

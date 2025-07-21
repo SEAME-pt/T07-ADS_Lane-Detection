@@ -42,21 +42,6 @@ LaneDetector::~LaneDetector() {
 	cudaFree(buffers_[1]);
 }
 
-bool LaneDetector::initialize() {
-	std::string pipeline = "nvarguscamerasrc exposuretimerange=\"1000000 50000000\" gainrange=\"1 16\" !"
-						   "video/x-raw(memory:NVMM), width=640, height=360, "
-						   "format=(string)NV12, framerate=30/1 ! nvvidconv ! video/x-raw, format=BGRx ! "
-						   "videoconvert ! video/x-raw, format=BGR ! appsink drop=1 max-buffers=1";
-	cap_.open(pipeline, cv::CAP_GSTREAMER);
-	if (!cap_.isOpened()) {
-		std::cerr << "Failed to open camera pipeline!" << std::endl;
-		return false;
-	}
-	std::cout << "[" << __func__ << "] " << "Camera pipeline opened successfully: \n" << pipeline << std::endl;
-	std::cout << "[" << __func__ << "] " << "LaneDetector initialization concluded!" << std::endl;
-	return cap_.isOpened();
-}
-
 /// @brief Calculate lane geometry based on detected edges.
 /// This function estimates the offset and angle of the lane based on the detected left and right edges.
 /// It uses the slopes and intercepts of the detected edges to compute the lane geometry.

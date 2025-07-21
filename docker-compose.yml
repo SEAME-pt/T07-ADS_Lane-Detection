@@ -1,15 +1,15 @@
 
 services:
-  main-car:
-    build:
-      context: ./srcs/MainCar
-    command: /bin/bash
-    stdin_open: true
-    tty: true
-    volumes:
-      - type: bind
-        source: ./srcs/MainCar
-        target: /workspace
+  # main-car:
+  #   build:
+  #     context: ./srcs/MainCar
+  #   command: /bin/bash
+  #   stdin_open: true
+  #   tty: true
+  #   volumes:
+  #     - type: bind
+  #       source: ./srcs/MainCar
+  #       target: /workspace
 
   controller:
     build:
@@ -24,5 +24,5 @@ services:
       - type: bind
         source: ../jetson-sysroot
         target: /opt/jetson-sysroot
-    depends_on:
-      - main-car
+    # depends_on:
+    #   - main-car

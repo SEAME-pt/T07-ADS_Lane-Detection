@@ -57,8 +57,11 @@ public:
     void setMode(const int &mode);
     int  getMode();
     void listen();
-    void autonomous(float prev_delta);
+    void autonomous(float prev_delta, float ey, float yaw);
     void setLaneDetector(std::unique_ptr<LaneDetector> detector);
+    bool initialize();
+
+    cv::VideoCapture cap_;
 
 private:
     SDL_Joystick* joystick;

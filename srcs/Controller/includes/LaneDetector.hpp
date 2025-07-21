@@ -84,9 +84,8 @@ class LaneDetector {
 public:
 	LaneDetector(const std::string& trt_model_path);
 	~LaneDetector();
-	bool initialize();
 	void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask);
-	cv::VideoCapture cap_;
+
 
 private:
 
