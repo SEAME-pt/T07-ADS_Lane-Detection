@@ -74,7 +74,11 @@ void Debug::saveToFile(const std::string& filename,
                        float offset,
                        float angle,
                        const cv::Mat& lane_mask) {
+
+	// avoid the executionm of this function for debug purposes
 	return;
+
+	// normal behavior of this function
     std::ofstream file(filename, std::ios::app);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << filename << std::endl;

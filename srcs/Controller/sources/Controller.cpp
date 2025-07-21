@@ -15,6 +15,7 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
         throw std::runtime_error("Failed to initialize SDL2 Joystick: " + std::string(SDL_GetError()));
     }
 
+	// visualize_mask_ = true;
     // Initialize speedController
     speedPIDController = new SpeedPIDController();
 
@@ -146,7 +147,10 @@ void Controller::listen() {
 			//delta must contain last value from servor motor
 			delta_ = jetCar->get_servo_angle();
             autonomous(delta_);
-        }
+			visualize_mask_ = false;  // Reset visualization flag after processing
+        } else {
+			visualize_mask_ = true;
+		}
 
         if (buttonStates[BTN_SELECT] && buttonStates[BTN_START]) {
             break;
@@ -180,7 +184,7 @@ void Controller::autonomous(float prev_delta) {
 
     float ey, yaw;
     tracker.mark();
-    laneDetector->processFrame(frame, ey, yaw, output_frame, true);
+    laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
 
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;

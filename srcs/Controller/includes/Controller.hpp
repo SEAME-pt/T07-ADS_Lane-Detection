@@ -77,6 +77,7 @@ private:
     // Vector3d current_state_;
     TimeTracker tracker;
     int _currentMode;
+	bool visualize_mask_{true};
 
     // CSV logging
     std::ofstream csv_file_;

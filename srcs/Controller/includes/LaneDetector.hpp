@@ -34,7 +34,7 @@ static constexpr double CAMERA_FOCAL_LENGTH = 0.00315; // Focal length in meters
 static constexpr int CAMERA_OFFSET = 0; // Offset in pixels, adjust if needed
 
 static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 50% of image height
-static constexpr float ROI_EY_PERCENT = 0.7f;   // ROI ends at 80% of image height
+static constexpr float ROI_EY_PERCENT = 0.9f;   // ROI ends at 80% of image height
 static constexpr int MAX_SEARCH_DISTANCE = 310;	// Max distance (pixels) to search for edges
 // static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calculation
 static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation
@@ -85,7 +85,7 @@ public:
 	LaneDetector(const std::string& trt_model_path);
 	~LaneDetector();
 	bool initialize();
-	void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask = false);
+	void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask);
 	cv::VideoCapture cap_;
 
 private:
@@ -94,7 +94,7 @@ private:
 	void preprocess(const cv::Mat& frame);
 	void infer();
 	void defineROI() ;
-	bool calculateLaneGeometry(float& offset, float& angle);
+	bool calculateLaneGeometry(float& offset, float& angle, bool visualize_mask);
 	bool findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) ;
 	void weightedLinearRegression(const std::vector<cv::Point>& points, double& slope, double& intercept) ;
 	void calculateMiddleLaneLine(void) ;
