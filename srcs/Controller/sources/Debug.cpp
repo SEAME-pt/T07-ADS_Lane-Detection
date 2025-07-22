@@ -23,10 +23,10 @@ void Debug::showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, imgGeom
     }
 
 	// Draw angle and offset on top left corner
-	std::string angle_text = "iGeo.yaw: " + std::to_string(iGeo.angle) + " deg";
+	std::string angle_text = "iGeo.yaw: " + std::to_string(iGeo.angle * 180 / CV_PI) + " deg";
 	std::string offset_text = "iGeo.offset : " + std::to_string(iGeo.offset) + " m";
-	cv::putText(output_frame, angle_text, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
-	cv::putText(output_frame, offset_text, cv::Point(10, 60), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 0, 255), 1);
+	cv::putText(output_frame, angle_text, cv::Point(330, 270), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
+	cv::putText(output_frame, offset_text, cv::Point(330, 300), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
 
     // Draw left and right lane lines using slopes and intercepts
     cv::Point lpt1(iGeo.left_slope * 0 + iGeo.left_intercept, 0 );

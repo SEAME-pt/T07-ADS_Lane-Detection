@@ -24,21 +24,24 @@ const double R_A = 1.0;        // Weight for acceleration effort
 
 class MPCController {
 public:
-    MPCController(double dt, double L, int N);
-    void update(double ey, double yaw, double v_current);
+    MPCController(float wheelbase, float dt, int horizon);
+    void update(float ey, float yaw, float v);
     float getSteeringAngle() const;
     float getAcceleration() const;
 
 private:
-    double computeCost(const Eigen::Vector3d& x, const Eigen::Vector2d& u, double delta_prev);
-    double dt_;
-    double L_;
-    int N_;
-    Eigen::Vector3d x_;
-    Eigen::Vector2d u_;
-    Eigen::Matrix3d Q_;
-    Eigen::Matrix2d R_;
-    double S_;
+    float L_; // Wheelbase (m)
+    float dt_; // Time step (s)
+    int N_; // Prediction horizon
+    Eigen::Matrix2f Q_; // State cost matrix
+    float R_; // Control cost
+    Eigen::Matrix2f Qf_; // Terminal cost matrix
+    float max_delta_; // Max physical steering angle (rad)
+    float k_delta_; // Speed-dependent delta constant (rad·m/s)
+    float min_delta_; // Minimum delta limit (rad)
+    Eigen::Vector2f state_; // [ey, yaw]
+    float v_; // Current speed (m/s)
+    float delta_; // Steering angle (rad)
 };
 
 #endif // MPC_CONTROLLER_HPP
