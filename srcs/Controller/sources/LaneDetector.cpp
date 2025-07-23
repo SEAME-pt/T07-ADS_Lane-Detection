@@ -197,9 +197,9 @@ void LaneDetector::calculateMiddleLaneLine(void) {
     }
 	// If both edges are valid, calculate the midpoints and lane width
 	if (left_valid && right_valid) {
-		std::cout << "[" << __func__ << "] : Both edges valid." << std::endl;
-		std::cout << "xlbPX: " << imgFrame_.xlbPX << ", xltPX: " << imgFrame_.xltPX << std::endl;
-		std::cout << "xrbPX: " << imgFrame_.xrbPX << ", xrtPX: " << imgFrame_.xrtPX << std::endl;
+		// std::cout << "[" << __func__ << "] : Both edges valid." << std::endl;
+		// std::cout << "xlbPX: " << imgFrame_.xlbPX << ", xltPX: " << imgFrame_.xltPX << std::endl;
+		// std::cout << "xrbPX: " << imgFrame_.xrbPX << ", xrtPX: " << imgFrame_.xrtPX << std::endl;
 		// Calculate the slope and intercept for the scale function
 		// Both edges are valid, calculate midpoints and lane width
 		float lane_width_new = ((Asy * F_H + Bsy) * (imgFrame_.xrbPX - imgFrame_.xlbPX)
@@ -211,19 +211,19 @@ void LaneDetector::calculateMiddleLaneLine(void) {
 		estimated_lane_width_ = std::accumulate(lane_width_history_.begin(), lane_width_history_.end(), 0.0f) / lane_width_history_.size();
 		iGeo_.lane_width = estimated_lane_width_;
 	} else if (left_valid && !right_valid) {
-		std::cout << "[" << __func__ << "] : Left edge valid, right edge missing." << std::endl;
+		// std::cout << "[" << __func__ << "] : Left edge valid, right edge missing." << std::endl;
 		imgFrame_.xrtPX = iGeo_.lane_width / (Asy * (F_H / 2.0f) + Bsy) + imgFrame_.xltPX; // Top right
 		imgFrame_.xrbPX = iGeo_.lane_width / (Asy * F_H  + Bsy) + imgFrame_.xlbPX; // Bottom right edge
 		iGeo_.right_slope = (imgFrame_.xrtPX - imgFrame_.xrbPX) / ((F_H / 2.0f) - F_H);
 		iGeo_.right_intercept = imgFrame_.xrbPX - iGeo_.right_slope * F_H;
-		std::cout << "xrbPX: " << imgFrame_.xrbPX << ", xrtPX: " << imgFrame_.xrtPX << std::endl;
+		// std::cout << "xrbPX: " << imgFrame_.xrbPX << ", xrtPX: " << imgFrame_.xrtPX << std::endl;
 	} else if (!left_valid && right_valid) {
-		std::cout << "[" << __func__ << "] : Right edge valid, left edge missing." << std::endl;
+		// std::cout << "[" << __func__ << "] : Right edge valid, left edge missing." << std::endl;
 		imgFrame_.xltPX = imgFrame_.xrtPX - iGeo_.lane_width / (Asy * (F_H / 2.0f) + Bsy); // Top left
 		imgFrame_.xlbPX = imgFrame_.xrbPX - iGeo_.lane_width / (Asy * F_H  + Bsy); // Bottom left edge
 		iGeo_.left_slope = (imgFrame_.xltPX - imgFrame_.xlbPX) / ((F_H / 2.0f) - F_H);
 		iGeo_.left_intercept = imgFrame_.xlbPX - iGeo_.left_slope * F_H;
-		std::cout << "xlbPX: " << imgFrame_.xlbPX << ", xltPX: " << imgFrame_.xltPX << std::endl;
+		// std::cout << "xlbPX: " << imgFrame_.xlbPX << ", xltPX: " << imgFrame_.xltPX << std::endl;
 	}
 
 	imgFrame_.xmbPX = imgFrame_.xcPX - (imgFrame_.xlbPX + imgFrame_.xrbPX) / 2; // Midpoint at bottom
@@ -241,22 +241,22 @@ void LaneDetector::calculateMiddleLaneLine(void) {
 	imgFrame_.xmb = (Asy * F_H + Bsy) * imgFrame_.xmbPX;
 
 	// Debugging output
-	std::cout << "[" << __func__ << "] : PIXELS"
-		<< "\n\t"
-		<< "xlt[" << imgFrame_.xltPX << "], "
-		<< "xmt[" << imgFrame_.xmtPX << "], "
-		<< "xrt[" << imgFrame_.xrtPX << "], "
-		<< "\n\t"
-		<< "xlb[" << imgFrame_.xlbPX << "], "
-		<< "xmb[" << imgFrame_.xmbPX << "], "
-		<< "xrb[" << imgFrame_.xrbPX << "], "
-		<< std::endl;
+	// std::cout << "[" << __func__ << "] : PIXELS"
+	// 	<< "\n\t"
+	// 	<< "xlt[" << imgFrame_.xltPX << "], "
+	// 	<< "xmt[" << imgFrame_.xmtPX << "], "
+	// 	<< "xrt[" << imgFrame_.xrtPX << "], "
+	// 	<< "\n\t"
+	// 	<< "xlb[" << imgFrame_.xlbPX << "], "
+	// 	<< "xmb[" << imgFrame_.xmbPX << "], "
+	// 	<< "xrb[" << imgFrame_.xrbPX << "], "
+	// 	<< std::endl;
 
-	std::cout << "[" << __func__ << "] : METERS"
-		<< "\n\t"
-		<< "xmt[" << imgFrame_.xmt << "], "
-		<< "xmb[" << imgFrame_.xmb << "], "
-		<< std::endl;
+	// std::cout << "[" << __func__ << "] : METERS"
+	// 	<< "\n\t"
+	// 	<< "xmt[" << imgFrame_.xmt << "], "
+	// 	<< "xmb[" << imgFrame_.xmb << "], "
+	// 	<< std::endl;
 }
 
 /// @brief Calculate the offset and angle of the lane in the car frame.
@@ -293,8 +293,10 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) {
 	carFrame_.slope = (carFrame_.yT - carFrame_.yB) / (carFrame_.xDelta);
 	// Calculate the intersect at the car Frame
 	carFrame_.intercept = carFrame_.yT - carFrame_.slope * carFrame_.xT;
+	// float ey = carFrame_.slope * X_CAR_FRAME_BOTTOM + carFrame_.intercept; // y coordinate of the bottom point in the car Frame
 	// Calculate the yaw angle
 	angle = static_cast<float>(std::atan(carFrame_.slope)); // in radians
+	// offset = static_cast<float>(ey); // Set the offset in pmeters
 	offset = static_cast<float>(carFrame_.intercept); // Set the offset in pmeters
 	// float angle_deg = angle * 180 / CV_PI;
 
@@ -348,21 +350,21 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, bool visua
 	}
 
 if (visualize_mask) {
-    std::ofstream file("edges.csv", std::ios::app);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file: " << "edges.csv" << std::endl;
-    } else {
-		file << "Left Edges: \n";
-		for (const auto& pt : left_edges_) {
-			file << pt.x << ", " << pt.y << "; \n";
-		}
-		file << "\nRight Edges: \n";
-		for (const auto& pt : right_edges_) {
-			file << pt.x << ", " << pt.y << "; \n";
-		}
-		file << "\n----------------------------------------\n";
-		file.close();
-	}
+    // std::ofstream file("edges.csv", std::ios::app);
+    // if (!file.is_open()) {
+    //     std::cerr << "Failed to open file: " << "edges.csv" << std::endl;
+    // } else {
+	// 	file << "Left Edges: \n";
+	// 	for (const auto& pt : left_edges_) {
+	// 		file << pt.x << ", " << pt.y << "; \n";
+	// 	}
+	// 	file << "\nRight Edges: \n";
+	// 	for (const auto& pt : right_edges_) {
+	// 		file << pt.x << ", " << pt.y << "; \n";
+	// 	}
+	// 	file << "\n----------------------------------------\n";
+	// 	file.close();
+	// }
 }
 
 	// Step 3: Perform weighted linear regression to fit lines to edges
@@ -413,8 +415,10 @@ if (visualize_mask) {
 	applyKalmanFilter(measured_offset, measured_angle, smoothed_offset, smoothed_angle);
 
 	// Step 6: Set output parameters
-	offset = smoothed_offset;
-	angle = smoothed_angle;
+	// offset = smoothed_offset;
+	// angle = smoothed_angle;
+	offset = measured_offset;
+	angle = measured_angle;
 
 	iGeo_.angle = angle; // Store angle in imgGeometry
 	iGeo_.offset = offset ; // Store offset in imgGeometry

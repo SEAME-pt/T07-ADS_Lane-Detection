@@ -5,12 +5,12 @@
 
 MPCController::MPCController(float wheelbase, float dt, int horizon)
     : L_(wheelbase), dt_(dt), N_(horizon) {
-    Q_ = Eigen::Matrix2f::Identity() * 20.0f; // Weight on ey, yaw
-    R_ = 2.0f; // Weight on delta
-    Qf_ = Eigen::Matrix2f::Identity() * 40.0f; // Terminal weight
+    Q_ = Eigen::Matrix2f::Identity() * 50.0f; // Higher weight on ey, yaw
+    R_ = 1.0f; // Reduced for faster delta response
+    Qf_ = Eigen::Matrix2f::Identity() * 100.0f; // Higher terminal weight
     max_delta_ = 0.5f; // Max physical steering angle (rad)
-    k_delta_ = 0.15f; // Speed-dependent delta constant (rad·m/s)
-    min_delta_ = 0.03f; // Minimum delta limit (rad)
+    k_delta_ = 0.2f; // Speed-dependent delta constant (rad·m/s)
+    min_delta_ = 0.05f; // Minimum delta limit (rad)
     state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
     delta_ = 0.0f;
 }
@@ -26,9 +26,9 @@ void MPCController::update(float ey, float yaw, float v) {
     // Discretized bicycle model: x(k+1) = A * x(k) + B * u(k)
     Eigen::Matrix2f A;
     Eigen::Vector2f B;
-    float yaw_rate = (v_ / L_) * std::tan(delta_); // Linearize around current delta
+    // Linearize around yaw = 0, delta = 0 for simplicity
     A << 1.0f, dt_ * v_, 0.0f, 1.0f;
-    B << dt_ * v_ * std::cos(yaw + delta_), dt_ * (v_ / L_) / (std::cos(delta_) * std::cos(delta_));
+    B << dt_ * v_, dt_ * (v_ / L_);
 
     // MPC matrices
     Eigen::MatrixXf Ad(2 * N_, 2); // Augmented state transition
@@ -78,16 +78,23 @@ void MPCController::update(float ey, float yaw, float v) {
     lb_constr.setConstant(-delta_max);
     ub_constr.setConstant(delta_max);
 
-    // Simple QP solver (gradient descent for simplicity, replace with OSQP for production)
+    // Projected gradient descent with momentum
     Eigen::VectorXf u = Eigen::VectorXf::Zero(N_);
-    float alpha = 0.005f; // Smaller step size for stability
-    for (int iter = 0; iter < 150; ++iter) { // More iterations for convergence
+    Eigen::VectorXf u_prev = u;
+    float alpha = 0.01f; // Step size
+    float beta = 0.9f; // Momentum
+    Eigen::VectorXf m = Eigen::VectorXf::Zero(N_); // Momentum term
+    for (int iter = 0; iter < 200; ++iter) {
         Eigen::VectorXf grad = H * u + f;
-        u -= alpha * grad;
+        m = beta * m + (1.0f - beta) * grad; // Update momentum
+        u -= alpha * m;
         // Project onto constraints
         for (int i = 0; i < N_; ++i) {
             u(i) = std::max(lb_constr(i), std::min(ub_constr(i), u(i)));
         }
+        // Check convergence
+        if ((u - u_prev).norm() < 1e-4f) break;
+        u_prev = u;
     }
 
     delta_ = u(0); // Apply first control input

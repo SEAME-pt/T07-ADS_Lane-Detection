@@ -1,4 +1,4 @@
-#include "MPCController.hpp"
+#include "MPC.hpp"
 #include <Eigen/Dense>
 #include <cmath>
 #include <iostream>

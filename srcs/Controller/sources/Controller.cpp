@@ -212,12 +212,15 @@ void Controller::autonomous(float prev_delta, float ey, float yaw) {
     // laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
 
 	float speeda = currentSpeed.load(std::memory_order_relaxed);  // Get current speed from SpeedSubscriber
+	std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
+	speeda = std::max(static_cast<float>(V_REF), speeda);  // Ensure speed is at least V_REF
+	// std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
     // test yaw
-	// mpc.update(0.0, yaw, currentSpeed.load(std::memory_order_relaxed));
+	// mpc.update(0.0, -yaw, speeda);
     // test ey
-	mpc.update(-ey, 0.0f, speeda);
+	mpc.update(ey, 0.0f, speeda);
 	// real mode
 	// mpc.update(ey, yaw, currentSpeed.load(std::memory_order_relaxed));
 	float delta = mpc.getSteeringAngle();  // Get steering angle from MPC
@@ -234,7 +237,7 @@ void Controller::autonomous(float prev_delta, float ey, float yaw) {
 	float steering = std::max(-DELTA_MAX, std::min(DELTA_MAX, static_cast<double>(delta)));  // Limit to ±30 deg in radians
 	int steeringPWM = static_cast<int>(steering / DELTA_MAX * 99);  // Convert radians to % PWM
 
-	float speed = std::min((speeda + a * DT), V_MAX);  // Update speed based on acceleration
+	float speed = speeda;//std::min((speeda + a * DT), V_MAX);  // Update speed based on acceleration
 	// convert newSpeed(ms) +> newSpeed_pwm(pwm [-100%; +100%])
 
 	speed = std::max(0.0, std::min(V_REF, static_cast<double>(speed)));  // Ensure speed is within bounds

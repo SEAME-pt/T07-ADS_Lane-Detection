@@ -33,8 +33,8 @@ static constexpr double CAMERA_Z_POS = 0.115;   // 11.5 cm in meters
 static constexpr double CAMERA_FOCAL_LENGTH = 0.00315; // Focal length in meters (2 mm)
 static constexpr int CAMERA_OFFSET = 0; // Offset in pixels, adjust if needed
 
-static constexpr float ROI_SY_PERCENT = 0.5f; // ROI starts at 50% of image height
-static constexpr float ROI_EY_PERCENT = 0.9f;   // ROI ends at 80% of image height
+static constexpr float ROI_SY_PERCENT = 0.6f; // ROI starts at 50% of image height
+static constexpr float ROI_EY_PERCENT = 0.95f;   // ROI ends at 80% of image height
 static constexpr int MAX_SEARCH_DISTANCE = 310;	// Max distance (pixels) to search for edges
 // static constexpr double C_DISTANCE = 0.0001; // Coefficient for distance calculation
 static constexpr double MIN_EDGE_POINTS = 10; // Coefficient for angle calculation

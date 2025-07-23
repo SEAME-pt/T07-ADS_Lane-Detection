@@ -87,7 +87,8 @@
 	"span": "cpp",
 	"variant": "cpp",
 	"filesystem": "cpp",
-	"ios": "cpp"
+	"ios": "cpp",
+	"__debug": "cpp"
 },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",
