@@ -220,10 +220,10 @@ void Controller::autonomous(float prev_delta, float ey, float yaw) {
     // test yaw
 	// mpc.update(0.0, -yaw, speeda);
     // test ey
-	mpc.update(ey, 0.0f, speeda);
+	// mpc.update(ey, 0.0f, speeda);
 	// real mode
-	// mpc.update(ey, yaw, currentSpeed.load(std::memory_order_relaxed));
-	float delta = mpc.getSteeringAngle();  // Get steering angle from MPC
+	mpc.update(ey, yaw, currentSpeed.load(std::memory_order_relaxed));
+	float delta = -0.3f * mpc.getSteeringAngle();  // Get steering angle from MPC
 	float a = mpc.getAcceleration();  // Get acceleration from MPC
 
 	// Debug mpc output

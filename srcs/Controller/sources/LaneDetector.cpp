@@ -293,11 +293,11 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) {
 	carFrame_.slope = (carFrame_.yT - carFrame_.yB) / (carFrame_.xDelta);
 	// Calculate the intersect at the car Frame
 	carFrame_.intercept = carFrame_.yT - carFrame_.slope * carFrame_.xT;
-	// float ey = carFrame_.slope * X_CAR_FRAME_BOTTOM + carFrame_.intercept; // y coordinate of the bottom point in the car Frame
+	float ey = carFrame_.slope * X_CAR_FRAME_BOTTOM + carFrame_.intercept; // y coordinate of the bottom point in the car Frame
 	// Calculate the yaw angle
 	angle = static_cast<float>(std::atan(carFrame_.slope)); // in radians
-	// offset = static_cast<float>(ey); // Set the offset in pmeters
-	offset = static_cast<float>(carFrame_.intercept); // Set the offset in pmeters
+	offset = static_cast<float>(ey); // Set the offset in pmeters
+	// offset = static_cast<float>(carFrame_.intercept); // Set the offset in pmeters
 	// float angle_deg = angle * 180 / CV_PI;
 
 	// Debugging output CAR FRAME
