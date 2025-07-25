@@ -89,7 +89,8 @@
 	"filesystem": "cpp",
 	"ios": "cpp",
 	"__debug": "cpp",
-	"dense": "cpp"
+	"dense": "cpp",
+	"__node_handle": "cpp"
 },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",

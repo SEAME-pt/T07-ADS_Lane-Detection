@@ -16,7 +16,7 @@
 #include <cmath>
 
 
-#define ROI_SY_PERCENT 0.6f // ROI starts at 50% of image height
+#define ROI_SY_PERCENT 0.5f // ROI starts at 50% of image height
 #define ROI_EY_PERCENT 0.95f   // ROI ends at 80% of image height
 #define ROI_X_BORDER 0 // Pixels from the left and right edges to avoid noise
 #define THRESHOLD 0.5f // Threshold for binary mask
@@ -27,6 +27,8 @@
 #define F_W 640 // Frame width
 #define F_H 360 // Frame height
 
+#define KALMAN false // Use Kalman filter for smoothing offset and angle
+#define CAR_CM false // Use car center of mass for calculations
 // Car frame coordinates : dash cam
 #define X_CAR_FRAME_CENTER 0.41f // X coordinate of the car center in the image frame
 #define X_CAR_FRAME_BOTTOM 0.20f // X coordinate of the bottom ROI in the image frame
@@ -73,15 +75,16 @@ typedef struct s_imgFrame {
 	float xmb{0.0f};	// Midpoint at bottom in meters
 } t_imgFrame;
 
-// enum KalmanStateIndex { OFFSET = 0, OFFSET_VEL = 1, ANGLE = 2 };
-// enum KalmanMeasurementIndex { MEASUREMENT_OFFSET = 0, MEASUREMENT_ANGLE = 1 };
-// enum KalmanPredictionIndex { PREDICTION_OFFSET = 0, PREDICTION_ANGLE = 1 };
-// enum KalmanPredictionCovIndex { PREDICTION_COV_OFFSET = 0, PREDICTION_COV_ANGLE = 1 };
-// enum KalmanMeasurementCovIndex { MEASUREMENT_COV_OFFSET = 0, MEASUREMENT_COV_ANGLE = 1 };
-// enum KalmanErrorCovIndex { ERROR_COV_OFFSET = 0, ERROR_COV_ANGLE = 1 };
-// enum KalmanProcessCovIndex { PROCESS_COV_OFFSET = 0, PROCESS_COV_ANGLE = 1 };
-// enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITION_ANGLE = 2 };
-// enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
+enum KalmanStateIndex { OFFSET = 0, OFFSET_VEL = 1, ANGLE = 2 };
+enum KalmanMeasurementIndex { MEASUREMENT_OFFSET = 0, MEASUREMENT_ANGLE = 1 };
+enum KalmanPredictionIndex { PREDICTION_OFFSET = 0, PREDICTION_ANGLE = 1 };
+enum KalmanPredictionCovIndex { PREDICTION_COV_OFFSET = 0, PREDICTION_COV_ANGLE = 1 };
+enum KalmanMeasurementCovIndex { MEASUREMENT_COV_OFFSET = 0, MEASUREMENT_COV_ANGLE = 1 };
+enum KalmanErrorCovIndex { ERROR_COV_OFFSET = 0, ERROR_COV_ANGLE = 1 };
+enum KalmanProcessCovIndex { PROCESS_COV_OFFSET = 0, PROCESS_COV_ANGLE = 1 };
+enum KalmanTransitionIndex { TRANSITION_OFFSET = 0, TRANSITION_VEL = 1, TRANSITION_ANGLE = 2 };
+enum KalmanMeasurementMatrixIndex { MEASUREMENT_MATRIX_OFFSET = 0, MEASUREMENT_MATRIX_ANGLE = 1 };
+
 
 class Logger : public nvinfer1::ILogger {
 public:
@@ -108,7 +111,12 @@ private:
 	void weightedLinearRegression(const std::vector<cv::Point>& points, double& slope, double& intercept) ;
 	void calculateMiddleLaneLine(void) ;
 	void calculateOffsetAndAngle(float& offset, float& angle);
-	// void applyKalmanFilter(float measured_offset, float measured_angle, float& smoothed_offset, float& smoothed_angle);
+	void applyKalmanFilter(float measured_offset, float measured_angle, float& smoothed_offset, float& smoothed_angle);
+
+	// Kalman Filter
+	cv::KalmanFilter kf_;		 // Kalman filter for smoothing offset and angle
+	float offset_kalman_{0.0f};
+	float angle_kalman_{0.0f};
 
 	std::vector<imgGeometry> history_; // History of lane geometry parameters
 	std::vector<float> lane_width_history_; // This is used to store the last known lane geometry width

@@ -158,6 +158,14 @@ int Controller::getMode() {
 
 void Controller::listen() {
     SDL_Event event;
+	std::cout <<"[" << __func__ << "] "
+				<< "\n\t** KALMAN : " << KALMAN
+				<< " ** CAR CM : " << CAR_CM
+				<< "\n\t## Q_EY : " << Q_EY
+				<< " ## Q_YAW : " << Q_PSI_ERR
+				<< " ## Q_V : " << Q_V
+				<< "\n\t@@ V_REF_PWM : " << V_REF_PWM << std::endl;
+
 	bool cruise = false;
     while (true) {
 

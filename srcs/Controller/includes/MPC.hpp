@@ -9,7 +9,7 @@ const double L = 0.15;          // Wheelbase (m)
 const double DT = 0.1;        // Time step (s)
 const int N = 10;              // Prediction horizon
 
-// JetRacer parameters
+// JetRacer parameters/*  */
 const double V_MAX = 2.5;      // Max velocity (m/s)
 const double DELTA_MAX = 0.523; // Max steering angle (rad, 30 deg)
 const double DELTA_RATE_MAX = 0.2; // Max steering rate (rad/step)
