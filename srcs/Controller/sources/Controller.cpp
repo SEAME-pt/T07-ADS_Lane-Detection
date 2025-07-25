@@ -7,7 +7,7 @@
 #include <chrono>
 #include <sstream>
 
-Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK), mpc_(DT, L, N) {
+Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK), mpc_(L, DT, N) {
 
 
 	// Initialize SDL for joystick input
@@ -158,6 +158,7 @@ int Controller::getMode() {
 
 void Controller::listen() {
     SDL_Event event;
+	bool cruise = false;
     while (true) {
 
         if (!cap_.read(frame) || frame.empty()) {
@@ -173,13 +174,18 @@ void Controller::listen() {
         laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
 
         if (_currentMode == MODE_AUTONOMOUS) {
-			//delta must contain last value from servor motor
-			delta_ = jetCar->get_servo_angle();
-            autonomous(delta_, ey, yaw);
-			visualize_mask_ = false;  // Reset visualization flag after processing
-        } else {
+			if (!cruise) {
+				jetCar->set_motor_speed(static_cast<int>(V_REF_PWM));  // Convert m/s to cm/s
+				cruise = true;
+			}
+			autonomous(ey, yaw);
+			visualize_mask_ = false;
+		} else {
 			visualize_mask_ = true;
+			// jetCar->set_motor_speed(static_cast<int>(0));  // Convert m/s to cm/s
+			cruise = false;
 		}
+
 
         if (buttonStates[BTN_SELECT] && buttonStates[BTN_START]) {
             break;
@@ -201,30 +207,23 @@ void Controller::listen() {
 
 
 
-void Controller::autonomous(float prev_delta, float ey, float yaw) {
-    // Ensure MPCController is initialized with correct parameters
-    // MPCController mpc(DT, L, N);  // Already initialized in constructor
-
-	MPCController mpc(DT, L, N);
-
-    // float ey, yaw;
+void Controller::autonomous(float ey, float yaw) {
     tracker.mark();
-    // laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
 
 	float speeda = currentSpeed.load(std::memory_order_relaxed);  // Get current speed from SpeedSubscriber
 	std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
-	speeda = std::max(static_cast<float>(V_REF), speeda);  // Ensure speed is at least V_REF
+	speeda = std::min(static_cast<float>(0.5f), speeda);  // Ensure speed is at least V_REF
 	// std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
     // test yaw
-	// mpc.update(0.0, -yaw, speeda);
+	// mpc_.update(0.0, -yaw, speeda);
     // test ey
-	// mpc.update(ey, 0.0f, speeda);
+	// mpc_.update(ey, 0.0f, speeda);
 	// real mode
-	mpc.update(ey, yaw, currentSpeed.load(std::memory_order_relaxed));
-	float delta = -0.3f * mpc.getSteeringAngle();  // Get steering angle from MPC
-	float a = mpc.getAcceleration();  // Get acceleration from MPC
+	mpc_.update(-ey, -yaw, speeda);
+	float delta = 1.0f * mpc_.getSteeringAngle();  // Get steering angle from MPC
+	// float a = mpc_.getAcceleration();  // Get acceleration from MPC
 
 	// Debug mpc output
 	// std::cout << "[" << __func__ << "]"
@@ -234,26 +233,13 @@ void Controller::autonomous(float prev_delta, float ey, float yaw) {
 	// 			<< "\n\t MPC Previous Delta : " << prev_delta * (180.0f / CV_PI) << " deg" << std::endl;
 
 	// Limit steering angle to ±30 degrees in radians
-	float steering = std::max(-DELTA_MAX, std::min(DELTA_MAX, static_cast<double>(delta)));  // Limit to ±30 deg in radians
-	int steeringPWM = static_cast<int>(steering / DELTA_MAX * 99);  // Convert radians to % PWM
 
-	float speed = speeda;//std::min((speeda + a * DT), V_MAX);  // Update speed based on acceleration
-	// convert newSpeed(ms) +> newSpeed_pwm(pwm [-100%; +100%])
 
-	speed = std::max(0.0, std::min(V_REF, static_cast<double>(speed)));  // Ensure speed is within bounds
-	int speedPWM = speed / V_MAX * 100.0f;  // Convert m/s to 0..100 PWM value (assuming max speed of 2.8 m/s)
-	if (speedPWM < 0) {
-		speedPWM = 0;  // Ensure speed is non-negative
-	}
-
+	float steeringDEG = static_cast<int>(std::max(-DELTA_MAX, std::min(DELTA_MAX, static_cast<double>(delta))) * 180 / CV_PI);  // Convert radians to % PWM
 	// std::cout << "[" << __func__ << "]\n\t Speed    : " << speed << " m/s,\n\t PWM: " << speedPWM << " %" << "\n\t read speed :" << currentSpeed.load(std::memory_order_relaxed) << std::endl;
 	// std::cout << "[" << __func__ << "]\n\t Steering : " << steering << " rad,\n\t PWM: " << steeringPWM << " %"<< std::endl;
 	// Update vehicle state
-	jetCar->set_servo_angle(static_cast<int>(steeringPWM));  // Convert radians to degrees
-	//jetCar->set_motor_speed(static_cast<int>(speedPWM));  // Convert m/s to cm/s
-
-	// Log current speed
-	currentSpeed.store(speed, std::memory_order_relaxed);
+	jetCar->set_servo_angle(static_cast<int>(steeringDEG));  // Convert radians to degrees
 
 	// Debug output
 
@@ -264,16 +250,16 @@ void Controller::autonomous(float prev_delta, float ey, float yaw) {
         std::lock_guard<std::mutex> lock(csv_mutex_);
         csv_file_ << timestamp_ms << ","
                   << std::fixed << std::setprecision(2) << currentSpeed.load(std::memory_order_relaxed) << ","
-                  << (steering * 180.0f / CV_PI) << ","
+                  << (delta * 180.0f / CV_PI) << ","
                   << yaw << ","
                   << ey << "\n";
         csv_file_.flush();
     }
 
     tracker.mark();
-	std::string servo_text = "Servo: " + std::to_string(steering * 180.0 / CV_PI) + " deg";
+	std::string servo_text = "Servo: " + std::to_string(delta * 180.0 / CV_PI) + " deg";
 	std::string delta_text = "Delta: " + std::to_string(delta) + " rad";
-	std::string speed_text = "Speed: " + std::to_string(speed) + " m/s";
+	std::string speed_text = "Speed: " + std::to_string(speeda) + " m/s";
 	//cv::putText(output_frame, text_to_print, cv::Point(x_img, y_img), cv::FONT_HERSHEY_SIMPLEX, font_size, cv::Scalar(R, G, B), font_thickness);
 	cv::putText(output_frame, servo_text, cv::Point(10, 270), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 	cv::putText(output_frame, delta_text, cv::Point(10, 300), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);

@@ -1,5 +1,6 @@
-#ifndef MPC_CONTROLLER_HPP
-#define MPC_CONTROLLER_HPP
+// Version: v4 (2025-07-24)
+#ifndef MPC_HPP
+#define MPC_HPP
 
 #include <Eigen/Dense>
 
@@ -13,7 +14,8 @@ const double V_MAX = 2.5;      // Max velocity (m/s)
 const double DELTA_MAX = 0.523; // Max steering angle (rad, 30 deg)
 const double DELTA_RATE_MAX = 0.2; // Max steering rate (rad/step)
 const double A_MAX = 2.0;      // Max acceleration (m/s^2)
-const double V_REF = 0.3;      // Reference velocity (m/s)
+const double V_REF = 0.4;      // Reference velocity (m/s)
+const double V_REF_PWM = 22;      // Reference velocity (m/s)
 
 // MPC weights
 const double Q_EY = 100.0;     // Weight for cross-track error
@@ -42,6 +44,7 @@ private:
     Eigen::Vector2f state_; // [ey, yaw]
     float v_; // Current speed (m/s)
     float delta_; // Steering angle (rad)
+    float delta_prev_; // Previous delta for rate penalty
 };
 
-#endif // MPC_CONTROLLER_HPP
+#endif // MPC_HPP

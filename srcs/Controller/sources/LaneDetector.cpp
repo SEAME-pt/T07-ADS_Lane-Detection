@@ -3,15 +3,6 @@
 
 LaneDetector::LaneDetector(const std::string& trt_model_path) {
 	cudaStreamCreate(&stream_);
-	kf_ = cv::KalmanFilter(2, 2, 0, CV_32F);
-	kf_.statePre.at<float>(0) = 0.0f;
-	kf_.statePre.at<float>(1) = 0.0f;
-	kf_.transitionMatrix = (cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
-	kf_.measurementMatrix = (cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
-	cv::setIdentity(kf_.processNoiseCov, cv::Scalar::all(1e-4));
-	cv::setIdentity(kf_.measurementNoiseCov, cv::Scalar::all(1e-1));
-	cv::setIdentity(kf_.errorCovPre, cv::Scalar::all(1));
-
 	input_height_ = 128;
 	input_width_ = 256;
 	roi_sy_ = static_cast<int>(F_H * ROI_SY_PERCENT);
@@ -21,9 +12,24 @@ LaneDetector::LaneDetector(const std::string& trt_model_path) {
 	roi_w_ = roi_ex_ - roi_sx_;
 	roi_h_ = roi_ey_ - roi_sy_;
 
+	// Replace kalman filter by low pass filter
+	// kf_ = cv::KalmanFilter(2, 2, 0, CV_32F);
+	// kf_.statePre.at<float>(0) = 0.0f;
+	// kf_.statePre.at<float>(1) = 0.0f;
+	// kf_.transitionMatrix = (cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
+	// kf_.measurementMatrix = (cv::Mat_<float>(2, 2) << 1, 0, 0, 1);
+	// cv::setIdentity(kf_.processNoiseCov, cv::Scalar::all(1e-4));
+	// cv::setIdentity(kf_.measurementNoiseCov, cv::Scalar::all(1e-1));
+	// cv::setIdentity(kf_.errorCovPre, cv::Scalar::all(1));
+	// offset_kalman_ = 0.0f;
+	// angle_kalman_ = 0.0f;
 
-	offset_kalman_ = 0.0f;
-	angle_kalman_ = 0.0f;
+	// low pass filter parameters
+    offset_smooth_ = 0.0f;
+    angle_smooth_ = 0.0f;
+    alpha_ = 0.3f; // Low-pass filter coefficient
+
+	// initialize image frame geometry
 	estimated_lane_width_ = -1.0f;
 	prev_left_edge_ = F_W / 2;
 	prev_right_edge_ = F_W / 2;
@@ -293,28 +299,12 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) {
 	carFrame_.slope = (carFrame_.yT - carFrame_.yB) / (carFrame_.xDelta);
 	// Calculate the intersect at the car Frame
 	carFrame_.intercept = carFrame_.yT - carFrame_.slope * carFrame_.xT;
-	float ey = carFrame_.slope * X_CAR_FRAME_BOTTOM + carFrame_.intercept; // y coordinate of the bottom point in the car Frame
+	// float ey = carFrame_.slope * X_CAR_FRAME_BOTTOM + carFrame_.intercept; // y coordinate of the bottom point in the car Frame
 	// Calculate the yaw angle
 	angle = static_cast<float>(std::atan(carFrame_.slope)); // in radians
-	offset = static_cast<float>(ey); // Set the offset in pmeters
-	// offset = static_cast<float>(carFrame_.intercept); // Set the offset in pmeters
+	// offset = static_cast<float>(ey); // Set the offset in pmeters
+	offset = static_cast<float>(carFrame_.intercept); // Set the offset in pmeters
 	// float angle_deg = angle * 180 / CV_PI;
-
-	// Debugging output CAR FRAME
-	// std::cout << "[" << __func__ << "] : CAR FRAME"
-	// 			<< "\n\txmt_carFrame[" << carFrame_.xT << "], "
-	// 			<< "ymt_carFrame[" << carFrame_.yT << "], "
-	// 			<< "\n\txmb_carFrame[" << carFrame_.xB << "], "
-	// 			<< "ymb_carFrame[" << carFrame_.yB << "], "
-	// 			<< "\n\tslope car frame[" << carFrame_.slope << "]"
-	// 			<< "\n\tyaw [" << angle * 180.0 / CV_PI << " deg], "
-	// 			<< "\n\tey  [" << offset << "]"
-	// 			<< std::endl;
-	// Debugging output PIXEL
-	// std::cout << "[" << __func__ << "] PIXELS"
-	// 			<< "\n\tLeft  : slope = [" << iGeo_.left_slope << "] | intercept = [" << iGeo_.left_intercept << "]"
-	// 			<< "\n\tRight : slope = [" << iGeo_.right_slope << "] | intercept = [" << iGeo_.right_intercept << "]" << std::endl;
-	// angle = angle_real; // Return the compensated true angle
 }
 
 /// @brief Calculate lane geometry based on detected edges.
@@ -339,33 +329,29 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, bool visua
 
 	// Step 2: Find left and right lane edges using dense sampling
 	// std::vector<cv::Point> left_edges, right_edges;
-	if (!findLaneEdges(lane_mask_, roi)) {
-		std::cerr << "Not enough edge points detected in ROI!" << std::endl;
-		cv::Mat prediction = kf_.predict();
-		offset = prediction.at<float>(0);
-		angle = prediction.at<float>(1);
-		iGeo_.offset = offset;
-		iGeo_.angle = angle * 180 / CV_PI;
-		return true; // Estimated geometry based on Kalman filter prediction
-	}
-
-if (visualize_mask) {
-    // std::ofstream file("edges.csv", std::ios::app);
-    // if (!file.is_open()) {
-    //     std::cerr << "Failed to open file: " << "edges.csv" << std::endl;
-    // } else {
-	// 	file << "Left Edges: \n";
-	// 	for (const auto& pt : left_edges_) {
-	// 		file << pt.x << ", " << pt.y << "; \n";
-	// 	}
-	// 	file << "\nRight Edges: \n";
-	// 	for (const auto& pt : right_edges_) {
-	// 		file << pt.x << ", " << pt.y << "; \n";
-	// 	}
-	// 	file << "\n----------------------------------------\n";
-	// 	file.close();
+	// REMOVAL START ********************************************************
+	// Replace kalman filter by low pass filter
+	// if (!findLaneEdges(lane_mask_, roi)) {
+	// 	std::cerr << "Not enough edge points detected in ROI!" << std::endl;
+	// 	cv::Mat prediction = kf_.predict();
+	// 	offset = prediction.at<float>(0);
+	// 	angle = prediction.at<float>(1);
+	// 	iGeo_.offset = offset;
+	// 	iGeo_.angle = angle * 180 / CV_PI;
+	// 	return true; // Estimated geometry based on Kalman filter prediction
 	// }
-}
+	// REMOVAL END ********************************************************
+
+	// CHANGE START  ********************************************************
+	// Replace kalman filter by low pass filter
+	if (!findLaneEdges(lane_mask_, roi)) {
+        offset = offset_smooth_;
+        angle = angle_smooth_;
+        iGeo_.offset = offset;
+        iGeo_.angle = angle;
+        return true;
+    }
+	// CHANGE END  ********************************************************
 
 	// Step 3: Perform weighted linear regression to fit lines to edges
 	// Conditionally fit lines
@@ -398,32 +384,60 @@ if (visualize_mask) {
 	// }
 	// Step 4: Calculate offset and angle from the fitted lines
 	float measured_offset, measured_angle;
-	float smoothed_offset, smoothed_angle;
+	// REMOVAL START ********************************************************
+	// Replace kalman filter by low pass filter
+	// float smoothed_offset, smoothed_angle;
+	// if (!left_edges_.size() >= MIN_EDGE_POINTS && !right_edges_.size() >= MIN_EDGE_POINTS) {
+	// 	// No lane detected, use Kalman filter prediction
+	// 	cv::Mat prediction = kf_.predict();
+	// 	offset = prediction.at<float>(0);
+	// 	angle = prediction.at<float>(1);
+	// 	iGeo_.offset = offset;
+	// 	iGeo_.angle = angle;
+	// 	return true;
+	// }
+	// REMOVAL END ********************************************************
+	// >>>>>>>>> CHANGE START ****************************************************
+	// Replace kalman filter by low pass filter
 	if (!left_edges_.size() >= MIN_EDGE_POINTS && !right_edges_.size() >= MIN_EDGE_POINTS) {
-		// No lane detected, use Kalman filter prediction
-		cv::Mat prediction = kf_.predict();
-		offset = prediction.at<float>(0);
-		angle = prediction.at<float>(1);
-		iGeo_.offset = offset;
-		iGeo_.angle = angle;
+		// No lane detected, use low-pass filter prediction
+        offset = offset_smooth_;
+        angle = angle_smooth_;
+        iGeo_.offset = offset;
+        iGeo_.angle = angle;
 		return true;
 	}
+	// <<<<<<<<<<<<<< CHANGE END  ********************************************************
 
 	calculateMiddleLaneLine();
 	calculateOffsetAndAngle(measured_offset, measured_angle);
+	// >>>>>>>>>> REMOVAL START
+	// Replace kalman filter by low pass filter
 	// Step 5: Apply Kalman filter to smooth the estimates
-	applyKalmanFilter(measured_offset, measured_angle, smoothed_offset, smoothed_angle);
-
+	// applyKalmanFilter(measured_offset, measured_angle, smoothed_offset, smoothed_angle);
 	// Step 6: Set output parameters
 	// offset = smoothed_offset;
 	// angle = smoothed_angle;
-	offset = measured_offset;
-	angle = measured_angle;
+	// offset = measured_offset;
+	// angle = measured_angle;
+	// <<<<<<<<<<<<<< REMOVAL END
+	//
+	// >>>>>>>>> CHANGE START ****************************************************
+	// Replace kalman filter by low pass filter
+    // Low-pass filter
+    offset_smooth_ = alpha_ * measured_offset + (1.0f - alpha_) * offset_smooth_;
+    angle_smooth_ = alpha_ * measured_angle + (1.0f - alpha_) * angle_smooth_;
+
+    offset = offset_smooth_;
+    angle = angle_smooth_;
+	// <<<<<<<<<<<<<< CHANGE END  ********************************************************
+
 
 	iGeo_.angle = angle; // Store angle in imgGeometry
 	iGeo_.offset = offset ; // Store offset in imgGeometry
 
 	// Store geometry in history
+
 	history_.push_back(iGeo_);
 	if (history_.size() > MAX_HISTORY_SIZE) {
 		history_.erase(history_.begin());
@@ -433,14 +447,14 @@ if (visualize_mask) {
 }
 
 
-void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle,
-									 float& smoothed_offset, float& smoothed_angle) {
-	cv::Mat prediction = kf_.predict();
-	cv::Mat measurement = (cv::Mat_<float>(2, 1) << measured_offset, measured_angle);
-	cv::Mat corrected = kf_.correct(measurement);
-	smoothed_offset = corrected.at<float>(0);
-	smoothed_angle = corrected.at<float>(1);
-}
+// void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle,
+// 									 float& smoothed_offset, float& smoothed_angle) {
+// 	cv::Mat prediction = kf_.predict();
+// 	cv::Mat measurement = (cv::Mat_<float>(2, 1) << measured_offset, measured_angle);
+// 	cv::Mat corrected = kf_.correct(measurement);
+// 	smoothed_offset = corrected.at<float>(0);
+// 	smoothed_angle = corrected.at<float>(1);
+// }
 
 void LaneDetector::loadEngine(const std::string& trt_model_path) {
 	std::ifstream file(trt_model_path, std::ios::binary);
