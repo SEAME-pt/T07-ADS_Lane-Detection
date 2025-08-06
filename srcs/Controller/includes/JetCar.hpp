@@ -11,6 +11,14 @@
 #include <cmath>      // Para std::floor
 
 const int V_MAX_PWM = 100; // Max PWM value for speed (0-100%)
+const int PWMFREQ = 480; // Frequência do PWM em Hz
+const int SERVO_MIN_PWM = 5; // PWM mínimo para o servo (em %)
+const int SERVO_MAX_PWM = 10; // PWM máximo para o servo (em %)
+const int SERVO_CENTER_PWM = 7; // PWM central para o servo (em %)
+const int SERVO_LEFT_PWM = 5; // PWM para o servo esquerdo (em %)
+const int SERVO_RIGHT_PWM = 10; // PWM para o servo direito (em %)
+const int SERVO_MAX_ANGLE = 30; // Ângulo máximo do servo (em graus)
+const int SERVO_MIN_ANGLE = -30; // Ângulo mínimo do servo (em graus)
 
 class JetCar {
 public:

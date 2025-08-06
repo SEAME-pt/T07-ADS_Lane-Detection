@@ -114,7 +114,7 @@ bool JetCar::init_motors() {
         uint8_t oldMode, newMode;
 
         oldMode = readByteData(_fdMotor, 0x00);
-        preScale = static_cast<int>(std::floor(25000000.0 / 4096.0 / 60 - 1));
+        preScale = static_cast<int>(std::floor((25000000.0 / 4096.0 / PWMFREQ) + 0.5) - 1);
         newMode = (oldMode & 0x7F) | 0x10;
 
         writeByteData(_fdMotor, 0x00, newMode);

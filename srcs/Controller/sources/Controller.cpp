@@ -40,9 +40,19 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
     });
 
     // Setup video streaming pipeline
-    std::string pipeline = "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
-                          "rtph264pay ! udpsink host=239.255.0.1 port=5000 sync=false";
-    video_writer.open(pipeline, cv::CAP_GSTREAMER, 0, 30.0, cv::Size(640, 360), true);
+    // std::string pipeline = "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
+    //                       "rtph264pay ! udpsink host=239.255.0.1 port=5000 sync=false multi-cast=true";
+
+std::string pipeline =
+    "appsrc ! videoconvert ! video/x-raw,format=I420 ! "  // Force 4:2:0
+    "x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
+    "rtph264pay config-interval=1 pt=96 ! "
+    "udpsink host=239.255.0.1 port=5000 auto-multicast=true loop=1";
+
+
+
+
+	video_writer.open(pipeline, cv::CAP_GSTREAMER, 0, 30.0, cv::Size(640, 360), true);
     if (!video_writer.isOpened()) {
         throw std::runtime_error("Failed to open VideoWriter for streaming!");
     }
@@ -180,7 +190,8 @@ void Controller::listen() {
 
         float ey, yaw;
         laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
-
+		// std::cout << "["<< __func__ <<"] : "
+		// 			<< "Offset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
         if (_currentMode == MODE_AUTONOMOUS) {
 			if (!cruise) {
 				jetCar->set_motor_speed(static_cast<int>(V_REF_PWM));  // Convert m/s to cm/s
@@ -220,11 +231,11 @@ void Controller::autonomous(float ey, float yaw) {
 
 	float speeda = currentSpeed.load(std::memory_order_relaxed);  // Get current speed from SpeedSubscriber
 	std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
-	speeda = std::min(static_cast<float>(0.5f), speeda);  // Ensure speed is at least V_REF
+	speeda = std::max(static_cast<float>(0.5f), speeda);  // Ensure speed is at least V_REF
 	// std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
-    // test yaw
+    // // test yaw
 	// mpc_.update(0.0, -yaw, speeda);
     // test ey
 	// mpc_.update(ey, 0.0f, speeda);
