@@ -5,9 +5,9 @@
 
 MPCController::MPCController(float wheelbase, float dt, int horizon)
     : L_(wheelbase), dt_(dt), N_(horizon) {
-    Q_ << Q_EY, 0.0f, 0.0f, Q_PSI_ERR; // ey: 50, yaw: 50
+    Q_ << Q_EY, 0.0f, 0.0f, Q_YAW; // ey: 50, yaw: 50
     R_ = R_DELTA; // 1.0
-    Qf_ << 2.0f * Q_EY, 0.0f, 0.0f, 2.0f * Q_PSI_ERR; // ey: 100, yaw: 100
+    Qf_ << QF_EY, 0.0f, 0.0f,QF_YAW; // ey: 100, yaw: 100
     max_delta_ = DELTA_MAX; // 0.523 rad
     k_delta_ = 0.055f; // Slightly increased for curves
     min_delta_ = 0.05f; // Minimum delta limit

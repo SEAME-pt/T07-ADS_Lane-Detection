@@ -172,7 +172,7 @@ void Controller::listen() {
 				<< "\n\t** KALMAN : " << KALMAN
 				<< " ** CAR CM : " << CAR_CM
 				<< "\n\t## Q_EY : " << Q_EY
-				<< " ## Q_YAW : " << Q_PSI_ERR
+				<< " ## Q_YAW : " << Q_YAW
 				<< " ## Q_V : " << Q_V
 				<< "\n\t@@ V_REF_PWM : " << V_REF_PWM << std::endl;
 
@@ -257,9 +257,9 @@ void Controller::autonomous(float ey, float yaw) {
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
     // // test yaw
-	// mpc_.update(0.0, -yaw, speeda);
+	mpc_.update(0.0, -yaw, speeda);
     // test ey
-	mpc_.update(-ey, 0.0f, speeda);
+	// mpc_.update(ey, 0.0f, speeda);
 	// real mode
 	// mpc_.update(-ey, -yaw, speeda);
 	float delta = 1.0f * mpc_.getSteeringAngle();  // Get steering angle from MPC

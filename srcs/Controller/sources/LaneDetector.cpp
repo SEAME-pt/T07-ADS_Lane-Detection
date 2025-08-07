@@ -136,7 +136,7 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 
 	}
 	// std::cout << "[" << __func__ << "] : Left edges found: " << left_edges_.size() << ", Right edges found: " << right_edges_.size() << std::endl;
-	return left_edges_.size() >= MIN_EDGE_POINTS && right_edges_.size() >= MIN_EDGE_POINTS;
+	return left_edges_.size() >= MIN_EDGE_POINTS || right_edges_.size() >= MIN_EDGE_POINTS;
 }
 
 /// @brief 	Calculate the weighted linear regression for the detected edges.
