@@ -106,7 +106,7 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 		int left_x = -1, right_x = -1;
 
 		for (int x = left_scan_start; x >= left_scan_end; --x) {
-			if (lane_mask.at<float>(y, x) > THRESHOLD && !left_edge_ready) {
+			if (lane_mask.at<float>(y, x) > LANE_THRESHOLD && !left_edge_ready) {
 				// Update left_scan_start for next row
 				left_scan_start = std::min(x + scan_padding, roi.width / 2 - scan_padding); // Update start_x_sweep for next row
 				left_scan_end = std::max(x - scan_padding, 0);
@@ -121,7 +121,7 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 		}
 
 		for (int x = right_scan_start; x <= right_scan_end; ++x) {
-			if (lane_mask.at<float>(y, x) > THRESHOLD && !right_edge_ready) {
+			if (lane_mask.at<float>(y, x) > LANE_THRESHOLD && !right_edge_ready) {
 				right_scan_start = std::max(x - scan_padding, roi.width / 2 + scan_padding); // Update right_scan_start for next row
 				right_scan_end = std::min(x + scan_padding, roi.width - 1);
 				right_x = x;
@@ -136,7 +136,7 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 
 	}
 	// std::cout << "[" << __func__ << "] : Left edges found: " << left_edges_.size() << ", Right edges found: " << right_edges_.size() << std::endl;
-	return left_edges_.size() >= MIN_EDGE_POINTS || right_edges_.size() >= MIN_EDGE_POINTS;
+	return left_edges_.size() >= MIN_EDGE_POINTS && right_edges_.size() >= MIN_EDGE_POINTS;
 }
 
 /// @brief 	Calculate the weighted linear regression for the detected edges.
@@ -184,6 +184,16 @@ void LaneDetector::weightedLinearRegression(const std::vector<cv::Point>& edges,
 	}
 }
 
+// Helper
+float LaneDetector::smoothValue(std::deque<float>& history, float new_value) {
+	history.push_back(new_value);
+	if (history.size() > MISSING_EDGE_HISTORY_SIZE) {
+		history.pop_front();
+	}
+	return std::accumulate(history.begin(), history.end(), 0.0f) / history.size();
+}
+
+
 /// @brief Calculate the middle lane line based on the detected edges.
 /// This function calculates the left and right edges of the lane at the top and bottom of the
 /// image frame, and computes the midpoints at the top and bottom.
@@ -198,91 +208,55 @@ void LaneDetector::calculateMiddleLaneLine(void) {
 	bool left_valid = left_edges_.size() >= MIN_EDGE_POINTS;
 	bool right_valid = right_edges_.size() >= MIN_EDGE_POINTS;
 
-    float lane_width_meters = estimated_lane_width_ < 0.0f ? 0.25f : estimated_lane_width_; // Fallback to 0.5m
+	float lane_width_meters = estimated_lane_width_ < 0.0f ? 0.25f : estimated_lane_width_;
+	iGeo_.lane_width = lane_width_meters;
 
-    // Compute edge points in pixel frame
 	if (left_valid) {
-        imgFrame_.xltPX = iGeo_.left_slope * (F_H / 2.0f) + iGeo_.left_intercept;
-        imgFrame_.xlbPX = iGeo_.left_slope * F_H + iGeo_.left_intercept;
-    }
-    if (right_valid) {
-        imgFrame_.xrtPX = iGeo_.right_slope * (F_H / 2.0f) + iGeo_.right_intercept;
-        imgFrame_.xrbPX = iGeo_.right_slope * F_H + iGeo_.right_intercept;
-    }
-	// If both edges are valid, calculate the midpoints and lane width
+		imgFrame_.xltPX = iGeo_.left_slope * (F_H / 2.0f) + iGeo_.left_intercept;
+		imgFrame_.xlbPX = iGeo_.left_slope * F_H + iGeo_.left_intercept;
+	}
+	if (right_valid) {
+		imgFrame_.xrtPX = iGeo_.right_slope * (F_H / 2.0f) + iGeo_.right_intercept;
+		imgFrame_.xrbPX = iGeo_.right_slope * F_H + iGeo_.right_intercept;
+	}
+
 	if (left_valid && right_valid) {
-		// std::cout << "[" << __func__ << "] : Both edges valid." << std::endl;
-		// std::cout << "xltPX: " << imgFrame_.xltPX << ", xrtPX: " << imgFrame_.xrtPX << std::endl;
-		// std::cout << "xlbPX: " << imgFrame_.xlbPX << ", xrbPX: " << imgFrame_.xrbPX << std::endl;
-		// Calculate the slope and intercept for the scale function
-		// Both edges are valid, calculate midpoints and lane width
 		float lane_width_new = ((Asy * F_H + Bsy) * (imgFrame_.xrbPX - imgFrame_.xlbPX)
-		+ (Asy * (F_H / 2.0f) + Bsy) * (imgFrame_.xrtPX - imgFrame_.xltPX	)) / 2.0f;
+			+ (Asy * (F_H / 2.0f) + Bsy) * (imgFrame_.xrtPX - imgFrame_.xltPX)) / 2.0f;
 		lane_width_history_.push_back(lane_width_new);
 		if (lane_width_history_.size() > MAX_HISTORY_SIZE) {
 			lane_width_history_.erase(lane_width_history_.begin());
 		}
 		estimated_lane_width_ = std::accumulate(lane_width_history_.begin(), lane_width_history_.end(), 0.0f) / lane_width_history_.size();
 		iGeo_.lane_width = estimated_lane_width_;
-	} else if (left_valid && !right_valid) {
-		// std::cout << "[" << __func__ << "] : Left edge valid, right edge missing." << std::endl;
-		imgFrame_.xrtPX = iGeo_.lane_width / (Asy * (F_H / 2.0f) + Bsy) + imgFrame_.xltPX; // Top right
-		imgFrame_.xrbPX = iGeo_.lane_width / (Asy * F_H  + Bsy) + imgFrame_.xlbPX; // Bottom right edge
+	}
+	else if (left_valid && !right_valid) {
+		float right_top = iGeo_.lane_width / (Asy * (F_H / 2.0f) + Bsy) + imgFrame_.xltPX;
+		float right_bottom = iGeo_.lane_width / (Asy * F_H + Bsy) + imgFrame_.xlbPX;
+
+		imgFrame_.xrtPX = smoothValue(missing_right_top_history_, right_top);
+		imgFrame_.xrbPX = smoothValue(missing_right_bottom_history_, right_bottom);
+
 		iGeo_.right_slope = (imgFrame_.xrtPX - imgFrame_.xrbPX) / ((F_H / 2.0f) - F_H);
 		iGeo_.right_intercept = imgFrame_.xrbPX - iGeo_.right_slope * F_H;
-		// Estimate the RIGHT lane width based on the left edge
-		// std::cout << "*** *** MISSING RIGHT EDGE *** ***" << std::endl;
-		// std::cout << "xltPX: " << imgFrame_.xltPX << ", xrtPX: " << imgFrame_.xrtPX << std::endl;
-		// std::cout << "xlbPX: " << imgFrame_.xlbPX << ", xrbPX: " << imgFrame_.xrbPX << std::endl;
-		// std::cout << "Estimated lane width: " << iGeo_.lane_width << " m" << std::endl;
-		// std::cout << "Estimated lane width TOP pixels: " << iGeo_.lane_width / (Asy * (F_H / 2.0f) + Bsy) << " pix" << std::endl;
-		// std::cout << "Estimated lane width BOT pixels: " << iGeo_.lane_width / (Asy * (F_H / 1.0f) + Bsy) << " pix" << std::endl;
-		// std::cout << "Estimated lane width TOP / BOT ratio: " << (iGeo_.lane_width / (Asy * (F_H / 2.0f) + Bsy) ) / (iGeo_.lane_width / (Asy * (F_H / 1.0f) + Bsy))<< " pix" << std::endl;
-	} else if (!left_valid && right_valid) {
-		// std::cout << "[" << __func__ << "] : Right edge valid, left edge missing." << std::endl;
-		imgFrame_.xltPX = imgFrame_.xrtPX - iGeo_.lane_width / (Asy * (F_H / 2.0f) + Bsy); // Top left
-		imgFrame_.xlbPX = imgFrame_.xrbPX - iGeo_.lane_width / (Asy * (F_H / 1.0f) + Bsy); // Bottom left edge
+	}
+	else if (!left_valid && right_valid) {
+		float left_top = imgFrame_.xrtPX - iGeo_.lane_width / (Asy * (F_H / 2.0f) + Bsy);
+		float left_bottom = imgFrame_.xrbPX - iGeo_.lane_width / (Asy * F_H + Bsy);
+
+		imgFrame_.xltPX = smoothValue(missing_left_top_history_, left_top);
+		imgFrame_.xlbPX = smoothValue(missing_left_bottom_history_, left_bottom);
+
 		iGeo_.left_slope = (imgFrame_.xltPX - imgFrame_.xlbPX) / ((F_H / 2.0f) - F_H);
 		iGeo_.left_intercept = imgFrame_.xlbPX - iGeo_.left_slope * F_H;
-		// std::cout << "*** *** MISSING LEFT  EDGE *** ***"<< std::endl;
-		// std::cout << "xltPX: " << imgFrame_.xltPX << ", xrtPX: " << imgFrame_.xrtPX << std::endl;
-		// std::cout << "xlbPX: " << imgFrame_.xlbPX << ", xrbPX: " << imgFrame_.xrbPX << std::endl;
-		// std::cout << "Estimated lane width: " << iGeo_.lane_width << " m" << std::endl;
-		// std::cout << "Estimated lane width TOP pixels: " << iGeo_.lane_width / (Asy * (F_H / 2.0f) + Bsy) << " pix" << std::endl;
-		// std::cout << "Estimated lane width BOT pixels: " << iGeo_.lane_width / (Asy * (F_H / 1.0f) + Bsy) << " pix" << std::endl;
 	}
 
-	imgFrame_.xmtPX = imgFrame_.xcPX - (imgFrame_.xltPX + imgFrame_.xrtPX) / 2; // Midpoint at center
-	imgFrame_.xmbPX = imgFrame_.xcPX - (imgFrame_.xlbPX + imgFrame_.xrbPX) / 2; // Midpoint at bottom
+	imgFrame_.xmtPX = imgFrame_.xcPX - (imgFrame_.xltPX + imgFrame_.xrtPX) / 2.0f;
+	imgFrame_.xmbPX = imgFrame_.xcPX - (imgFrame_.xlbPX + imgFrame_.xrbPX) / 2.0f;
 
-	// Convert image midlane points [pixels] to image Frame midlane [meters]
-	// using the equation distance[meters] = scale_function( y[pixels] ) * x[pixels]
-	// where scale_function is defined as Asy * y[pixels] + Bsy
-	// where Asy is the slope and Bsy is the intercept of the scale function
-	// Application:
-	// x[meters] = (Asy * yPX[pixels] + Bsy) * xPX[pixels]
-	// Point at top of image roi
 	imgFrame_.xmt = (Asy * (F_H / 2.0f) + Bsy) * imgFrame_.xmtPX;
-	//Point at bottom of image
-	imgFrame_.xmb = (Asy * (F_H / 1.0f) + Bsy) * imgFrame_.xmbPX;
+	imgFrame_.xmb = (Asy * F_H + Bsy) * imgFrame_.xmbPX;
 
-	// Debugging output
-	// std::cout << "[" << __func__ << "] : PIXELS"
-	// 	<< "\n\t"
-	// 	<< "xlt[" << imgFrame_.xltPX << "], "
-	// 	<< "xmt[" << imgFrame_.xcPX + imgFrame_.xmtPX << "], "
-	// 	<< "xrt[" << imgFrame_.xrtPX << "], "
-	// 	<< "\n\t"
-	// 	<< "xlb[" << imgFrame_.xlbPX << "], "
-	// 	<< "xmb[" << imgFrame_.xcPX +  imgFrame_.xmbPX << "], "
-	// 	<< "xrb[" << imgFrame_.xrbPX << "], "
-	// 	<< std::endl;
-
-	// std::cout << "[" << __func__ << "] : METERS"
-	// 	<< "\n\t"
-	// 	<< "xmt[" << imgFrame_.xmt << "], "
-	// 	<< "xmb[" << imgFrame_.xmb << "], "
-	// 	<< std::endl;
 }
 
 /// @brief Calculate the offset and angle of the lane in the car frame.
@@ -356,7 +330,7 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, bool visua
 
 	// Step 2: Find left and right lane edges using dense sampling
 	if (!findLaneEdges(lane_mask_, roi)) {
-		std::cerr << "Not enough edge points detected in ROI!" << std::endl;
+		std::cerr << "[" <<  __func__ << "] : Not enough edge points detected in ROI!" << std::endl;
 		if (KALMAN) {
 			float smoothed_offset, smoothed_angle;
 			applyKalmanFilter(iGeo_.offset , iGeo_.angle, smoothed_offset, smoothed_angle);
@@ -373,7 +347,7 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, bool visua
 			angle = angle_smooth_;
 			iGeo_.offset = offset;
 			iGeo_.angle = angle;
-			std::cout << "Using last known offset: " << offset << " and angle: " << angle << std::endl;
+			std::cout << "[" << __func__<< "] : Using last known offset: " << offset << " and angle: " << angle << std::endl;
 			return true;
     	}
 	}
@@ -507,7 +481,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 		cv::imwrite("rawLane.png", rawLane );
 	}
 
-	float threshold = THRESHOLD; // Limiar fixo, equivalente a (preds > 0.5).float()
+	float threshold = LANE_THRESHOLD; // Limiar fixo, equivalente a (preds > 0.5).float()
 	// cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
 
 	cv::Mat binary_mask;

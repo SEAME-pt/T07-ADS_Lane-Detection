@@ -178,6 +178,7 @@ void Controller::listen() {
 
 	bool cruise = false;
     while (true) {
+		auto loop_start = std::chrono::steady_clock::now();
 
         if (!cap_.read(frame) || frame.empty()) {
             std::cerr << "Fail to obtain frame!" << std::endl;
@@ -220,8 +221,24 @@ void Controller::listen() {
         cv::putText(output_frame, modeText, cv::Point(330, 340), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
         video_writer.write(output_frame);
 
-        SDL_Delay(10);  // Small delay to avoid overloading CPU
-    }
+        // SDL_Delay(10);  // Small delay to avoid overloading CPU
+
+		// End timing
+		auto loop_end = std::chrono::steady_clock::now();
+		auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end - loop_start).count();
+
+		// std::cout << "[" << __func__ << "] "
+		// 		<< "Loop duration: " << duration_ms << " ms" << std::endl;
+		if (duration_ms < 99) {
+        	std::this_thread::sleep_for(std::chrono::milliseconds(100 - duration_ms));
+    	}
+
+		// // Optional: Print actual duration (will be ~100+ ms)
+		// auto loop_total_end = std::chrono::steady_clock::now();
+		// auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(loop_total_end - loop_start).count();
+		// std::cout << "Loop duration (with delay): " << total_duration << " ms" << std::endl;
+
+	}
 }
 
 
@@ -230,19 +247,23 @@ void Controller::autonomous(float ey, float yaw) {
     tracker.mark();
 
 	float speeda = currentSpeed.load(std::memory_order_relaxed);  // Get current speed from SpeedSubscriber
+	if (speeda > 1000) {
+		std::cout << "[" << __func__ << "] Speed too high, resetting to 0 m/s" << std::endl;
+		speeda = 0.0f;  // Reset speed if it exceeds a threshold
+	}
 	std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
-	speeda = std::max(static_cast<float>(0.5f), speeda);  // Ensure speed is at least V_REF
+	//speeda = std::max(static_cast<float>(0.5f), speeda);  // Ensure speed is at least V_REF
 	// std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
     // // test yaw
 	// mpc_.update(0.0, -yaw, speeda);
     // test ey
-	// mpc_.update(ey, 0.0f, speeda);
+	mpc_.update(-ey, 0.0f, speeda);
 	// real mode
-	mpc_.update(-ey, -yaw, speeda);
+	// mpc_.update(-ey, -yaw, speeda);
 	float delta = 1.0f * mpc_.getSteeringAngle();  // Get steering angle from MPC
-	// float a = mpc_.getAcceleration();  // Get acceleration from MPC
+	float a = mpc_.getAcceleration();  // Get acceleration from MPC
 
 	// Debug mpc output
 	// std::cout << "[" << __func__ << "]"

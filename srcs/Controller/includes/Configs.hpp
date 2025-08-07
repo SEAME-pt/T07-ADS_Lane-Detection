@@ -1,6 +1,19 @@
 #ifndef CONFIGS_HPP
 #define CONFIGS_HPP
 
+
+
+const int V_MAX_PWM = 100; // Max PWM value for speed (0-100%)
+const int PWMFREQ = 480; // Frequência do PWM em Hz
+const int SERVO_MIN_PWM = 5; // PWM mínimo para o servo (em %)
+const int SERVO_MAX_PWM = 10; // PWM máximo para o servo (em %)
+const int SERVO_CENTER_PWM = 7; // PWM central para o servo (em %)
+const int SERVO_LEFT_PWM = 5; // PWM para o servo esquerdo (em %)
+const int SERVO_RIGHT_PWM = 10; // PWM para o servo direito (em %)
+const int SERVO_MAX_ANGLE = 30; // Ângulo máximo do servo (em graus)
+const int SERVO_MIN_ANGLE = -30; // Ângulo mínimo do servo (em graus)
+
+
 // JetRacer parameters
 const double L = 0.15;          // Wheelbase (m)
 const double DT = 0.1;          // Time step (s)
@@ -12,24 +25,24 @@ const double DELTA_MAX = 0.523; // Max steering angle (rad, 30 deg)
 const double DELTA_RATE_MAX = 0.5; // Max steering rate (rad/step)
 const double A_MAX = 2.0;      // Max acceleration (m/s^2)
 const double V_REF = 0.4;      // Reference velocity (m/s)
-const double V_REF_PWM = 100;      // Reference velocity (m/s) in % of PWM
+const double V_REF_PWM = 50;      // Reference velocity (m/s) in % of PWM
 
 
 
 // MPC weights
 const double Q_EY = 100.0;     // Weight for cross-track error
-const double Q_PSI_ERR = 1.0; // Weight for heading error
+const double Q_PSI_ERR = 0.0; // Weight for heading error
 const double Q_V = 1.0;        // Weight for velocity error
 const double R_DELTA = 1.0;    // Weight for steering effort
 const double R_A = 1.0;        // Weight for acceleration effort
 
 
 // // Lane detection parameters
-#define ROI_SY_PERCENT 0.4f // ROI starts at 50% of image height
-#define ROI_EY_PERCENT 0.98f   // ROI ends at 80% of image height
+#define ROI_SY_PERCENT 0.65f // ROI starts at 50% of image height
+#define ROI_EY_PERCENT 0.80f   // ROI ends at 80% of image height
 #define ROI_X_BORDER 0 // Pixels from the left and right edges to avoid noise
-#define THRESHOLD 0.5f // Threshold for binary mask
-#define MIN_EDGE_POINTS 40 // Coefficient for angle calculation
+#define LANE_THRESHOLD 0.5f // Threshold for binary mask
+#define MIN_EDGE_POINTS 10 // Coefficient for angle calculation
 #define MAX_SEARCH_DISTANCE 310	// Max distance (pixels) to search for edges
 #define I_W 256 // Inference image with
 #define I_H 128 // Inference image height

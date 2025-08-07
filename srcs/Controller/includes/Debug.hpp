@@ -4,6 +4,8 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
+
+#include "Configs.hpp"
 // #include "LaneDetector.hpp"
 
 

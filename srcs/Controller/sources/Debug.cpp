@@ -54,7 +54,8 @@ void Debug::showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, imgGeom
     cv::line(output_frame, ptm1, ptm2, cv::Scalar(0, 255, 255), 1); // Yellow for central lane
     // Draw central horizontal line (red, solid)
     cv::line(output_frame, cv::Point(0,frame_height_ / 2), cv::Point(frame_width_, frame_height_ / 2), cv::Scalar(255, 0, 0), 1); // Yellow for central lane
-
+	cv::line(output_frame, cv::Point(0,frame_height_ * ROI_SY_PERCENT), cv::Point(frame_width_, frame_height_ * ROI_SY_PERCENT), cv::Scalar(255, 255, 0), 1); // Yellow for central lane
+	cv::line(output_frame, cv::Point(0,frame_height_ * ROI_EY_PERCENT), cv::Point(frame_width_, frame_height_ * ROI_EY_PERCENT), cv::Scalar(255, 255, 0), 1); // Yellow for central lane
     // Draw camera center line (vertical, red)
 	cv::Point xc1(camera_center_ - camera_offset, (0)) ; // Camera center adjusted by offset
 	// cv::Point xc1(camera_center_ - camera_offset, (frame_height_ / 2)) ; // Camera center adjusted by offset

@@ -1,10 +1,18 @@
-NETWORK SEAME, UBUNTU 18
+# CONNECT
+
+# NETWORK SEAME, UBUNTU 18
 ssh team07@10.21.220.217
 
 NETWORK SEAME, UBUNTU 20
-$ ssh team07@10.21.221.47
-$ ./go.sh
+ssh team07@10.21.221.47
 
+# START APP (root home/team07/)
+./go2.sh
+
+# START LOCAL VIEW horizontal
+./viewlane.sh
+# START LOCAL VIEW vertical
+./viewlaneflip.sh
 
 Debug
 sudo journalctl --since "10 minutes ago"

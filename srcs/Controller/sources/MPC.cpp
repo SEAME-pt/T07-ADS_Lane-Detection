@@ -10,7 +10,7 @@ MPCController::MPCController(float wheelbase, float dt, int horizon)
     R_ = 1.0f; // Control cost for smoothness
     Qf_ = Eigen::Matrix2f::Identity() * 200.0f; // Terminal weight
     max_delta_ = 0.5f; // Max physical steering angle (rad)
-    k_delta_ = 0.1f; // Speed-dependent delta constant (rad·m/s)
+    k_delta_ = 0.5f; // Speed-dependent delta constant (rad·m/s)
     min_delta_ = 0.05f; // Minimum delta limit (rad)
     state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
 	delta_ = 0.0f; // Initial steering angle

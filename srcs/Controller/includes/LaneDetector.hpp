@@ -44,6 +44,18 @@ private:
 	void calculateOffsetAndAngle(float& offset, float& angle);
 	void applyKalmanFilter(float measured_offset, float measured_angle, float& smoothed_offset, float& smoothed_angle);
 
+
+
+	// smoothing missing edge)
+	float smoothValue(std::deque<float>& history, float new_value);
+	std::deque<float> missing_left_top_history_;
+	std::deque<float> missing_left_bottom_history_;
+	std::deque<float> missing_right_top_history_;
+	std::deque<float> missing_right_bottom_history_;
+	const size_t MISSING_EDGE_HISTORY_SIZE = 5;
+
+
+
 	// Kalman Filter
 	cv::KalmanFilter kf_;		 // Kalman filter for smoothing offset and angle
 	float offset_kalman_{0.0f};
