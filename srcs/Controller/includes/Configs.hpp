@@ -3,8 +3,11 @@
 
 
 
-const int V_MAX_PWM = 100; // Max PWM value for speed (0-100%)
 const int PWMFREQ = 480; // Frequência do PWM em Hz
+
+const int V_MAX_PWM = 100; // Max PWM value for speed (0-100%)
+
+
 const int SERVO_MIN_PWM = 5; // PWM mínimo para o servo (em %)
 const int SERVO_MAX_PWM = 10; // PWM máximo para o servo (em %)
 const int SERVO_CENTER_PWM = 7; // PWM central para o servo (em %)
@@ -25,13 +28,13 @@ const double DELTA_MAX = 0.523; // Max steering angle (rad, 30 deg)
 const double DELTA_RATE_MAX = 0.1; // Max steering rate (rad/step)
 const double A_MAX = 2.0;      // Max acceleration (m/s^2)
 const double V_REF = 0.4;      // Reference velocity (m/s)
-const double V_REF_PWM = 25;      // Reference velocity (m/s) in % of PWM
+const double V_REF_PWM = 50;      // Reference velocity (m/s) in % of PWM
 
 
 
 // MPC weights
 const double Q_EY = 10.0;     // Weight for cross-track error
-const double Q_YAW = 0.1; // Weight for heading error
+const double Q_YAW = 500.0; // Weight for heading error
 const double QF_EY = 20.0;     // Weight for cross-track error
 const double QF_YAW = 2.0; // Weight for heading error
 const double Q_V = 1.0;        // Weight for velocity error

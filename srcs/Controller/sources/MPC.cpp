@@ -11,7 +11,7 @@ MPCController::MPCController(float wheelbase, float dt, int horizon)
 		Qf_ << QF_EY, 0.0f, 0.0f,QF_YAW; // ey: 100, yaw: 100		// Q_ = Eigen::Matrix2f::Identity() * 100.0f; // High weight on ey, yaw
 		// Qf_ = Eigen::Matrix2f::Identity() * 200.0f; // Terminal weight
 		max_delta_ = 0.5f; // Max physical steering angle (rad)
-		k_delta_ = 0.5f; // Speed-dependent delta constant (rad·m/s)
+		k_delta_ = 0.25f; // Speed-dependent delta constant (rad·m/s)
 		min_delta_ = 0.05f; // Minimum delta limit (rad)
 		state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
 		delta_ = 0.0f; // Initial steering angle
@@ -22,12 +22,19 @@ MPCController::MPCController(float wheelbase, float dt, int horizon)
 
 void MPCController::update(float ey, float yaw, float v) {
     state_ << ey, yaw; // ey positive left, yaw positive heading left
-    v_ = std::max(0.1f, v); // Avoid division by zero
+    if (v < 0.1f) {
+		std::cout << "[" << __func__ << "] Warning: Low speed detected, LKAS OFF" << std::endl;
+		delta_ = 0.0f;
+		return;
+	}
+	v_ = std::max(0.1f, v); // Avoid division by zero
 
     // Speed-dependent delta limit
-    float delta_max = std::min(max_delta_, -0.2f * v_ + k_delta_);
+	float speedRatio =  std::max(0.0f, std::min(1.0f, static_cast<float>(v_ / V_MAX)));
+    float delta_max = std::min(max_delta_, static_cast<float>(k_delta_ * (1 - speedRatio)) );
     delta_max = std::max(min_delta_, delta_max);
-	delta_max = max_delta_; // Cap at 0.09 rad
+	// delta_max = max_delta_; // Cap at 0.09 rad
+	std::cout << "["<< __func__ << "] : speedRatio : " << speedRatio << std::endl;
 
     // Nonlinear bicycle model for prediction
     Eigen::VectorXf u_pred(N_);
