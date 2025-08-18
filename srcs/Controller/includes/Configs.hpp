@@ -29,22 +29,22 @@ const double A_MAX = 2.0;      // Max acceleration (m/s^2)
 const double V_REF = 0.4;      // Reference velocity (m/s)
 const double V_REF_PWM = 50;      // Reference velocity (m/s) in % of PWM
 
-
-
 // MPC parameters
 const int N = 10;               // Prediction horizon
 // MPC cross-track error and heading error weights
 const double Q_EY = 1100.0;     // Weight for cross-track error
 const double QF_EY = 20.0;     // Weight for cross-track error
 // MPC heading error weights
-const double Q_YAW = 14.0; // Weight for heading error
-const double QF_YAW = 28.0; // Weight for heading error
+const double Q_YAW = 50.0; // Weight for heading error
+const double QF_YAW = 100.0; // Weight for heading error
 // MPC velocity error weight
 const double Q_V = 1.0;        // Weight for velocity error
 // MPC control effort weights
 const double R = 1.0 / (DELTA_MAX) * (DELTA_MAX);         // Control cost for smoothness
 const double R_DELTA = 1.0;    // Weight for steering effort
 const double R_A = 1.0;        // Weight for acceleration effort
+const double R_V = 1.0;        // Weight for velocity effort
+const double R_DELTA_RATE = 1.0; // Weight for steering rate effort
 
 
 // Lane detection parameters

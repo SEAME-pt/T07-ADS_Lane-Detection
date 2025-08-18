@@ -91,7 +91,7 @@ void MPCController::update(float ey, float yaw, float v) {
     Eigen::VectorXf f = 2.0f * Bd.transpose() * Qd * (Ad * state_ - r);
 
     // Add delta rate penalty to reduce oscillations
-    float R_delta_rate = 10.0f; // Penalty on delta change
+    float R_delta_rate = R_DELTA_RATE; // Penalty on delta change
     for (int i = 0; i < N_ - 1; ++i) {
         H(i, i) += 2.0f * R_delta_rate;
         H(i + 1, i) -= 2.0f * R_delta_rate;
