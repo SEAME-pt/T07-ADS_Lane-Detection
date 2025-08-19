@@ -46,6 +46,7 @@ private:
     float v_; // Current speed (m/s)
     float delta_; // Steering angle (rad)
     float delta_prev_; // Previous delta for rate penalty
+	float R_delta_rate_; // Penalty for delta rate change
 };
 
 #endif // MPC_HPP
