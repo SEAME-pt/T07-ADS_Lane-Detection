@@ -16,18 +16,18 @@ MPCController::MPCController(float wheelbase, float dt, int horizon)
 		state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
 		delta_ = 0.0f; // Initial steering angle
 		delta_prev_ = 0.0f; // For delta rate penalty
-		R_delta_rate_ = 5.0f;
+		R_delta_rate_ = 5.0f; // trial and error
 
 
 }
 
 void MPCController::update(float ey, float yaw, float v) {
     state_ << ey, yaw; // ey positive left, yaw positive heading left
-    if (v < 0.1f) {
-		std::cout << "[" << __func__ << "] Warning: Speed is too LOW => LKAS : OFF" << std::endl;
-		delta_ = 0.0f;
-		return;
-	}
+    // if (v < 0.1f) {
+	// 	std::cout << "[" << __func__ << "] Warning: Speed is too LOW => LKAS : OFF" << std::endl;
+	// 	delta_ = 0.0f;
+	// 	return;
+	// }
 	v_ = std::max(0.1f, v); // Avoid division by zero
 
     // Speed-dependent delta limit

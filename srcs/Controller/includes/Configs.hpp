@@ -3,7 +3,7 @@
 
 
 
-const int PWMFREQ = 240; // Frequência do PWM em Hz
+const int PWMFREQ = 120; // Frequência do PWM em Hz
 
 const int V_MAX_PWM = 100; // Max PWM value for speed (0-100%)
 
@@ -23,11 +23,11 @@ const double DT = 0.1;          // Time step (s)
 
 // JetRacer MPC parameters
 const double V_MAX = 2.5;      // Max velocity (m/s)
-const double DELTA_MAX = 0.3; // Max steering angle (rad, 30 deg)
+const double DELTA_MAX = 0.5; // Max steering angle (rad, 30 deg)
 const double DELTA_RATE_MAX = 0.1; // Max steering rate (rad/step)
 const double A_MAX = 2.0;      // Max acceleration (m/s^2)
 const double V_REF = 0.4;      // Reference velocity (m/s)
-const double V_REF_PWM = 30;      // Reference velocity (m/s) in % of PWM
+const double V_REF_PWM = 28;      // Reference velocity (m/s) in % of PWM
 
 // MPC parameters
 const int N = 10;               // Prediction horizon
@@ -61,7 +61,7 @@ const int MPC_ITER = 500;
 #define F_W 640 // Frame width
 #define F_H 360 // Frame height
 
-#define KALMAN false // Use Kalman filter for smoothing offset and angle
+#define KALMAN true // Use Kalman filter for smoothing offset and angle
 #define CAR_CM false // Use car center of mass for calculations
 
 
