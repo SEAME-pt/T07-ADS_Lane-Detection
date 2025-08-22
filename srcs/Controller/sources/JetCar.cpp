@@ -29,7 +29,7 @@ JetCar::~JetCar() {
 }
 
 void JetCar::set_servo_angle(int angle) {
-	// converet to rad
+	// convert to rad
 	_currentAngle = (angle * 3.1415f / 180.0f);  // Atualiza o ângulo atual do servo
     angle = std::max(-_maxAngle, std::min(_maxAngle, angle));
 

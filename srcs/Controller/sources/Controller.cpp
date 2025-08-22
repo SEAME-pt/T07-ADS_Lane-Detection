@@ -252,18 +252,31 @@ void Controller::autonomous(float ey, float yaw) {
 		std::cout << "[" << __func__ << "] Speed too high, resetting to 0 m/s" << std::endl;
 		speeda = 0.0f;  // Reset speed if it exceeds a threshold
 	}
-	std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
+	if (speeda < 0.1f) {
+		std::cout << "[" << __func__ << "] Warning: Speed is too LOW => LKAS : OFF" << std::endl;
+		// jetCar->set_motor_speed(static_cast<int>(0));  // Stop the vehicle
+		return;
+	}
+	// std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
 	//speeda = std::max(static_cast<float>(0.5f), speeda);  // Ensure speed is at least V_REF
 	// std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
     // // test yaw
-	// mpc_.update(0.0, -yaw, speeda);
-    // test ey
+
+
+	// # call mpc options
+
+	// # with yaw error and ey forced 0.0
+	// mpc_.update(0.0, yaw, speeda);
+
+	// # with ey error and yaw forced 0.0
 	// mpc_.update(ey, 0.0f, speeda);
-	// real mode
-	mpc_.update(-ey, -yaw, speeda);
-	float delta = 1.0f * mpc_.getSteeringAngle();  // Get steering angle from MPC
+
+	// # real mode with yaw and ey errors
+	mpc_.update(ey, yaw, speeda);
+
+	float delta = -1.0f * mpc_.getSteeringAngle();  // Get steering angle from MPC
 	float a = mpc_.getAcceleration();  // Get acceleration from MPC
 
 	// Debug mpc output

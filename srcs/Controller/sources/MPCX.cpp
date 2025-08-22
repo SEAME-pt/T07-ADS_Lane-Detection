@@ -6,24 +6,36 @@
 
 MPCController::MPCController(float wheelbase, float dt, int horizon)
     : L_(wheelbase), dt_(dt), N_(horizon) {
-    Q_ = Eigen::Matrix2f::Identity() * 100.0f; // High weight on ey, yaw
-    R_ = 1.0f; // Control cost for smoothness
-    Qf_ = Eigen::Matrix2f::Identity() * 200.0f; // Terminal weight
-    max_delta_ = 0.5f; // Max physical steering angle (rad)
-    k_delta_ = 0.1f; // Speed-dependent delta constant (rad·m/s)
-    min_delta_ = 0.05f; // Minimum delta limit (rad)
-    state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
-	delta_ = 0.0f; // Initial steering angle
-    delta_prev_ = 0.0f; // For delta rate penalty
+		R_ = 10.0f; // Control cost for smoothness
+		Q_ << Q_EY, 0.0f, 0.0f, Q_YAW; // ey: 50, yaw: 50
+		Qf_ << QF_EY, 0.0f, 0.0f,QF_YAW; // ey: 100, yaw: 100		// Q_ = Eigen::Matrix2f::Identity() * 100.0f; // High weight on ey, yaw
+		// Qf_ = Eigen::Matrix2f::Identity() * 200.0f; // Terminal weight
+		max_delta_ = DELTA_MAX; // Max physical steering angle (rad)
+		k_delta_ = 0.5f; // Speed-dependent delta constant (rad·m/s)
+		min_delta_ = 0.05f; // Minimum delta limit (rad)
+		state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
+		delta_ = 0.0f; // Initial steering angle
+		delta_prev_ = 0.0f; // For delta rate penalty
+		R_delta_rate_ = 5.0f; // trial and error
+
+
 }
 
 void MPCController::update(float ey, float yaw, float v) {
     state_ << ey, yaw; // ey positive left, yaw positive heading left
-    v_ = std::max(0.1f, v); // Avoid division by zero
+    // if (v < 0.1f) {
+	// 	std::cout << "[" << __func__ << "] Warning: Speed is too LOW => LKAS : OFF" << std::endl;
+	// 	delta_ = 0.0f;
+	// 	return;
+	// }
+	v_ = std::max(0.1f, v); // Avoid division by zero
 
     // Speed-dependent delta limit
-    float delta_max = std::min(max_delta_, k_delta_ / v_);
-    delta_max = std::max(min_delta_, delta_max);
+	// float speedRatio =  std::max(0.0f, std::min(1.0f, static_cast<float>(v_ / V_MAX)));
+    // float delta_max = std::min(max_delta_, static_cast<float>(k_delta_ * (1.0f - speedRatio)) );
+    // delta_max = std::max(min_delta_, delta_max);
+	float delta_max = max_delta_; // Cap at 0.09 rad
+	// std::cout << "["<< __func__ << "] : speedRatio : " << speedRatio << std::endl;
 
     // Nonlinear bicycle model for prediction
     Eigen::VectorXf u_pred(N_);
@@ -80,7 +92,7 @@ void MPCController::update(float ey, float yaw, float v) {
     Eigen::VectorXf f = 2.0f * Bd.transpose() * Qd * (Ad * state_ - r);
 
     // Add delta rate penalty to reduce oscillations
-    float R_delta_rate = 10.0f; // Penalty on delta change
+    float R_delta_rate = R_DELTA_RATE; // Penalty on delta change
     for (int i = 0; i < N_ - 1; ++i) {
         H(i, i) += 2.0f * R_delta_rate;
         H(i + 1, i) -= 2.0f * R_delta_rate;
@@ -103,7 +115,7 @@ void MPCController::update(float ey, float yaw, float v) {
     float alpha = 0.01f;
     float beta = 0.9f;
     Eigen::VectorXf m = Eigen::VectorXf::Zero(N_);
-    for (int iter = 0; iter < 200; ++iter) {
+    for (int iter = 0; iter < MPC_ITER; ++iter) {
         Eigen::VectorXf grad = H * u + f;
         m = beta * m + (1.0f - beta) * grad;
         u -= alpha * m;
