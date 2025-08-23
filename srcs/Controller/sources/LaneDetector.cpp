@@ -136,7 +136,7 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 
 	}
 	// std::cout << "[" << __func__ << "] : Left edges found: " << left_edges_.size() << ", Right edges found: " << right_edges_.size() << std::endl;
-	return left_edges_.size() >= MIN_EDGE_POINTS || right_edges_.size() >= MIN_EDGE_POINTS;
+	return left_edges_.size() >= MIN_EDGE_POINTS && right_edges_.size() >= MIN_EDGE_POINTS;
 }
 
 /// @brief 	Calculate the weighted linear regression for the detected edges.
@@ -330,7 +330,7 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, bool visua
 
 	// Step 2: Find left and right lane edges using dense sampling
 	if (!findLaneEdges(lane_mask_, roi)) {
-		std::cerr << "[" <<  __func__ << "] : Not enough edge points detected in ROI!" << std::endl;
+		// std::cerr << "[" <<  __func__ << "] : Not enough edge points detected in ROI!" << std::endl;
 		if (KALMAN) {
 			float smoothed_offset, smoothed_angle;
 			applyKalmanFilter(iGeo_.offset , iGeo_.angle, smoothed_offset, smoothed_angle);
@@ -342,12 +342,12 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, bool visua
 			iGeo_.angle = smoothed_angle;
 			return true; // Estimated geometry based on Kalman filter prediction
 		} else {
-			std::cout << "[" << __func__<< "] : Use low pass filter" << std::endl;
+			// std::cout << "[" << __func__<< "] : Use low pass filter" << std::endl;
 			offset = offset_smooth_;
 			angle = angle_smooth_;
 			iGeo_.offset = offset;
 			iGeo_.angle = angle;
-			std::cout << "[" << __func__<< "] : Using last known offset: " << offset << " and angle: " << angle << std::endl;
+			// std::cout << "[" << __func__<< "] : Using last known offset: " << offset << " and angle: " << angle << std::endl;
 			return true;
     	}
 	}

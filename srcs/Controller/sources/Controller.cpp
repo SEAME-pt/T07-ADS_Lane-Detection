@@ -247,22 +247,36 @@ void Controller::listen() {
 void Controller::autonomous(float ey, float yaw) {
     tracker.mark();
 
-	float speeda = currentSpeed.load(std::memory_order_relaxed);  // Get current speed from SpeedSubscriber
-	if (speeda > 1000) {
+	float speed = currentSpeed.load(std::memory_order_relaxed);  // Get current speed from SpeedSubscriber
+	if (speed > 1000) {
 		std::cout << "[" << __func__ << "] Speed too high, resetting to 0 m/s" << std::endl;
-		speeda = 0.0f;  // Reset speed if it exceeds a threshold
+		speed = 0.0f;  // Reset speed if it exceeds a threshold
 	}
-	std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
-	//speeda = std::max(static_cast<float>(0.5f), speeda);  // Ensure speed is at least V_REF
-	// std::cout << "[" << __func__ << "] Current Speed: " << speeda << " m/s" << std::endl;
+	// std::cout << "[" << __func__ << "] Current Speed: " << speed << " m/s" << std::endl;
+	//speed = std::max(static_cast<float>(0.5f), speed);  // Ensure speed is at least V_REF
+	// std::cout << "[" << __func__ << "] Current Speed: " << speed << " m/s" << std::endl;
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
-    // // test yaw
-	// mpc_.update(0.0, -yaw, speeda);
+	if (speed < 0.1 ) {
+		std::cout << "[" << __func__ << "] Speed is too low, LKAS OFF" << std::endl;
+		jetCar->set_servo_angle(0);  // Set steering angle to 0
+		return;  // Exit if speed is too low
+	}
+
+	// ensaios
+
+
+	// test yaw
+	mpc_.update(0.0, -yaw, speed);
     // test ey
-	// mpc_.update(ey, 0.0f, speeda);
+	// mpc_.update(ey, 0.0f, speed);
 	// real mode
-	mpc_.update(-ey, -yaw, speeda);
+	// mpc_.update(-ey, -yaw, speed);
+
+
+	// fim de ensaios
+
+
 	float delta = 1.0f * mpc_.getSteeringAngle();  // Get steering angle from MPC
 	float a = mpc_.getAcceleration();  // Get acceleration from MPC
 
@@ -285,28 +299,29 @@ void Controller::autonomous(float ey, float yaw) {
 	// Debug output
 
     // Log data to CSV (unchanged)
-    auto now = std::chrono::system_clock::now();
-    auto timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-    {
-        std::lock_guard<std::mutex> lock(csv_mutex_);
-        csv_file_ << timestamp_ms << ","
-                  << std::fixed << std::setprecision(2) << currentSpeed.load(std::memory_order_relaxed) << ","
-                  << (delta * 180.0f / CV_PI) << ","
-                  << yaw << ","
-                  << ey << "\n";
-        csv_file_.flush();
-    }
+    // auto now = std::chrono::system_clock::now();
+    // auto timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    // {
+    //     std::lock_guard<std::mutex> lock(csv_mutex_);
+    //     csv_file_ << timestamp_ms << ","
+    //               << std::fixed << std::setprecision(2) << currentSpeed.load(std::memory_order_relaxed) << ","
+    //               << (delta * 180.0f / CV_PI) << ","
+    //               << yaw << ","
+    //               << ey << "\n";
+    //     csv_file_.flush();
+    // }
 
     tracker.mark();
 	std::string servo_text = "Servo: " + std::to_string(delta * 180.0 / CV_PI) + " deg";
 	std::string delta_text = "Delta: " + std::to_string(delta) + " rad";
-	std::string speed_text = "Speed: " + std::to_string(speeda) + " m/s";
+	std::string speed_text = "Speed: " + std::to_string(speed) + " m/s";
 	//cv::putText(output_frame, text_to_print, cv::Point(x_img, y_img), cv::FONT_HERSHEY_SIMPLEX, font_size, cv::Scalar(R, G, B), font_thickness);
 	cv::putText(output_frame, servo_text, cv::Point(10, 270), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 	cv::putText(output_frame, delta_text, cv::Point(10, 300), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 	cv::putText(output_frame, speed_text, cv::Point(10, 330), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 
 }
+
 void Controller::setLaneDetector(std::unique_ptr<LaneDetector> detector) {
     laneDetector = std::move(detector);
 }

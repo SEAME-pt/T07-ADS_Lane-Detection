@@ -52,7 +52,7 @@ void JetCar::set_servo_angle(int angle) {
 void JetCar::set_motor_speed(int speed) {
     int pwmValue;
     speed = std::max(-V_MAX_PWM, std::min(V_MAX_PWM, speed));
-    std::cout << "Motor speed: " << speed << std::endl;
+    // std::cout << "Motor speed: " << speed << std::endl;
     pwmValue = static_cast<int>(std::abs(speed) / 100.0 * 4095);
 
     if (speed > 0) {

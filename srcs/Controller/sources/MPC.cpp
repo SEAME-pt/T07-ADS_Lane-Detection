@@ -1,41 +1,76 @@
-// Version: v4 (2025-07-24)
+// Version: v5 (2025-08-22)
 #include "MPC.hpp"
 #include <Eigen/Dense>
 #include <cmath>
 #include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <chrono>
 
 MPCController::MPCController(float wheelbase, float dt, int horizon)
     : L_(wheelbase), dt_(dt), N_(horizon) {
-		R_ = 10.0f; // Control cost for smoothness
-		Q_ << Q_EY, 0.0f, 0.0f, Q_YAW; // ey: 50, yaw: 50
-		Qf_ << QF_EY, 0.0f, 0.0f,QF_YAW; // ey: 100, yaw: 100		// Q_ = Eigen::Matrix2f::Identity() * 100.0f; // High weight on ey, yaw
-		// Qf_ = Eigen::Matrix2f::Identity() * 200.0f; // Terminal weight
-		max_delta_ = DELTA_MAX; // Max physical steering angle (rad)
-		k_delta_ = 0.5f; // Speed-dependent delta constant (rad·m/s)
-		min_delta_ = 0.05f; // Minimum delta limit (rad)
-		state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
-		delta_ = 0.0f; // Initial steering angle
-		delta_prev_ = 0.0f; // For delta rate penalty
-		R_delta_rate_ = 5.0f; // trial and error
-
-
+    R_ = 10.0f; // Balanced control effort
+    Q_ << Q_EY, 0.0f, 0.0f, Q_YAW; // ey: 20, yaw: 5
+    Qf_ << QF_EY, 0.0f, 0.0f, QF_YAW; // ey: 100, yaw: 25
+    max_delta_ = DELTA_MAX; // 0.5 rad
+    k_delta_ = 0.25f; // Unused (speed-dependent delta)
+    min_delta_ = 0.05f; // Minimum delta limit
+    state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
+    delta_ = 0.0f; // Initial steering
+    delta_prev_ = 0.0f; // For rate penalty
+    R_delta_rate_ = R_DELTA_RATE; // 10.0
 }
 
 void MPCController::update(float ey, float yaw, float v) {
-    state_ << ey, yaw; // ey positive left, yaw positive heading left
-    // if (v < 0.1f) {
-	// 	std::cout << "[" << __func__ << "] Warning: Speed is too LOW => LKAS : OFF" << std::endl;
-	// 	delta_ = 0.0f;
-	// 	return;
-	// }
-	v_ = std::max(0.1f, v); // Avoid division by zero
+    static int log_count = 0;
+    static std::ofstream log_file("mpc_logs.txt", std::ios::app);
+    static auto start_time = std::chrono::steady_clock::now();
 
-    // Speed-dependent delta limit
-	// float speedRatio =  std::max(0.0f, std::min(1.0f, static_cast<float>(v_ / V_MAX)));
-    // float delta_max = std::min(max_delta_, static_cast<float>(k_delta_ * (1.0f - speedRatio)) );
+    // Compute timestamp
+    auto now = std::chrono::steady_clock::now();
+    double timestamp = std::chrono::duration<double>(now - start_time).count();
+
+    // Clip invalid velocity
+    if (v < 0.0f || v > V_MAX) {
+        v = V_REF;
+        std::cout << "[" << __func__ << "] Warning: Invalid v clipped to V_REF=" << V_REF << std::endl;
+    }
+
+	    // Console log
+    std::cout << "[" << __func__ << "] :"
+			  << " Entry [" << log_count + 1 << "]"
+              << " ey : [" << ey << "]"
+			  << " yaw : [" << yaw << "]"
+			  << " v : [" << v << "]"
+			  << std::endl;
+			  
+    state_ << ey, yaw;
+    // if (v < 0.1f) {
+    //     delta_ = 0.0f;
+    //     std::cout << "[" << __func__ << "] Warning: Speed is too LOW => LKAS : OFF" << std::endl;
+    //     if (log_count < 200 && log_file.is_open()) {
+    //         log_file << std::fixed << std::setprecision(6)
+    //                  << "Entry " << log_count + 1 << ": "
+    //                  << "t=" << timestamp << ", ey=" << ey << ", yaw=" << yaw
+    //                  << ", v=" << v << ", delta=" << delta_ << ", delta_max=0.0, iter=0"
+    //                  << std::endl;
+    //         log_count++;
+    //         if (log_count == 200) {
+    //             log_file << "Reached 200 logs. Stopping file logging." << std::endl;
+    //             log_file.close();
+    //         }
+    //     }
+    //     return;
+    // }
+    v_ = std::max(0.1f, v);
+
+
+	// Speed-dependent delta limit (comment out for testing without dependency)
+    // float speedRatio = std::max(0.0f, std::min(1.0f, static_cast<float>(v_ / V_MAX)));
+    // float delta_max = std::min(max_delta_, static_cast<float>(k_delta_ * (1 - speedRatio)));
     // delta_max = std::max(min_delta_, delta_max);
-	float delta_max = max_delta_; // Cap at 0.09 rad
-	// std::cout << "["<< __func__ << "] : speedRatio : " << speedRatio << std::endl;
+
+    float delta_max = max_delta_; // 0.5 rad
 
     // Nonlinear bicycle model for prediction
     Eigen::VectorXf u_pred(N_);
@@ -79,11 +114,10 @@ void MPCController::update(float ey, float yaw, float v) {
             }
             Bd.block(2 * i, j, 2, 1) = Apow * B;
         }
-
         Qd.block(2 * i, 2 * i, 2, 2) = (i == N_ - 1) ? Qf_ : Q_;
     }
 
-    // Reference state (ey = 0, yaw = 0)
+    // Reference state (straight lane for now)
     Eigen::VectorXf r(2 * N_);
     r.setZero();
 
@@ -91,8 +125,8 @@ void MPCController::update(float ey, float yaw, float v) {
     Eigen::MatrixXf H = 2.0f * (Bd.transpose() * Qd * Bd + Rd);
     Eigen::VectorXf f = 2.0f * Bd.transpose() * Qd * (Ad * state_ - r);
 
-    // Add delta rate penalty to reduce oscillations
-    float R_delta_rate = R_DELTA_RATE; // Penalty on delta change
+    // Add delta rate penalty
+    float R_delta_rate = R_delta_rate_; // 10.0
     for (int i = 0; i < N_ - 1; ++i) {
         H(i, i) += 2.0f * R_delta_rate;
         H(i + 1, i) -= 2.0f * R_delta_rate;
@@ -101,46 +135,82 @@ void MPCController::update(float ey, float yaw, float v) {
     }
     f(0) += 2.0f * R_delta_rate * (-delta_prev_);
 
-    // Constraints: |delta| <= delta_max
-    Eigen::MatrixXf A_constr(N_, N_);
-    Eigen::VectorXf lb_constr(N_);
-    Eigen::VectorXf ub_constr(N_);
-    A_constr.setIdentity();
-    lb_constr.setConstant(-delta_max);
-    ub_constr.setConstant(delta_max);
+    // Constraints: delta and rate bounds
+    Eigen::MatrixXf A_constr(2 * N_, N_);
+    Eigen::VectorXf lb_constr(2 * N_);
+    Eigen::VectorXf ub_constr(2 * N_);
+    A_constr.setZero();
+    A_constr.block(0, 0, N_, N_) = Eigen::MatrixXf::Identity(N_, N_);
+    lb_constr.segment(0, N_) = Eigen::VectorXf::Constant(N_, -delta_max);
+    ub_constr.segment(0, N_) = Eigen::VectorXf::Constant(N_, delta_max);
+    for (int i = 1; i < N_; ++i) {
+        A_constr(N_ + i - 1, i) = 1.0f;
+        A_constr(N_ + i - 1, i - 1) = -1.0f;
+        lb_constr(N_ + i - 1) = -DELTA_RATE_MAX;
+        ub_constr(N_ + i - 1) = DELTA_RATE_MAX;
+    }
 
     // Projected gradient descent with momentum
     Eigen::VectorXf u = Eigen::VectorXf::Zero(N_);
     Eigen::VectorXf u_prev = u;
-    float alpha = 0.01f;
+    float alpha = 0.01f; // Balanced for convergence
     float beta = 0.9f;
     Eigen::VectorXf m = Eigen::VectorXf::Zero(N_);
+    int iter_used = 0;
     for (int iter = 0; iter < MPC_ITER; ++iter) {
         Eigen::VectorXf grad = H * u + f;
         m = beta * m + (1.0f - beta) * grad;
         u -= alpha * m;
         for (int i = 0; i < N_; ++i) {
-            u(i) = std::max(lb_constr(i), std::min(ub_constr(i), u(i)));
+            u(i) = std::max(-delta_max, std::min(delta_max, u(i)));
         }
-        if ((u - u_prev).norm() < 1e-4f) break;
+        for (int i = 1; i < N_; ++i) {
+            float rate = u(i) - u(i - 1);
+            if (rate > DELTA_RATE_MAX) u(i) = u(i - 1) + DELTA_RATE_MAX;
+            if (rate < -DELTA_RATE_MAX) u(i) = u(i - 1) - DELTA_RATE_MAX;
+        }
+        if ((u - u_prev).norm() < 1e-4f) {
+            iter_used = iter + 1;
+            break;
+        }
         u_prev = u;
+        iter_used = iter + 1;
     }
 
     delta_prev_ = delta_;
     delta_ = u(0);
+
+    // Console log
     std::cout << "[" << __func__ << "] :"
-				<< "\n\tMPC (L, DT, N) : " << L_ << ", " << dt_ << ", " << N_ << ")"
-				<< "\n\tey        : " << ey << " m, yaw: " << yaw << " rad"
-				<< "\n\tv         : " << v << " m/s"
-				<< "\n\tdelta     : " << delta_ << " rad"
-              	<< "\n\tdelta_max : " << delta_max << " rad"
-				<< std::endl;
+			  << " Entry [" << log_count + 1 << "]"
+			  << " iter used [" << iter_used << "]"
+              << " ey : [" << ey << "]"
+			  << " yaw : [" << yaw << "]"
+			  << " v : [" << v << "]"
+			  << " delta : [" << delta_ << "]"
+              << " delta_max : [ " << delta_max << "]"
+			  << std::endl;
+
+    // File log
+// Detailed file logging (inputs: ey, yaw, v; outputs: delta, delta_max)
+    if (log_count < 200 && log_file.is_open()) {
+        log_file << std::fixed << std::setprecision(6)
+                 << "Entry " << log_count + 1 << ": "
+                 << "ey=" << ey << ", yaw=" << yaw << ", v=" << v
+                 << ", delta=" << delta_ << ", delta_max=" << delta_max << std::endl;
+        log_count++;
+        if (log_count == 200) {
+            log_file << "Reached 200 logs. Stopping file logging." << std::endl;
+            log_file.close();  // Close after 200 to prevent further appends
+        }
+    }
 }
 
 float MPCController::getSteeringAngle() const {
-    return delta_;
+    return delta_; // Confirmed correct sign
 }
 
 float MPCController::getAcceleration() const {
-    return 0.0f;
+    return 0.0f; // No acceleration control
 }
+// End of MPC.cpp
