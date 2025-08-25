@@ -31,6 +31,9 @@ public:
     void update(float ey, float yaw, float v);
     float getSteeringAngle() const;
     float getAcceleration() const;
+	// new at this branch
+	float getFilteredEy() const;
+	void setFilteredEy(float ey);
 
 private:
     float L_; // Wheelbase (m)
@@ -47,6 +50,10 @@ private:
     float delta_; // Steering angle (rad)
     float delta_prev_; // Previous delta for rate penalty
 	float R_delta_rate_; // Penalty for delta rate change
+
+// new at this branch
+	float ey_filtered_;
+    float alpha_filter_;  // 0.2 para suavização moderada
 };
 
 #endif // MPC_HPP

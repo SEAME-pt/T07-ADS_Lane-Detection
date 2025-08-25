@@ -23,17 +23,17 @@ const double DELTA_MAX = 0.5;  // Max steering angle (rad, ~17 deg)
 const double DELTA_RATE_MAX = 0.1; // Max steering rate (rad/step)
 const double A_MAX = 2.0;	  // Max acceleration (m/s^2)
 const double V_REF = 0.4;	  // Reference velocity (m/s)
-const double V_REF_PWM = 28;   // Reference velocity in % PWM
+const double V_REF_PWM = 25;   // Reference velocity in % PWM
 
 // MPC parameters
 const int N = 10;			  // Prediction horizon *******************************************************
 const int MPC_ITER = 500;	  // Max gradient descent iterations
 // MPC cross-track error and heading error weights
-const double Q_EY = 1100.0;	 // Weight for cross-track error
-const double QF_EY = 20.0;	// Terminal weight for cross-track error
+const double Q_EY = 20.0;	 // Weight for cross-track error
+const double QF_EY = 100.0;	// Terminal weight for cross-track error
 // MPC heading error weights
-const double Q_YAW = 1.0;	  // Weight for heading error *****************************************
-const double QF_YAW = 5.0;	// Terminal weight for heading error **************************************
+const double Q_YAW = 5.0;	  // Weight for heading error *****************************************
+const double QF_YAW = 25.0;	// Terminal weight for heading error **************************************
 // MPC velocity error weight
 const double Q_V = 1.0;		// Weight for velocity error
 // MPC control effort weights

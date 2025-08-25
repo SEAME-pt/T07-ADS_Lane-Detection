@@ -19,6 +19,17 @@ MPCController::MPCController(float wheelbase, float dt, int horizon)
     delta_ = 0.0f; // Initial steering
     delta_prev_ = 0.0f; // For rate penalty
     R_delta_rate_ = R_DELTA_RATE; // 10.0
+	//new at this branch
+	ey_filtered_ = 0.0f;
+	alpha_filter_ = 0.2f;  // Moderate smoothing
+}
+
+void MPCController::setFilteredEy(float ey) {
+	ey_filtered_ = alpha_filter_ * ey + (1.0f - alpha_filter_) * ey_filtered_;
+}
+
+float MPCController::getFilteredEy() const {
+	return ey_filtered_;
 }
 
 void MPCController::update(float ey, float yaw, float v) {
@@ -30,20 +41,28 @@ void MPCController::update(float ey, float yaw, float v) {
     auto now = std::chrono::steady_clock::now();
     double timestamp = std::chrono::duration<double>(now - start_time).count();
 
+
     // Clip invalid velocity
     if (v < 0.0f || v > V_MAX) {
         v = V_REF;
         std::cout << "[" << __func__ << "] Warning: Invalid v clipped to V_REF=" << V_REF << std::endl;
     }
 
-	    // Console log
+	// Simple low-pass filter for ey
+	if (std::abs(ey) > 0.001f) { // Only update if ey is valid
+		this->setFilteredEy(ey);
+		ey = this->getFilteredEy();
+	} // else keep previous ey_filtered_
+
+	// Console log
     std::cout << "[" << __func__ << "] :"
-			  << " Entry [" << log_count + 1 << "]"
-              << " ey : [" << ey << "]"
-			  << " yaw : [" << yaw << "]"
-			  << " v : [" << v << "]"
-			  << std::endl;
-			  
+	<< " Entry [" << log_count + 1 << "]"
+	<< " ey : [" << ey << "]"
+	<< " ey_f : [" << ey_filtered_ << "]"
+	<< " yaw : [" << yaw << "]"
+	<< " v : [" << v << "]"
+	<< std::endl;
+
     state_ << ey, yaw;
     // if (v < 0.1f) {
     //     delta_ = 0.0f;
@@ -181,15 +200,15 @@ void MPCController::update(float ey, float yaw, float v) {
     delta_ = u(0);
 
     // Console log
-    std::cout << "[" << __func__ << "] :"
-			  << " Entry [" << log_count + 1 << "]"
-			  << " iter used [" << iter_used << "]"
-              << " ey : [" << ey << "]"
-			  << " yaw : [" << yaw << "]"
-			  << " v : [" << v << "]"
-			  << " delta : [" << delta_ << "]"
-              << " delta_max : [ " << delta_max << "]"
-			  << std::endl;
+    // std::cout << "[" << __func__ << "] :"
+	// 		  << " Entry [" << log_count + 1 << "]"
+	// 		  << " iter used [" << iter_used << "]"
+    //           << " ey : [" << ey << "]"
+	// 		  << " yaw : [" << yaw << "]"
+	// 		  << " v : [" << v << "]"
+	// 		  << " delta : [" << delta_ << "]"
+    //           << " delta_max : [ " << delta_max << "]"
+	// 		  << std::endl;
 
     // File log
 // Detailed file logging (inputs: ey, yaw, v; outputs: delta, delta_max)
