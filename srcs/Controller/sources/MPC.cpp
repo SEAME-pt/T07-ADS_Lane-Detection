@@ -52,16 +52,23 @@ void MPCController::update(float ey, float yaw, float v) {
 	if (std::abs(ey) > 0.001f) { // Only update if ey is valid
 		this->setFilteredEy(ey);
 		ey = this->getFilteredEy();
+		// Console log
+		std::cout << "[" << __func__ << "] :"
+		<< " Entry [" << log_count + 1 << "]"
+		<< " ey_f : [" << ey_filtered_ << "]"
+		<< " yaw : [" << yaw << "]"
+		<< " v : [" << v << "]"
+		<< std::endl;
 	} // else keep previous ey_filtered_
-
-	// Console log
-    std::cout << "[" << __func__ << "] :"
-	<< " Entry [" << log_count + 1 << "]"
-	<< " ey : [" << ey << "]"
-	<< " ey_f : [" << ey_filtered_ << "]"
-	<< " yaw : [" << yaw << "]"
-	<< " v : [" << v << "]"
-	<< std::endl;
+	else {
+		// Console log
+		std::cout << "[" << __func__ << "] :"
+		<< " Entry [" << log_count + 1 << "]"
+		<< " ey : [" << ey << "]"
+		<< " yaw : [" << yaw << "]"
+		<< " v : [" << v << "]"
+		<< std::endl;
+	}
 
     state_ << ey, yaw;
     // if (v < 0.1f) {

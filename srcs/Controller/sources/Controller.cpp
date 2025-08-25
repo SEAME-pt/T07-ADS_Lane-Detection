@@ -257,7 +257,7 @@ void Controller::autonomous(float ey, float yaw) {
 	// std::cout << "[" << __func__ << "] Current Speed: " << speed << " m/s" << std::endl;
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
-	if (speed < 0.2f ) {
+	if (speed < 0.1f ) {
 		std::cout << "[" << __func__ << "] Speed is too low, LKAS OFF" << std::endl;
 		jetCar->set_servo_angle(0);  // Set steering angle to 0
 		return;  // Exit if speed is too low
@@ -267,11 +267,11 @@ void Controller::autonomous(float ey, float yaw) {
 
 
 	// test yaw
-	mpc_.update(0.0, -yaw, speed);
+	// mpc_.update(0.0, -yaw, speed);
     // test ey
 	// mpc_.update(ey, 0.0f, speed);
 	// real mode
-	// mpc_.update(-ey, -yaw, speed);
+	mpc_.update(-0.5f * ey, -yaw, speed);
 
 
 	// fim de ensaios

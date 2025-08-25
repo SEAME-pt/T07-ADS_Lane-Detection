@@ -41,7 +41,7 @@ const double R = 1.0 / (DELTA_MAX) * (DELTA_MAX);		 // Control cost for smoothne
 const double R_DELTA = 1.0;	// Weight for steering effort
 const double R_A = 1.0;		// Weight for acceleration effort
 const double R_V = 1.0;		// Weight for velocity effort
-const double R_DELTA_RATE = 10.0; // Weight for steering rate effort
+const double R_DELTA_RATE = 1.0; // Weight for steering rate effort
 
 // Lane detection parameters
 #define ROI_SY_PERCENT 0.5f // ROI starts at 50% of image height
