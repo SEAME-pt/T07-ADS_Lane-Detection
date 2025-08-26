@@ -21,7 +21,7 @@ MPCController::MPCController(float wheelbase, float dt, int horizon)
     R_delta_rate_ = R_DELTA_RATE; // 10.0
 	//new at this branch
 	ey_filtered_ = 0.0f;
-	alpha_filter_ = 0.2f;  // Moderate smoothing
+	alpha_filter_ = 0.05f;  // Moderate smoothing
 }
 
 void MPCController::setFilteredEy(float ey) {
@@ -49,7 +49,7 @@ void MPCController::update(float ey, float yaw, float v) {
     }
 
 	// Simple low-pass filter for ey
-	if (std::abs(ey) > 0.001f) { // Only update if ey is valid
+	if (std::abs(ey) > 0.002f) { // Only update if ey is valid
 		this->setFilteredEy(ey);
 		ey = this->getFilteredEy();
 		// Console log
@@ -62,6 +62,7 @@ void MPCController::update(float ey, float yaw, float v) {
 	} // else keep previous ey_filtered_
 	else {
 		// Console log
+		ey = 0.0f; // If ey is too small, treat as zero
 		std::cout << "[" << __func__ << "] :"
 		<< " Entry [" << log_count + 1 << "]"
 		<< " ey : [" << ey << "]"

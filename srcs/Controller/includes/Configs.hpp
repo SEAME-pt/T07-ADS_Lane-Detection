@@ -1,7 +1,6 @@
 #ifndef CONFIGS_HPP
 #define CONFIGS_HPP
 
-const int PWMFREQ = 120; // PWM frequency in Hz
 
 const int V_MAX_PWM = 100; // Max PWM value for speed (0-100%)
 
@@ -23,17 +22,19 @@ const double DELTA_MAX = 0.5;  // Max steering angle (rad, ~17 deg)
 const double DELTA_RATE_MAX = 0.1; // Max steering rate (rad/step)
 const double A_MAX = 2.0;	  // Max acceleration (m/s^2)
 const double V_REF = 0.4;	  // Reference velocity (m/s)
-const double V_REF_PWM = 25;   // Reference velocity in % PWM
+
+const int PWMFREQ = 60; // PWM frequency in Hz *** tested [120] high pwm -> low momentum
+const double V_REF_PWM = 22;   // Reference velocity in % PWM **** tested [20]
 
 // MPC parameters
 const int N = 10;			  // Prediction horizon *******************************************************
 const int MPC_ITER = 500;	  // Max gradient descent iterations
 // MPC cross-track error and heading error weights
-const double Q_EY = 20.0;	 // Weight for cross-track error
-const double QF_EY = 100.0;	// Terminal weight for cross-track error
+const double Q_EY = 160.0;	 // Weight for cross-track error original 20
+const double QF_EY = 800.0;	// Terminal weight for cross-track error original 100
 // MPC heading error weights
-const double Q_YAW = 5.0;	  // Weight for heading error *****************************************
-const double QF_YAW = 25.0;	// Terminal weight for heading error **************************************
+const double Q_YAW = 1.0;	  // Weight for heading error *****************************************
+const double QF_YAW = 5.0;	// Terminal weight for heading error **************************************
 // MPC velocity error weight
 const double Q_V = 1.0;		// Weight for velocity error
 // MPC control effort weights
@@ -41,7 +42,8 @@ const double R = 1.0 / (DELTA_MAX) * (DELTA_MAX);		 // Control cost for smoothne
 const double R_DELTA = 1.0;	// Weight for steering effort
 const double R_A = 1.0;		// Weight for acceleration effort
 const double R_V = 1.0;		// Weight for velocity effort
-const double R_DELTA_RATE = 1.0; // Weight for steering rate effort
+
+const double R_DELTA_RATE = 0.5; // Weight for steering rate effort
 
 // Lane detection parameters
 #define ROI_SY_PERCENT 0.5f // ROI starts at 50% of image height
