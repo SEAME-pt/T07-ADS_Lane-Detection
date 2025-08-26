@@ -101,7 +101,7 @@ target_link_libraries(ControllerExec
     ${IPOPT_LIB}
     ${LAPACK_LIB}
     ${BLAS_LIB}
-    ${M_LIB}                          # <-- aqui, obrigatório
+    ${M_LIB}
     ${OpenCV_CUDAWARPING}
     ${OpenCV_VIDEOIO}
     ${OpenCV_VIDEO}
