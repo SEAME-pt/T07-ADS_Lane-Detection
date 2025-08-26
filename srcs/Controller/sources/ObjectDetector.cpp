@@ -1,76 +1,39 @@
 #include "ObjectDetector.hpp"
-#include <iostream>
+#include <fstream>
+#include <json.hpp>
+#include <opencv2/opencv.hpp>
 
-ObjectDetector::ObjectDetector(const std::string& modelPath, float confThreshold)
-    : confidenceThreshold(confThreshold), inputWidth(640), inputHeight(640) {
+using json = nlohmann::json;
+
+ObjectDetector::ObjectDetector(const std::string& json_file) : json_file_(json_file) {}
+
+bool ObjectDetector::updateDetections() {
+    std::ifstream f(json_file_);
+    if (!f.is_open()) return false;
+
     try {
-        net = cv::dnn::readNet(modelPath);
-        net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
-        net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
-    } catch (const std::exception& e) {
-        std::cerr << "Erro ao carregar modelo: " << e.what() << std::endl;
-        exit(1);
-    }
-}
-
-std::string ObjectDetector::buildGStreamerPipeline(int width, int height, int fps) {
-    return "nvarguscamerasrc ! video/x-raw(memory:NVMM), width=" + std::to_string(width) +
-           ", height=" + std::to_string(height) + ", format=NV12, framerate=" +
-           std::to_string(fps) + "/1 ! nvvidconv flip-method=0 ! video/x-raw, format=BGRx ! "
-           "videoconvert ! video/x-raw, format=BGR ! appsink drop=true";
-}
-
-bool ObjectDetector::openCamera(int width, int height, int fps) {
-    std::string pipeline = buildGStreamerPipeline(width, height, fps);
-    cap.open(pipeline, cv::CAP_GSTREAMER);
-    return cap.isOpened();
-}
-
-void ObjectDetector::drawPredictions(cv::Mat& frame, const cv::Mat& detections) {
-    for (int i = 0; i < detections.rows; ++i) {
-        float confidence = detections.at<float>(i, 2);
-        if (confidence > confidenceThreshold) {
-            int xLeftBottom = static_cast<int>(detections.at<float>(i, 3) * frame.cols);
-            int yLeftBottom = static_cast<int>(detections.at<float>(i, 4) * frame.rows);
-            int xRightTop   = static_cast<int>(detections.at<float>(i, 5) * frame.cols);
-            int yRightTop   = static_cast<int>(detections.at<float>(i, 6) * frame.rows);
-            cv::rectangle(frame, cv::Point(xLeftBottom, yLeftBottom),
-                          cv::Point(xRightTop, yRightTop),
-                          cv::Scalar(0, 255, 0), 2);
+        json j;
+        f >> j;
+        detections_.clear();
+        for (auto& det : j) {
+            Detection d;
+            d.x1 = det["x1"];
+            d.y1 = det["y1"];
+            d.x2 = det["x2"];
+            d.y2 = det["y2"];
+            d.conf = det["conf"];
+            d.class_id = det["class"];
+            detections_.push_back(d);
         }
+        return true;
+    } catch (...) {
+        return false;
     }
 }
 
-void ObjectDetector::runInferenceLoop() {
-    if (!cap.isOpened()) {
-        std::cerr << "Erro ao abrir a câmera CSI." << std::endl;
-        return;
+void ObjectDetector::drawDetections(cv::Mat& frame) {
+    for (auto& d : detections_) {
+        cv::rectangle(frame, cv::Point(d.x1, d.y1), cv::Point(d.x2, d.y2),
+                      cv::Scalar(0, 255, 0), 2);
     }
-
-    cv::Mat frame;
-    while (true) {
-        cap.read(frame);
-        if (frame.empty()) {
-            std::cerr << "Falha ao capturar frame." << std::endl;
-            break;
-        }
-
-        cv::Mat blob = cv::dnn::blobFromImage(frame, 1.0 / 255.0,
-                                              cv::Size(inputWidth, inputHeight),
-                                              cv::Scalar(0, 0, 0), true, false);
-
-        net.setInput(blob);
-        std::vector<cv::Mat> outputs;
-        net.forward(outputs, net.getUnconnectedOutLayersNames());
-
-        for (auto& out : outputs) {
-            drawPredictions(frame, out);
-        }
-
-        cv::imshow("YOLOv8 - Câmera CSI", frame);
-        if (cv::waitKey(1) == 'q') break;
-    }
-
-    cap.release();
-    cv::destroyAllWindows();
 }

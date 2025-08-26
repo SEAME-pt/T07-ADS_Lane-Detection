@@ -190,6 +190,11 @@ void Controller::listen() {
         }
 
         float ey, yaw;
+
+        // Atualiza detecções do Python
+        objectDetector->updateDetections();
+        objectDetector->drawDetections(output_frame);
+
         laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
 		// std::cout << "["<< __func__ <<"] : "
 		// 			<< "Offset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
@@ -324,4 +329,8 @@ void Controller::autonomous(float ey, float yaw) {
 
 void Controller::setLaneDetector(std::unique_ptr<LaneDetector> detector) {
     laneDetector = std::move(detector);
+}
+
+void Controller::setObjectDetector(std::unique_ptr<ObjectDetector> detector) {
+	objectDetector = std::move(detector);
 }

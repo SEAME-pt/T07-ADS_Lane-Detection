@@ -26,6 +26,7 @@ include_directories(
     /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/tegra
     /opt/jetson-sysroot/usr/include/SDL2
     /opt/jetson-sysroot/usr/local/include
+	/opt/jetson-sysroot//usr/local/lib/python3.6/dist-packages/tensorflow/include/external/cudnn_frontend_archive/_virtual_includes/cudnn_frontend/third_party/cudnn_frontend/include/contrib/nlohmann/json/
 )
 
 # Bibliotecas externas
@@ -37,6 +38,7 @@ find_library(ZMQ                zmq              PATHS /opt/jetson-sysroot/usr/l
 find_library(SDL2_LIB           SDL2             PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 find_library(NVMEDIA            nvmedia          PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/tegra)
 find_library(IPOPT_LIB          ipopt            PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu /opt/jetson-sysroot/usr/local/lib)
+find_library(NVINFER_PLUGIN nvinfer_plugin PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 # find_library(LAPACK_LIB         lapack           PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 # find_library(BLAS_LIB           blas             PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu)
 # find_library(LAPACK_LIB         lapack           NAMES liblapack.so.3.7.1 lapack PATHS /opt/jetson-sysroot/usr/lib/aarch64-linux-gnu/lapack)
@@ -76,6 +78,7 @@ set(SOURCES
     sources/JetCar.cpp
     sources/devices.cpp
     sources/LaneDetector.cpp
+	sources/ObjectDetector.cpp
     sources/MPC.cpp
     sources/Debug.cpp
     sources/main.cpp
@@ -93,6 +96,7 @@ target_link_libraries(ControllerExec
     ${GPIOD_LIBRARIES}
     ${I2C_LIB}
     ${NVINFER}
+	${NVINFER_PLUGIN}
     ${NVONNXPARSER}
     ${CUDART}
     ${ZMQ}

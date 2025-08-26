@@ -20,8 +20,6 @@ LaneDetector::LaneDetector(const std::string& trt_model_path) {
     	estimated_lane_width_ = 200.0f;
 	}
 
-
-
 	input_height_ = 128;
 	input_width_ = 256;
 	roi_sy_ = static_cast<int>(F_H * ROI_SY_PERCENT);

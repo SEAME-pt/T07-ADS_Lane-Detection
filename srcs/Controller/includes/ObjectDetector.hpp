@@ -1,25 +1,25 @@
-#ifndef OBJECT_DETECTOR_HPP
-#define OBJECT_DETECTOR_HPP
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/dnn.hpp>
+#pragma once
+
 #include <string>
+#include <vector>
+#include <opencv2/opencv.hpp>
+
+struct Detection {
+    int x1, y1, x2, y2;
+    float conf;
+    int class_id;
+};
 
 class ObjectDetector {
 public:
-    ObjectDetector(const std::string& modelPath, float confThreshold = 0.5);
-    bool openCamera(int width = 640, int height = 480, int fps = 30);
-    void runInferenceLoop();
+    ObjectDetector(const std::string& json_file);
+    ~ObjectDetector() = default;
+
+    bool updateDetections();
+    void drawDetections(cv::Mat& frame);
 
 private:
-    std::string buildGStreamerPipeline(int width, int height, int fps);
-    void drawPredictions(cv::Mat& frame, const cv::Mat& outs);
-
-    cv::dnn::Net net;
-    cv::VideoCapture cap;
-    float confidenceThreshold;
-    int inputWidth;
-    int inputHeight;
+    std::string json_file_;
+    std::vector<Detection> detections_;
 };
-
-#endif // OBJECT_DETECTOR_HPP
