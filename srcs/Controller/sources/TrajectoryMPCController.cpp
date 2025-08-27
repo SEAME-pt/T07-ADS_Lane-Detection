@@ -27,7 +27,7 @@ void MPC::operator()(CppAD::vector<CppAD::AD<double>>& fg, const CppAD::vector<C
 
         fg[0] += Q_EY * CppAD::pow(ey, 2);
         fg[0] += Q_PSI_ERR * CppAD::pow(psi_err, 2);
-        fg[0] += Q_V * CppAD::pow(v - V_REF, 2);
+        fg[0] += Q_V * CppAD::pow(v - V_MIN, 2);
         fg[0] += R_DELTA * CppAD::pow(delta, 2);
         fg[0] += R_A * CppAD::pow(a, 2);
     }
@@ -82,7 +82,7 @@ Vector2d MPC::solve_mpc(const Vector3d& current_state, double prev_delta) {
         } else {
             vars[k * 3] = 0.0;
             vars[k * 3 + 1] = 0.0;
-            vars[k * 3 + 2] = V_REF;
+            vars[k * 3 + 2] = V_MIN;
         }
         vars_lower[k * 3] = -1e19; vars_upper[k * 3] = 1e19;
         vars_lower[k * 3 + 1] = -1e19; vars_upper[k * 3 + 1] = 1e19;

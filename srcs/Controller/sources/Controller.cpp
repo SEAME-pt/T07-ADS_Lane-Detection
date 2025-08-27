@@ -194,8 +194,8 @@ void Controller::listen() {
 		// std::cout << "["<< __func__ <<"] : "
 		// 			<< "Offset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
         if (_currentMode == MODE_AUTONOMOUS) {
-			// if (!cruise  && currentSpeed.load(std::memory_order_relaxed) < V_REF) {
-			if (currentSpeed.load(std::memory_order_relaxed) < V_REF) {
+			// if (!cruise  && currentSpeed.load(std::memory_order_relaxed) < V_MIN) {
+			if (currentSpeed.load(std::memory_order_relaxed) < V_MIN) {
 				jetCar->set_motor_speed(static_cast<int>(V_REF_PWM));  // Convert m/s to cm/s
 				cruise = true;
 			}
@@ -253,11 +253,11 @@ void Controller::autonomous(float ey, float yaw) {
 		speed = 0.0f;  // Reset speed if it exceeds a threshold
 	}
 	// std::cout << "[" << __func__ << "] Current Speed: " << speed << " m/s" << std::endl;
-	//speed = std::max(static_cast<float>(0.5f), speed);  // Ensure speed is at least V_REF
+	//speed = std::max(static_cast<float>(0.5f), speed);  // Ensure speed is at least V_MIN
 	// std::cout << "[" << __func__ << "] Current Speed: " << speed << " m/s" << std::endl;
 	// std::cout << "["<< __func__ <<"]"
 	// 			<< "\n\tOffset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
-	if (speed < 0.1f ) {
+	if (speed < V_MIN ) {
 		std::cout << "[" << __func__ << "] Speed is too low, LKAS OFF" << std::endl;
 		jetCar->set_servo_angle(0);  // Set steering angle to 0
 		return;  // Exit if speed is too low
@@ -271,7 +271,7 @@ void Controller::autonomous(float ey, float yaw) {
     // test ey
 	// mpc_.update(ey, 0.0f, speed);
 	// real mode
-	mpc_.update(-0.5f * ey, -yaw, speed);
+	mpc_.update(-ey, -yaw, speed);
 
 
 	// fim de ensaios

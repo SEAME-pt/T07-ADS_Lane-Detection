@@ -16,34 +16,39 @@ const int SERVO_MIN_ANGLE = -30; // Min servo angle (degrees)
 const double L = 0.15;		  // Wheelbase (m)
 const double DT = 0.1;		  // Time step (s)
 
-// JetRacer MPC parameters
-const double V_MAX = 2.5;	  // Max velocity (m/s)
-const double DELTA_MAX = 0.5;  // Max steering angle (rad, ~17 deg)
-const double DELTA_RATE_MAX = 0.1; // Max steering rate (rad/step)
-const double A_MAX = 2.0;	  // Max acceleration (m/s^2)
-const double V_REF = 0.4;	  // Reference velocity (m/s)
-
-const int PWMFREQ = 60; // PWM frequency in Hz *** tested [120] high pwm -> low momentum
-const double V_REF_PWM = 22;   // Reference velocity in % PWM **** tested [20]
+// Car velovity limits
+const double V_MAX = 2.5;		// Maximal velocity (m/s)
+const double V_MIN = 0.1;		// Minimal velocity for MPC update (m/s)
+const double V_REF_PWM = 26;	// Reference velocity (%) v = V_REF_PWM * V_MAX <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+// Car steering limits
+const double DELTA_MAX = 0.5;		// Max steering angle (rad, ~30 deg)
+const double DELTA_RATE_MAX = 0.1;	// Max steering rate (rad/step)
+// Car max acceleration
+const double A_MAX = 2.0;			// Max acceleration (m/s^2)
+// Car tration control PWM frequency. Higher frequency -> lower momentum (20...960)
+const int PWMFREQ = 120; // PWM frequency in Hz *** tested [120] high pwm -> low momentum <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 // MPC parameters
-const int N = 10;			  // Prediction horizon *******************************************************
+const int N = 10;			  // Prediction horizon steps
 const int MPC_ITER = 500;	  // Max gradient descent iterations
+
 // MPC cross-track error and heading error weights
-const double Q_EY = 160.0;	 // Weight for cross-track error original 20
-const double QF_EY = 800.0;	// Terminal weight for cross-track error original 100
+const double Q_EY = 10.0;	 // Weight for cross-track error original 20
+const double QF_EY = 50.0;	// Terminal weight for cross-track error original 100
+
 // MPC heading error weights
-const double Q_YAW = 1.0;	  // Weight for heading error *****************************************
-const double QF_YAW = 5.0;	// Terminal weight for heading error **************************************
+const double Q_YAW = 0.5;	  // Weight for heading error *****************************************
+const double QF_YAW = 2.5;	// Terminal weight for heading error **************************************
+
 // MPC velocity error weight
 const double Q_V = 1.0;		// Weight for velocity error
+
 // MPC control effort weights
 const double R = 1.0 / (DELTA_MAX) * (DELTA_MAX);		 // Control cost for smoothness
 const double R_DELTA = 1.0;	// Weight for steering effort
 const double R_A = 1.0;		// Weight for acceleration effort
 const double R_V = 1.0;		// Weight for velocity effort
-
-const double R_DELTA_RATE = 0.5; // Weight for steering rate effort
+const double R_DELTA_RATE = 0.25; // Weight for steering rate effort
 
 // Lane detection parameters
 #define ROI_SY_PERCENT 0.5f // ROI starts at 50% of image height

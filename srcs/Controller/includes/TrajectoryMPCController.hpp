@@ -25,7 +25,7 @@ const double V_MAX = 2.0;      // Max velocity (m/s)
 const double DELTA_MAX = 0.523; // Max steering angle (rad, 30 deg)
 const double A_MAX = 2.0;      // Max acceleration (m/s^2)
 const double DELTA_RATE_MAX = 0.1; // Max steering rate (rad/step)
-const double V_REF = 1.0;      // Reference velocity (m/s)
+const double V_MIN = 1.0;      // Reference velocity (m/s)
 
 // MPC weights
 const double Q_EY = 100.0;     // Weight for cross-track error
