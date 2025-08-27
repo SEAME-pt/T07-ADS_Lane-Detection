@@ -1,241 +1,211 @@
 #include "ObjectDetector.hpp"
-#include <fstream>
-#include <cuda_runtime_api.h>
-#include <opencv2/dnn.hpp>
-#include <iostream>
+#include <opencv2/dnn/dnn.hpp>
+#include <algorithm>
+#include <cuda_runtime.h>
+#include <cmath> // para sigmoid
 
-using namespace nvinfer1;
+// Função sigmoide
+static inline float sigmoid(float x) {
+    return 1.0f / (1.0f + std::exp(-x));
+}
 
-class Logger : public nvinfer1::ILogger {
-public:
-    void log(Severity severity, const char* msg) noexcept override {
-        if (severity <= Severity::kWARNING) {
-            std::cout << "[TensorRT] " << msg << std::endl;
-        }
-    }
-};
+ObjectDetector::ObjectDetector(const std::string& engine_path, int input_size)
+    : inputDim(input_size), numClasses(10)
+{
+    classNames = {"STOP","YIELD","SPEED_50","SPEED_80","LIGHT_RED","LIGHT_GREEN",
+                  "LIGHT_YELLOW","CROSSWALK","DANGER","DANGER_CURVE"};
 
-// Instância global usada pelo TensorRT
-Logger gLogger;
+    std::ifstream engineFile(engine_path, std::ios::binary);
+    if (!engineFile) throw std::runtime_error("Cannot open engine file");
 
-ObjectDetector::ObjectDetector(const std::string& engine_path, int input_sz) : inputSize(input_sz) {
-    // Carregar engine serializada
-    std::ifstream file(engine_path, std::ios::binary);
-    if (!file) {
-        std::cerr << "Erro ao abrir engine: " << engine_path << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
+    engineFile.seekg(0, engineFile.end);
+    size_t fsize = engineFile.tellg();
+    engineFile.seekg(0, engineFile.beg);
 
-    file.seekg(0, std::ifstream::end);
-    size_t engine_size = file.tellg();
-    file.seekg(0, std::ifstream::beg);
+    std::vector<char> engineData(fsize);
+    engineFile.read(engineData.data(), fsize);
 
-    std::vector<char> engine_data(engine_size);
-    file.read(engine_data.data(), engine_size);
-    file.close();
-
-    // Criar runtime e engine
-    runtime = createInferRuntime(gLogger);
-    engine = runtime->deserializeCudaEngine(engine_data.data(), engine_size);
-
-    int nbBindings = engine->getNbBindings();
-    std::cout << "[INFO] Número de bindings: " << nbBindings << std::endl;
-    for (int i = 0; i < nbBindings; ++i) {
-        std::string name = engine->getBindingName(i);
-        bool isInput = engine->bindingIsInput(i);
-        std::cout << "[Binding] Index " << i << ": "
-                << name << " (" << (isInput ? "Input" : "Output") << ")"
-                << std::endl;
-    }
-
+    runtime = nvinfer1::createInferRuntime(logger);
+    engine = runtime->deserializeCudaEngine(engineData.data(), fsize);
     context = engine->createExecutionContext();
 
-    inputIndex = engine->getBindingIndex("input");
-    outputIndex = engine->getBindingIndex("output");
+    inputIndex = engine->getBindingIndex("images");
+    outputIndex = engine->getBindingIndex("output0");
 
     auto inputDims = engine->getBindingDimensions(inputIndex);
     auto outputDims = engine->getBindingDimensions(outputIndex);
 
     inputSize = 1;
-    for (int i = 0; i < inputDims.nbDims; ++i)
-        inputSize *= inputDims.d[i];
+    for (int i = 0; i < inputDims.nbDims; ++i) inputSize *= std::max(1, inputDims.d[i]);
 
     outputSize = 1;
-    for (int i = 0; i < outputDims.nbDims; ++i)
-        outputSize *= outputDims.d[i];
+    for (int i = 0; i < outputDims.nbDims; ++i) outputSize *= std::max(1, outputDims.d[i]);
 
     cudaMalloc(&buffers[inputIndex], inputSize * sizeof(float));
     cudaMalloc(&buffers[outputIndex], outputSize * sizeof(float));
-    cudaStreamCreate(&stream);
 
-    // Inicializações do código do amigo
-    classes = {
-        {0, "STOP"}, {1, "YIELD"}, {2, "SPEED_50"}, {3, "SPEED_80"},
-        {4, "LIGHT_RED"}, {5, "LIGHT_GREEN"}, 
-        {6, "LIGHT_YELLOW"}, {7, "CROSSWALK"}, {8, "DANGER"}, {9, "DANGER_CURVE"}
-    };
-
-    colors = {
-        {0, cv::Scalar(255, 0, 0)}, {1, cv::Scalar(0, 255, 0)}, {2, cv::Scalar(0, 0, 255)}, 
-        {3, cv::Scalar(255, 255, 0)}, {4, cv::Scalar(255, 0, 255)}, {5, cv::Scalar(0, 255, 255)}, 
-        {6, cv::Scalar(128, 0, 128)}, {7, cv::Scalar(0, 128, 255)}, {8, cv::Scalar(128, 128, 0)}, 
-        {9, cv::Scalar(255, 165, 0)}
-    };
-
-    num_classes = classes.size();
+    std::cout << "[INFO] Engine loaded. InputSize=" << inputSize << " OutputSize=" << outputSize << std::endl;
 }
 
-ObjectDetector::~ObjectDetector() {
-    cudaStreamDestroy(stream);
+ObjectDetector::~ObjectDetector()
+{
+    if (context) context->destroy();
+    if (engine) engine->destroy();
+    if (runtime) runtime->destroy();
+
     cudaFree(buffers[inputIndex]);
     cudaFree(buffers[outputIndex]);
-    context->destroy();
-    engine->destroy();
-    runtime->destroy();
 }
 
-void ObjectDetector::allocateBuffers() {
-    int nbBindings = engine->getNbBindings();
-    inputBuffers.resize(1);
-    outputBuffers.resize(1);
-    bindings.resize(nbBindings);
-
-    for (int i = 0; i < nbBindings; ++i) {
-        Dims dims = engine->getBindingDimensions(i);
-        size_t vol = 1;
-        for (int j = 0; j < dims.nbDims; ++j) {
-            vol *= dims.d[j];
-        }
-        size_t typeSize = sizeof(float);
-        size_t totalSize = vol * typeSize;
-
-        void* deviceMem;
-        cudaMalloc(&deviceMem, totalSize);
-        float* hostMem = new float[vol];
-
-        bindings[i] = deviceMem;
-        
-        if (engine->bindingIsInput(i)) {
-            inputBuffers[0] = {deviceMem, hostMem, totalSize};
-        } else {
-            outputBuffers[0] = {deviceMem, hostMem, totalSize};
-            outputSize = vol;
-        }
-    }
-}
-
-void ObjectDetector::preprocess(const cv::Mat& input, float* gpu_input) {
+void ObjectDetector::preprocess(const cv::Mat& input, float* gpu_input, float& scale, int& dw, int& dh)
+{
     int h = input.rows;
     int w = input.cols;
-    
-    scale = std::min(static_cast<float>(inputSize) / w, static_cast<float>(inputSize) / h);
-    int nw = static_cast<int>(scale * w);
-    int nh = static_cast<int>(scale * h);
-    
-    cv::Mat resized;
+
+    scale = std::min(static_cast<float>(inputDim)/w, static_cast<float>(inputDim)/h);
+    int nw = static_cast<int>(w * scale);
+    int nh = static_cast<int>(h * scale);
+
+    dw = (inputDim - nw)/2;
+    dh = (inputDim - nh)/2;
+
+    cv::Mat resized, padded(inputDim, inputDim, CV_8UC3, cv::Scalar(114,114,114));
     cv::resize(input, resized, cv::Size(nw, nh));
-    
-    cv::Mat padded = cv::Mat::ones(inputSize, inputSize, CV_8UC3) * 114;
-    dw = (inputSize - nw) / 2;
-    dh = (inputSize - nh) / 2;
-    
     resized.copyTo(padded(cv::Rect(dw, dh, nw, nh)));
-    
-    padded.convertTo(padded, CV_32FC3, 1.0 / 255.0);
-    
+
+    padded.convertTo(padded, CV_32FC3, 1.0/255.0);
+
     std::vector<cv::Mat> channels(3);
     cv::split(padded, channels);
-    
-    std::vector<float> inputData;
+
+    size_t channel_size = inputDim * inputDim;
     for (int i = 0; i < 3; ++i) {
-        inputData.insert(inputData.end(), (float*)channels[i].datastart, (float*)channels[i].dataend);
+        cudaMemcpy(gpu_input + i*channel_size, channels[i].ptr<float>(), channel_size*sizeof(float), cudaMemcpyHostToDevice);
     }
-    
-    cudaMemcpyAsync(gpu_input, inputData.data(), inputData.size() * sizeof(float), cudaMemcpyHostToDevice, stream);
+
+    std::cout << "[DEBUG] Preprocess done: scale=" << scale << ", dw=" << dw << ", dh=" << dh << std::endl;
 }
 
-std::vector<Detection> ObjectDetector::postprocess(float* gpu_output, const cv::Mat& frame) {
-    std::vector<float> output_host(outputSize);
-    cudaMemcpyAsync(output_host.data(), gpu_output, outputSize * sizeof(float), cudaMemcpyDeviceToHost, stream);
-    cudaStreamSynchronize(stream);
-
+std::vector<Detection> ObjectDetector::postprocess(const std::vector<float>& output, float scale, int dw, int dh,
+                                                   float conf_threshold, float nms_threshold)
+{
     std::vector<Detection> detections;
-    
-    int total_elements = outputSize;
-    int num_detections = total_elements / (4 + num_classes);
-    
+
+    int num_detections = output.size() / (4 + numClasses);
     std::vector<cv::Rect> boxes;
-    std::vector<float> scores;
+    std::vector<float> confidences;
     std::vector<int> class_ids;
-    
+
+    std::cout << "[DEBUG] Raw detections: " << num_detections << std::endl;
+
     for (int i = 0; i < num_detections; ++i) {
-        float cx = output_host[i];
-        float cy = output_host[num_detections + i];
-        float width = output_host[2 * num_detections + i];
-        float height = output_host[3 * num_detections + i];
-        
-        float max_confidence = 0.0f;
-        int best_class_id = 0;
-        
-        for (int j = 0; j < num_classes; ++j) {
-            float class_conf = output_host[(4 + j) * num_detections + i];
-            if (class_conf > max_confidence) {
-                max_confidence = class_conf;
-                best_class_id = j;
+        // Extraindo os valores brutos do modelo
+        float tx = output[i];
+        float ty = output[num_detections + i];
+        float tw = output[2*num_detections + i];
+        float th = output[3*num_detections + i];
+
+        // Aplicando sigmoid no centro
+        float cx = (sigmoid(tx) * inputDim - dw) / scale;
+        float cy = (sigmoid(ty) * inputDim - dh) / scale;
+
+        // Aplicando sigmoid na largura e altura (simplificado para YOLOv11 sem anchors)
+        float w = sigmoid(tw) * inputDim / scale;
+        float h = sigmoid(th) * inputDim / scale;
+
+        // Encontrar classe com maior confiança
+        float max_conf = 0.0f;
+        int best_class = -1;
+        for (int j = 0; j < numClasses; ++j) {
+            float class_conf = sigmoid(output[(4+j)*num_detections + i]);
+            if (class_conf > max_conf) {
+                max_conf = class_conf;
+                best_class = j;
             }
         }
-        
-        if (max_confidence > 0.5f) {
-            float x_center = (cx - dw) / scale;
-            float y_center = (cy - dh) / scale;
-            float w = width / scale;
-            float h = height / scale;
-            
-            float x1 = x_center - w / 2.0f;
-            float y1 = y_center - h / 2.0f;
-            
-            if (x1 >= 0 && y1 >= 0 && w > 0 && h > 0) {
-                boxes.push_back(cv::Rect(static_cast<int>(x1), static_cast<int>(y1), 
-                                       static_cast<int>(w), static_cast<int>(h)));
-                scores.push_back(max_confidence);
-                class_ids.push_back(best_class_id);
-            }
+
+        std::cout << "[DEBUG] Detection " << i
+                  << " | class=" << best_class
+                  << " conf=" << max_conf
+                  << " cx=" << cx
+                  << " cy=" << cy
+                  << " w=" << w
+                  << " h=" << h << std::endl;
+
+        if (max_conf > conf_threshold) {
+            float x1 = std::max(0.0f, cx - w/2.0f);
+            float y1 = std::max(0.0f, cy - h/2.0f);
+
+            boxes.push_back(cv::Rect(static_cast<int>(x1), static_cast<int>(y1),
+                                     static_cast<int>(w), static_cast<int>(h)));
+            confidences.push_back(max_conf);
+            class_ids.push_back(best_class);
         }
     }
-    
+
+    // NMS para filtrar caixas sobrepostas
     if (!boxes.empty()) {
         std::vector<int> indices;
-        cv::dnn::NMSBoxes(boxes, scores, 0.5f, 0.4f, indices);
-        
+        cv::dnn::NMSBoxes(boxes, confidences, conf_threshold, nms_threshold, indices);
+
         for (int idx : indices) {
             Detection det;
             det.class_id = class_ids[idx];
-            det.class_name = classes.count(det.class_id) ? classes[det.class_id] : "unknown";
-            det.confidence = scores[idx];
+            det.class_name = classNames[det.class_id];
+            det.confidence = confidences[idx];
             det.bbox = boxes[idx];
             detections.push_back(det);
+
+            std::cout << "[INFO] Final detection: class=" << det.class_id
+                      << " conf=" << det.confidence
+                      << " box=(" << det.bbox.x << "," << det.bbox.y
+                      << "," << det.bbox.width << "," << det.bbox.height << ")" << std::endl;
         }
+    } else {
+        std::cout << "[INFO] No detections above threshold" << std::endl;
     }
-    
+
     return detections;
 }
 
-void ObjectDetector::processFrame(const cv::Mat& input, cv::Mat& output) {
-    preprocess(input, static_cast<float*>(buffers[inputIndex]));
-    context->enqueueV2(bindings.data(), stream, nullptr); // Usando bindings alocados
-    std::vector<Detection> detections = postprocess(static_cast<float*>(buffers[outputIndex]), input);
-    
-    output = input.clone();
-    
-    for (const auto& det : detections) {
-        cv::rectangle(output, det.bbox, getColor(det.class_id), 2);
-        std::string label = det.class_name + " " + std::to_string(int(det.confidence * 100)) + "%";
-        cv::putText(output, label, cv::Point(det.bbox.x, det.bbox.y - 5), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
-        
-        std::cout << "Classe " << det.class_id << ": " << 1 << " deteccoes\n";
+
+
+std::vector<Detection> ObjectDetector::infer(const cv::Mat& frame)
+{
+    float scale;
+    int dw, dh;
+    float* gpu_input = (float*)buffers[inputIndex];
+
+    preprocess(frame, gpu_input, scale, dw, dh);
+
+    // Zerar o buffer de saída antes de inferir
+    cudaMemset(buffers[outputIndex], 0, outputSize * sizeof(float));
+
+    bool success = context->executeV2(buffers);
+    if (!success) {
+        std::cerr << "[ERROR] TensorRT executeV2 failed!" << std::endl;
+        return {};
     }
+
+    float* gpu_output = (float*)buffers[outputIndex];
+    std::vector<float> output(outputSize);
+
+    // Copiar output da GPU para CPU
+    cudaMemcpy(output.data(), gpu_output, outputSize * sizeof(float), cudaMemcpyDeviceToHost);
+
+    std::cout << "[DEBUG] Inference executed, output copied. Output size: " << output.size() << std::endl;
+
+    // Imprimir alguns valores brutos para verificar
+    std::cout << "[DEBUG] Raw output sample: ";
+    for (int i = 0; i < std::min(10, (int)output.size()); ++i)
+        std::cout << output[i] << " ";
+    std::cout << std::endl;
+
+    // Aplicar sigmoid para objectness + class confidence se YOLOv11
+    for (int i = 0; i < outputSize; ++i) {
+        output[i] = 1.0f / (1.0f + expf(-output[i]));
+    }
+
+    return postprocess(output, scale, dw, dh, 0.5f, 0.4f);
 }
 
-cv::Scalar ObjectDetector::getColor(int class_id) {
-    return colors.count(class_id) ? colors[class_id] : cv::Scalar(255, 255, 255);
-}

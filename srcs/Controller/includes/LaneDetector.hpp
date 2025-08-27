@@ -23,6 +23,7 @@ public:
 		if (severity <= Severity::kWARNING) std::cerr << msg << std::endl;
 	}
 };
+	
 
 class LaneDetector {
 public:

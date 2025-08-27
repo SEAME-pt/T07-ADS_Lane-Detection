@@ -1,12 +1,16 @@
-#ifndef OBJECTDETECTOR_HPP
-#define OBJECTDETECTOR_HPP
+#ifndef OBJECT_DETECTOR_HPP
+#define OBJECT_DETECTOR_HPP
 
-#include <opencv2/opencv.hpp>
 #include <NvInfer.h>
-#include <map>
+#include <NvInferRuntime.h>
+#include <opencv2/opencv.hpp>
 #include <vector>
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <cuda_runtime_api.h>
+#include "LaneDetector.hpp"
 
-// Estrutura para detecções
 struct Detection {
     int class_id;
     std::string class_name;
@@ -14,46 +18,34 @@ struct Detection {
     cv::Rect bbox;
 };
 
+
 class ObjectDetector {
+public:
+    ObjectDetector(const std::string& engine_path, int input_dim = 640);
+    ~ObjectDetector();
+
+    std::vector<Detection> infer(const cv::Mat& frame);
+
 private:
-    nvinfer1::IRuntime* runtime = nullptr;
-    nvinfer1::ICudaEngine* engine = nullptr;
-    nvinfer1::IExecutionContext* context = nullptr;
-    
-    struct Buffer {
-        void* device;
-        float* host;
-        size_t size;
-    };
-    
-    std::vector<Buffer> inputBuffers;
-    std::vector<Buffer> outputBuffers;
-    std::vector<void*> bindings;
-    
+    void preprocess(const cv::Mat& input, float* gpu_input, float& scale, int& dw, int& dh);
+    std::vector<Detection> postprocess(const std::vector<float>& output, float scale, int dw, int dh,
+                                       float conf_threshold, float nms_threshold);
+
+    int inputDim;
+    int numClasses;
+    std::vector<std::string> classNames;
+
+    Logger logger;
+    nvinfer1::IRuntime* runtime{nullptr};
+    nvinfer1::ICudaEngine* engine{nullptr};
+    nvinfer1::IExecutionContext* context{nullptr};
+
+    void* buffers[2]; // GPU buffers: input/output
     int inputIndex;
     int outputIndex;
-    int inputSize;
-    int num_classes;
+    size_t inputSize;
     size_t outputSize;
     cudaStream_t stream;
-    void* buffers[2];
-    
-    std::map<int, std::string> classes;
-    std::map<int, cv::Scalar> colors;
-    float scale;  // Adicionado para compartilhar entre preprocess e postprocess
-    int dw, dh;   // Adicionado para compartilhar entre preprocess e postprocess
-
-    void allocateBuffers();
-
-public:
-    ObjectDetector(const std::string& engine_path, int input_sz = 640);
-    ~ObjectDetector();
-    
-    void preprocess(const cv::Mat& input, float* gpu_input);
-    std::vector<Detection> postprocess(float* gpu_output, const cv::Mat& frame);
-    void processFrame(const cv::Mat& input, cv::Mat& output);
-    
-    cv::Scalar getColor(int class_id);
 };
 
-#endif // OBJECTDETECTOR_HPP
+#endif

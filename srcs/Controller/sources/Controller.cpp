@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <chrono>
 #include <sstream>
+#include "ObjectDetector.hpp"
+#include <vector>
 
 Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK), mpc_(L, DT, N) {
 
@@ -192,10 +194,19 @@ void Controller::listen() {
         float ey, yaw;
 
         // Atualiza detecções do Python
-        objectDetector->updateDetections();
-        objectDetector->drawDetections(output_frame);
+		 std::vector<Detection> detections = objectDetector->infer(frame);
 
-        laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
+		 output_frame = frame.clone();
+
+        // Desenhar caixas no output_frame
+        for (const auto& det : detections) {
+            cv::rectangle(output_frame, det.bbox, cv::Scalar(0, 255, 0), 2);
+            std::string label = det.class_name + " " + std::to_string(int(det.confidence*100)) + "%";
+            cv::putText(output_frame, label, cv::Point(det.bbox.x, det.bbox.y-5),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 1);
+        }
+
+        //laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
 		// std::cout << "["<< __func__ <<"] : "
 		// 			<< "Offset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
         if (_currentMode == MODE_AUTONOMOUS) {
@@ -246,8 +257,6 @@ void Controller::listen() {
 
 	}
 }
-
-
 
 void Controller::autonomous(float ey, float yaw) {
     tracker.mark();
