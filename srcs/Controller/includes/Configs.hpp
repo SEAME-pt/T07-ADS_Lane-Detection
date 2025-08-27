@@ -19,26 +19,26 @@ const double DT = 0.1;		  // Time step (s)
 // Car velovity limits
 const double V_MAX = 2.5;		// Maximal velocity (m/s)
 const double V_MIN = 0.1;		// Minimal velocity for MPC update (m/s)
-const double V_REF_PWM = 26;	// Reference velocity (%) v = V_REF_PWM * V_MAX <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+const double V_REF_PWM = 26;	// Reference velocity (%) v = V_REF_PWM * V_MAX / 100
 // Car steering limits
 const double DELTA_MAX = 0.5;		// Max steering angle (rad, ~30 deg)
 const double DELTA_RATE_MAX = 0.1;	// Max steering rate (rad/step)
 // Car max acceleration
 const double A_MAX = 2.0;			// Max acceleration (m/s^2)
 // Car tration control PWM frequency. Higher frequency -> lower momentum (20...960)
-const int PWMFREQ = 120; // PWM frequency in Hz *** tested [120] high pwm -> low momentum <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+const int PWMFREQ = 120; // PWM frequency in Hz *** tested [120] high pwm -> low momentum
 
 // MPC parameters
-const int N = 10;			  // Prediction horizon steps
-const int MPC_ITER = 500;	  // Max gradient descent iterations
+const int N = 10;			// Prediction horizon steps
+const int MPC_ITER = 500;	// Max gradient descent iterations
 
 // MPC cross-track error and heading error weights
-const double Q_EY = 10.0;	 // Weight for cross-track error original 20
-const double QF_EY = 50.0;	// Terminal weight for cross-track error original 100
+const double Q_EY = 10.0;	 // Weight for cross-track error
+const double QF_EY = 50.0;	// Terminal weight for cross-track error
 
 // MPC heading error weights
-const double Q_YAW = 0.5;	  // Weight for heading error *****************************************
-const double QF_YAW = 2.5;	// Terminal weight for heading error **************************************
+const double Q_YAW = 0.5;	// Weight for heading error original 5
+const double QF_YAW = 2.5;	// Terminal weight for heading error
 
 // MPC velocity error weight
 const double Q_V = 1.0;		// Weight for velocity error

@@ -10,7 +10,7 @@
 MPCController::MPCController(float wheelbase, float dt, int horizon)
     : L_(wheelbase), dt_(dt), N_(horizon) {
     // R_ = R; // Balanced control effort
-    R_ = 100.0f; // Balanced control effort
+    R_ = 10.0f; // Balanced control effort
     Q_ << Q_EY, 0.0f, 0.0f, Q_YAW; // ey: 20, yaw: 5
     Qf_ << QF_EY, 0.0f, 0.0f, QF_YAW; // ey: 100, yaw: 25
     max_delta_ = DELTA_MAX; // 0.5 rad
@@ -184,7 +184,6 @@ void MPCController::update(float ey, float yaw, float v) {
     float alpha = 0.01f; // Balanced for convergence
     float beta = 0.9f;
     Eigen::VectorXf m = Eigen::VectorXf::Zero(N_);
-    int iter_used = 0;
     for (int iter = 0; iter < MPC_ITER; ++iter) {
         Eigen::VectorXf grad = H * u + f;
         m = beta * m + (1.0f - beta) * grad;
@@ -198,40 +197,13 @@ void MPCController::update(float ey, float yaw, float v) {
             if (rate < -DELTA_RATE_MAX) u(i) = u(i - 1) - DELTA_RATE_MAX;
         }
         if ((u - u_prev).norm() < 1e-4f) {
-            iter_used = iter + 1;
             break;
         }
         u_prev = u;
-        iter_used = iter + 1;
     }
 
     delta_prev_ = delta_;
     delta_ = u(0);
-
-    //Console log
-    std::cout << "[" << __func__ << "] :"
-			  << " Entry [" << log_count + 1 << "]"
-			  << " iter used [" << iter_used << "]"
-              << " ey : [" << ey << "]"
-			  << " yaw : [" << yaw << "]"
-			  << " v : [" << v << "]"
-			  << " delta : [" << delta_ << "]"
-              << " delta_max : [ " << delta_max << "]"
-			  << std::endl;
-
-//     // File log
-// // Detailed file logging (inputs: ey, yaw, v; outputs: delta, delta_max)
-//     if (log_count < 200 && log_file.is_open()) {
-//         log_file << std::fixed << std::setprecision(6)
-//                  << "Entry " << log_count + 1 << ": "
-//                  << "ey=" << ey << ", yaw=" << yaw << ", v=" << v
-//                  << ", delta=" << delta_ << ", delta_max=" << delta_max << std::endl;
-//         log_count++;
-//         if (log_count == 200) {
-//             log_file << "Reached 200 logs. Stopping file logging." << std::endl;
-//             log_file.close();  // Close after 200 to prevent further appends
-//         }
-//     }
 }
 
 float MPCController::getSteeringAngle() const {

@@ -269,43 +269,18 @@ void LaneDetector::calculateMiddleLaneLine(void) {
 /// @param angle	The yaw angle of the lane in radians.
 void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) {
 
-	// Convert image Frame[meters] to car Frame[meters]
-	// +----------> x[img frame] = -y[car frame]
-	// |
-	// |
-	// v
-	// y[img frame]
-	// y-axis in the car frame corresponds to the negative x-axis in the image frame.
-	// x-axis in the car frame corresponds to the negative y-axis in the image frame.
-	// x[img frame] positive to the right, y[car frame] positive to the left
-	// y[car frame] = -x[img frame],
-	// x[car frame] = measured distance on the ground in meters
-	// TOP point:
-	// carFrame.xT is initialized at start with the calibration value X_CAR_FRAME_CENTER
-	// the distance between center of image and the center of mass of the car
 	carFrame_.yT = -imgFrame_.xmt;
-	// BOTTOM point:
-	// carFrame.xB is initialized at satrt with the calibration value X_CAR_FRAME_BOTTOM
-	// the distance between bottom of image and the center of mass of the car
 	carFrame_.yB = -imgFrame_.xmb; // ymb_carFrame is the bottom point in the car Frame
-
-	// Calculate slope of the car direction
 	carFrame_.slope = (carFrame_.yT - carFrame_.yB) / (carFrame_.xDelta);
-	// Calculate the intersect at the car Frame
 	carFrame_.intercept = carFrame_.yT - carFrame_.slope * carFrame_.xT;
 
 	if (CAR_CM) {
-		// std::cout << "[" << __func__<< "] : ey = y coordinate of the Car Center of Mass, Car Frame" << std::endl;
-		offset = carFrame_.intercept; // Set the offset in centimeters
+		offset = carFrame_.intercept;
 	} else {
-		// std::cout << "[" << __func__<< "] : ey = y coordinate at the image bottom, Car Frame" << std::endl;
 		float ey = carFrame_.slope * X_CAR_FRAME_BOTTOM + carFrame_.intercept;
-		// offset = 0.25f * static_cast<float>(ey); // Set the offset in pmeters
-		offset = static_cast<float>(ey); // Set the offset in pmeters
+		offset = static_cast<float>(ey);
 	}
-	// get the yaw angle
-	// angle = 0.5f * static_cast<float>(std::atan(carFrame_.slope)); // in radians
-	angle = static_cast<float>(std::atan(carFrame_.slope)); // in radians
+	angle = static_cast<float>(std::atan(carFrame_.slope));
 }
 
 /// @brief Calculate lane geometry based on detected edges.
@@ -315,73 +290,55 @@ void LaneDetector::calculateOffsetAndAngle(float& offset, float& angle) {
 /// @param angle	The angle of the lane in radians, in the car frame system of coordinates.
 /// @return 		True if lane geometry was successfully calculated, false otherwise.
 bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, bool visualize_mask) {
-	// Check if lane mask is valid
 	if (lane_mask_.empty() || lane_mask_.type() != CV_32F) {
 		std::cerr << "Invalid lane mask!" << std::endl;
 		return false;
 	}
 
-	// Step 1: Define the Region of Interest (ROI)
 	cv::Rect roi(roi_sx_, roi_sy_, roi_ex_ - roi_sx_, roi_ey_ - roi_sy_);
 	if (roi.width <= 0 || roi.height <= 0) {
 		std::cerr << "Invalid ROI dimensions!" << std::endl;
 		return false;
 	}
 
-	// Step 2: Find left and right lane edges using dense sampling
 	if (!findLaneEdges(lane_mask_, roi)) {
-		// std::cerr << "[" <<  __func__ << "] : Not enough edge points detected in ROI!" << std::endl;
 		if (KALMAN) {
 			float smoothed_offset, smoothed_angle;
 			applyKalmanFilter(iGeo_.offset , iGeo_.angle, smoothed_offset, smoothed_angle);
-
-			// Step 6: Set output parameters
 			offset = smoothed_offset;
 			angle = smoothed_angle;
 			iGeo_.offset = smoothed_offset;;
 			iGeo_.angle = smoothed_angle;
-			return true; // Estimated geometry based on Kalman filter prediction
 		} else {
-			// std::cout << "[" << __func__<< "] : Use low pass filter" << std::endl;
 			offset = offset_smooth_;
 			angle = angle_smooth_;
 			iGeo_.offset = offset;
 			iGeo_.angle = angle;
-			// std::cout << "[" << __func__<< "] : Using last known offset: " << offset << " and angle: " << angle << std::endl;
-			return true;
     	}
+		return true;
 	}
 
-	// Step 3: Perform weighted linear regression to fit lines to edges
 	if (left_edges_.size() >= MIN_EDGE_POINTS)
 		weightedLinearRegression(left_edges_, iGeo_.left_slope, iGeo_.left_intercept);
 	if (right_edges_.size() >= MIN_EDGE_POINTS)
 		weightedLinearRegression(right_edges_, iGeo_.right_slope, iGeo_.right_intercept);
 
-	// Step 4: Calculate offset and angle from the fitted lines
 	float measured_offset, measured_angle;
 	calculateMiddleLaneLine();
 	calculateOffsetAndAngle(measured_offset, measured_angle);
 
-	// std::cout << "[" << __func__ << "] : Measured Offset: " << measured_offset
-	//  		  << " m, Measured Angle: " << measured_angle << " rad" << std::endl;
-
-	// Step 5: Smooth the estimates using Kalman filter or low-pass filter
 	if (KALMAN) {
-		// Use Kalman filter to smooth the estimates
 		float smoothed_offset, smoothed_angle;
 		applyKalmanFilter(measured_offset, measured_angle, smoothed_offset, smoothed_angle);
 		offset = smoothed_offset;
 		angle = smoothed_angle;
 	} else {
-		// Use low-pass filter to smooth the estimates
 		offset_smooth_ = alpha_ * measured_offset + (1.0f - alpha_) * offset_smooth_;
 		angle_smooth_ = alpha_ * measured_angle + (1.0f - alpha_) * angle_smooth_;
 		offset = offset_smooth_;
 		angle = angle_smooth_;
 	}
 
-	// Step 6: Save geometry in imgGeometry and in history
 	iGeo_.angle = angle; // Store angle in imgGeometry
 	iGeo_.offset = offset ; // Store offset in imgGeometry
 	history_.push_back(iGeo_);
@@ -390,7 +347,6 @@ bool LaneDetector::calculateLaneGeometry(float& offset, float& angle, bool visua
 	}
 	return true;
 }
-
 
 void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle,
 									 float& smoothed_offset, float& smoothed_angle) {
@@ -401,6 +357,8 @@ void LaneDetector::applyKalmanFilter(float measured_offset, float measured_angle
 	smoothed_angle = corrected.at<float>(1);
 }
 
+/// @brief Load the TensorRT engine from a file.
+/// @param trt_model_path	The path to the TensorRT model file.
 void LaneDetector::loadEngine(const std::string& trt_model_path) {
 	std::ifstream file(trt_model_path, std::ios::binary);
 	if (!file.good()) {
@@ -417,9 +375,9 @@ void LaneDetector::loadEngine(const std::string& trt_model_path) {
 	context_.reset(engine_->createExecutionContext());
 	if (!context_) throw std::runtime_error("Failed to create TensorRT execution context");
 
-	cudaError_t err = cudaMalloc(&buffers_[0], 1 * 3 * input_height_ * input_width_ * sizeof(float)); // 1x3x128x256
+	cudaError_t err = cudaMalloc(&buffers_[0], 1 * 3 * input_height_ * input_width_ * sizeof(float));
 	if (err != cudaSuccess) throw std::runtime_error("CUDA malloc failed for input buffer: " + std::string(cudaGetErrorString(err)));
-	err = cudaMalloc(&buffers_[1], 1 * 1 * input_height_ * input_width_ * sizeof(float)); // 1x1x128x256
+	err = cudaMalloc(&buffers_[1], 1 * 1 * input_height_ * input_width_ * sizeof(float));
 	if (err != cudaSuccess) {
 		cudaFree(buffers_[0]);
 		throw std::runtime_error("CUDA malloc failed for output buffer: " + std::string(cudaGetErrorString(err)));
@@ -429,6 +387,7 @@ void LaneDetector::loadEngine(const std::string& trt_model_path) {
 	output_data_.resize(1 * 1 * input_height_ * input_width_);
 }
 
+/// @brief Run inference on the preprocessed input data.
 void LaneDetector::infer() {
 	cudaError_t err = cudaMemcpyAsync(buffers_[0], input_data_.data(), input_data_.size() * sizeof(float),
 									  cudaMemcpyHostToDevice, stream_);
@@ -447,23 +406,35 @@ void LaneDetector::infer() {
 	if (err != cudaSuccess) throw std::runtime_error("CUDA error after inference: " + std::string(cudaGetErrorString(err)));
 }
 
+/// @brief Preprocess the input frame for model inference.
+/// This function resizes the input frame to the model's expected input size,
+/// converts the color space from BGR to RGB, normalizes the pixel values,
+/// and prepares the input data in a contiguous format suitable for TensorRT inference.
+/// @param frame	The input video frame to be preprocessed.
 void LaneDetector::preprocess(const cv::Mat& frame) {
 	cv::Mat resized;
-	cv::resize(frame, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_CUBIC); // Interpolação cúbica
+	cv::resize(frame, resized, cv::Size(input_width_, input_height_), 0, 0, cv::INTER_CUBIC);
 
 	cv::Mat rgb;
-	cv::cvtColor(resized, rgb, cv::COLOR_BGR2RGB); // Converte de BGR para RGB
+	cv::cvtColor(resized, rgb, cv::COLOR_BGR2RGB);
 
-	rgb.convertTo(rgb, CV_32F, 1.0 / 255.0); // Normaliza para [0,1]
+	rgb.convertTo(rgb, CV_32F, 1.0 / 255.0);
 
 	std::vector<cv::Mat> channels;
-	cv::split(rgb, channels); // Canais na ordem R, G, B
+	cv::split(rgb, channels);
 	for (int c = 0; c < 3; ++c) {
 		memcpy(input_data_.data() + c * input_height_ * input_width_, channels[c].data, input_height_ * input_width_ * sizeof(float));
 	}
 }
 
-// yellow NOT processFrame():
+/// @brief Process a video frame to detect lanes and calculate geometry.
+/// This function processes a single video frame to detect lanes using a deep learning model,
+/// calculates the lane geometry (offset and angle), and optionally visualizes the lane mask.
+/// @param frame	The input video frame to be processed.
+/// @param offset	The calculated offset from the center of the lane in meters.
+/// @param angle	The calculated angle of the lane in radians.
+/// @param output_frame	The output frame with visualizations (if enabled).
+/// @param visualize_mask	Flag to enable visualization of the lane mask.
 void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
 	preprocess(frame);
 	infer();
@@ -481,18 +452,15 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 		cv::imwrite("rawLane.png", rawLane );
 	}
 
-	float threshold = LANE_THRESHOLD; // Limiar fixo, equivalente a (preds > 0.5).float()
-	// cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
+	float threshold = LANE_THRESHOLD;
 
 	cv::Mat binary_mask;
 	cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
-	cv::resize(lane_mask_, lane_mask_, cv::Size(F_W, F_H), 0, 0, cv::INTER_CUBIC); // Resize to original frame size
+	cv::resize(lane_mask_, lane_mask_, cv::Size(F_W, F_H), 0, 0, cv::INTER_CUBIC);
 
 	output_frame = frame.clone();
+
 	bool laneOk = calculateLaneGeometry(offset, angle, visualize_mask);
-	// Debugging output
-	// std::cout << "[" << __func__ << "] : "
-	// 		  << "Offset: " << offset << ", Angle: " << angle << std::endl;
 	if (!laneOk) {
 		std::cout << "[" << __func__ << "] Failed to calculate lane geometry" << std::endl;
 	}
