@@ -176,7 +176,6 @@ void Controller::listen() {
 				<< " ## Q_V : " << Q_V
 				<< "\n\t@@ V_REF_PWM : " << V_REF_PWM << std::endl;
 
-	bool cruise = false;
     while (true) {
 		auto loop_start = std::chrono::steady_clock::now();
 
@@ -191,20 +190,14 @@ void Controller::listen() {
 
         float ey, yaw;
         laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
-		// std::cout << "["<< __func__ <<"] : "
-		// 			<< "Offset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
         if (_currentMode == MODE_AUTONOMOUS) {
-			// if (!cruise  && currentSpeed.load(std::memory_order_relaxed) < V_MIN) {
 			if (currentSpeed.load(std::memory_order_relaxed) < V_MIN) {
 				jetCar->set_motor_speed(static_cast<int>(V_REF_PWM));  // Convert m/s to cm/s
-				cruise = true;
 			}
 			autonomous(ey, yaw);
 			visualize_mask_ = false;
 		} else {
 			visualize_mask_ = true;
-			// jetCar->set_motor_speed(static_cast<int>(0));  // Convert m/s to cm/s
-			cruise = false;
 		}
 
 
@@ -229,7 +222,7 @@ void Controller::listen() {
 		auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end - loop_start).count();
 
 		std::cout << "[" << __func__ << "] "
-				<< "Loop duration: " << duration_ms << " ms" << std::endl;
+				<< "Loop duration: " << duration_ms << " ms \r" << std::flush;
 		if (duration_ms < 99) {
         	std::this_thread::sleep_for(std::chrono::milliseconds(100 - duration_ms));
     	}
@@ -248,54 +241,27 @@ void Controller::autonomous(float ey, float yaw) {
     tracker.mark();
 
 	float speed = currentSpeed.load(std::memory_order_relaxed);  // Get current speed from SpeedSubscriber
-	if (speed > 1000) {
+	if (speed > 1000 || speed < -1000) {
 		speed = 0.0f;  // Reset speed if it exceeds a threshold
 	}
-	if (speed < V_MIN ) {
-		std::cout << "[" << __func__ << "] Speed is too low, LKAS OFF" << std::endl;
+	if (speed > V_MIN ) {
+		// std::cout << "[" << __func__ << "] Speed is " << speed << ", LKAS ON" << std::endl;
+		mpc_.update(-ey, -yaw, speed);
+	} else {
+		std::cout << "[" << __func__ << "] Speed is " << speed <<  "! Too low, LKAS OFF" << std::endl;
 		return;
 	}
-	mpc_.update(-ey, -yaw, speed);
 
 	float delta = 1.0f * mpc_.getSteeringAngle();
 	float a = mpc_.getAcceleration();
 
-	// Debug mpc output
-	// std::cout << "[" << __func__ << "]"
-	// 			<< "\n\t MPC Steering Angle : " << delta * (180.0f / CV_PI) << " deg, Acceleration: " << a << " m/s²"
-	// 			<< "\n\t MPC Yaw            : " << yaw * (180.0f / CV_PI) << " deg, Cross-track error: " << ey << " m"
-	// 			<< "\n\t MPC Current Speed  : " << currentSpeed.load(std::memory_order_relaxed) << " m/s"
-	// 			<< "\n\t MPC Previous Delta : " << prev_delta * (180.0f / CV_PI) << " deg" << std::endl;
-
-	// Limit steering angle to ±30 degrees in radians
-
-
 	float steeringDEG = static_cast<int>(std::max(-DELTA_MAX, std::min(DELTA_MAX, static_cast<double>(delta))) * 180 / CV_PI);  // Convert radians to % PWM
-	// std::cout << "[" << __func__ << "]\n\t Speed    : " << speed << " m/s,\n\t PWM: " << speedPWM << " %" << "\n\t read speed :" << currentSpeed.load(std::memory_order_relaxed) << std::endl;
-	// std::cout << "[" << __func__ << "]\n\t Steering : " << steering << " rad,\n\t PWM: " << steeringPWM << " %"<< std::endl;
-	// Update vehicle state
-	jetCar->set_servo_angle(static_cast<int>(steeringDEG));  // Convert radians to degrees
-
-	// Debug output
-
-    // Log data to CSV (unchanged)
-    // auto now = std::chrono::system_clock::now();
-    // auto timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-    // {
-    //     std::lock_guard<std::mutex> lock(csv_mutex_);
-    //     csv_file_ << timestamp_ms << ","
-    //               << std::fixed << std::setprecision(2) << currentSpeed.load(std::memory_order_relaxed) << ","
-    //               << (delta * 180.0f / CV_PI) << ","
-    //               << yaw << ","
-    //               << ey << "\n";
-    //     csv_file_.flush();
-    // }
+	jetCar->set_servo_angle(static_cast<int>(steeringDEG));  // Converted to degrees
 
     tracker.mark();
 	std::string servo_text = "Servo: " + std::to_string(delta * 180.0 / CV_PI) + " deg";
 	std::string delta_text = "Delta: " + std::to_string(delta) + " rad";
 	std::string speed_text = "Speed: " + std::to_string(speed) + " m/s";
-	//cv::putText(output_frame, text_to_print, cv::Point(x_img, y_img), cv::FONT_HERSHEY_SIMPLEX, font_size, cv::Scalar(R, G, B), font_thickness);
 	cv::putText(output_frame, servo_text, cv::Point(10, 270), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 	cv::putText(output_frame, delta_text, cv::Point(10, 300), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 	cv::putText(output_frame, speed_text, cv::Point(10, 330), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);

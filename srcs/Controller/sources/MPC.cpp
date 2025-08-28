@@ -9,8 +9,7 @@
 
 MPCController::MPCController(float wheelbase, float dt, int horizon)
     : L_(wheelbase), dt_(dt), N_(horizon) {
-    // R_ = R; // Balanced control effort
-    R_ = 10.0f; // Balanced control effort
+    R_ = R; // Balanced control effort
     Q_ << Q_EY, 0.0f, 0.0f, Q_YAW; // ey: 20, yaw: 5
     Qf_ << QF_EY, 0.0f, 0.0f, QF_YAW; // ey: 100, yaw: 25
     max_delta_ = DELTA_MAX; // 0.5 rad
@@ -18,85 +17,20 @@ MPCController::MPCController(float wheelbase, float dt, int horizon)
     min_delta_ = 0.05f; // Minimum delta limit
     state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
     delta_ = 0.0f; // Initial steering
+	a_ = 0.0f; // Initial acceleration
     delta_prev_ = 0.0f; // For rate penalty
     R_delta_rate_ = R_DELTA_RATE; // 10.0
-	//new at this branch
-	ey_filtered_ = 0.0f;
-	alpha_filter_ = 0.05f;  // Moderate smoothing
-}
-
-void MPCController::setFilteredEy(float ey) {
-	ey_filtered_ = alpha_filter_ * ey + (1.0f - alpha_filter_) * ey_filtered_;
-}
-
-float MPCController::getFilteredEy() const {
-	return ey_filtered_;
 }
 
 void MPCController::update(float ey, float yaw, float v) {
-    static int log_count = 0;
-    static std::ofstream log_file("mpc_logs.txt", std::ios::app);
-    static auto start_time = std::chrono::steady_clock::now();
-
-    // Compute timestamp
-    auto now = std::chrono::steady_clock::now();
-    double timestamp = std::chrono::duration<double>(now - start_time).count();
-
-
     // Clip invalid velocity
     if (v < 0.0f || v > V_MAX) {
         v = V_MIN;
         std::cout << "[" << __func__ << "] Warning: Invalid v clipped to V_MIN=" << V_MIN << std::endl;
     }
 
-	// Simple low-pass filter for ey
-	// if (std::abs(ey) > 0.002f) { // Only update if ey is valid
-	// 	this->setFilteredEy(ey);
-	// 	ey = this->getFilteredEy();
-	// 	// Console log
-	// 	// std::cout << "[" << __func__ << "] :"
-	// 	// << " Entry [" << log_count + 1 << "]"
-	// 	// << " ey_f : [" << ey_filtered_ << "]"
-	// 	// << " yaw : [" << yaw << "]"
-	// 	// << " v : [" << v << "]"
-	// 	// << std::endl;
-	// } // else keep previous ey_filtered_
-	// else {
-	// 	// Console log
-	// 	ey = 0.0f; // If ey is too small, treat as zero
-	// 	// std::cout << "[" << __func__ << "] :"
-	// 	// << " Entry [" << log_count + 1 << "]"
-	// 	// << " ey : [" << ey << "]"
-	// 	// << " yaw : [" << yaw << "]"
-	// 	// << " v : [" << v << "]"
-	// 	// << std::endl;
-	// }
-
     state_ << ey, yaw;
-    // if (v < 0.1f) {
-    //     delta_ = 0.0f;
-    //     std::cout << "[" << __func__ << "] Warning: Speed is too LOW => LKAS : OFF" << std::endl;
-    //     if (log_count < 200 && log_file.is_open()) {
-    //         log_file << std::fixed << std::setprecision(6)
-    //                  << "Entry " << log_count + 1 << ": "
-    //                  << "t=" << timestamp << ", ey=" << ey << ", yaw=" << yaw
-    //                  << ", v=" << v << ", delta=" << delta_ << ", delta_max=0.0, iter=0"
-    //                  << std::endl;
-    //         log_count++;
-    //         if (log_count == 200) {
-    //             log_file << "Reached 200 logs. Stopping file logging." << std::endl;
-    //             log_file.close();
-    //         }
-    //     }
-    //     return;
-    // }
     v_ = std::max(0.1f, v);
-
-
-	// Speed-dependent delta limit (comment out for testing without dependency)
-    // float speedRatio = std::max(0.0f, std::min(1.0f, static_cast<float>(v_ / V_MAX)));
-    // float delta_max = std::min(max_delta_, static_cast<float>(k_delta_ * (1 - speedRatio)));
-    // delta_max = std::max(min_delta_, delta_max);
 
     float delta_max = max_delta_; // 0.5 rad
 

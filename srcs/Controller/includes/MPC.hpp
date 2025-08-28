@@ -1,29 +1,9 @@
-// Version: v4 (2025-07-24)
+// Version: v9 (2025-08-28)
 #ifndef MPC_HPP
 #define MPC_HPP
 
 #include <Eigen/Dense>
 #include "Configs.hpp"
-
-// // JetRacer parameters
-// const double L = 0.15;          // Wheelbase (m)
-// const double DT = 0.1;        // Time step (s)
-// const int N = 10;              // Prediction horizon
-
-// // JetRacer parameters/*  */
-// const double V_MAX = 2.5;      // Max velocity (m/s)
-// const double DELTA_MAX = 0.523; // Max steering angle (rad, 30 deg)
-// const double DELTA_RATE_MAX = 0.5; // Max steering rate (rad/step)
-// const double A_MAX = 2.0;      // Max acceleration (m/s^2)
-// const double V_MIN = 0.4;      // Reference velocity (m/s)
-// const double V_REF_PWM = 50;      // Reference velocity (m/s) in % of PWM
-
-// // MPC weights
-// const double Q_EY = 100.0;     // Weight for cross-track error
-// const double Q_PSI_ERR = 10.0; // Weight for heading error
-// const double Q_V = 1.0;        // Weight for velocity error
-// const double R_DELTA = 1.0;    // Weight for steering effort
-// const double R_A = 1.0;        // Weight for acceleration effort
 
 class MPCController {
 public:
@@ -31,9 +11,6 @@ public:
     void update(float ey, float yaw, float v);
     float getSteeringAngle() const;
     float getAcceleration() const;
-	// new at this branch
-	float getFilteredEy() const;
-	void setFilteredEy(float ey);
 
 private:
     float L_; // Wheelbase (m)
@@ -48,12 +25,9 @@ private:
     Eigen::Vector2f state_; // [ey, yaw]
     float v_; // Current speed (m/s)
     float delta_; // Steering angle (rad)
+    float a_; // Acceleration (m/s^2)
     float delta_prev_; // Previous delta for rate penalty
 	float R_delta_rate_; // Penalty for delta rate change
-
-// new at this branch
-	float ey_filtered_;
-    float alpha_filter_;  // 0.2 para suavização moderada
 };
 
 #endif // MPC_HPP

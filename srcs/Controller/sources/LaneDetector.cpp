@@ -99,7 +99,6 @@ bool LaneDetector::findLaneEdges(const cv::Mat& lane_mask, const cv::Rect& roi) 
 	// Reset edge readiness
 	left_edge_ready = false;
 	right_edge_ready = false;
-	// std::cout << "[" << __func__ << "] : Scanning for lane edges in ROI: " << roi << std::endl;
 	// Scan from bottom to top of the ROI
 	for (int y = roi.y + roi.height; y > roi.y; --y) {
 		// Reset edge readiness for each row
