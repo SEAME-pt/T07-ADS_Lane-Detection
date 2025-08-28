@@ -1,0 +1,4 @@
+set noparent
+filter=-legal/copyright
+extensions=cc,cpp,cxx,h,hpp
+linelength=120

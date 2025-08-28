@@ -1,0 +1,194 @@
+name: C++ CI
+
+on:
+  push:
+    branches: [ master, main, '**' ]
+  pull_request:
+    branches: [ master, main, '**' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  quality:
+    name: Build + Static Analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build build-essential ccache
+          sudo apt-get install -y clang clang-tidy clang-format
+          sudo apt-get install -y cppcheck include-what-you-use lcov gcovr cpplint
+          ccache --set-config=max_size=1G || true
+
+      - name: Choose CMake root
+        id: cmakeroot
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f CMakeLists.txt ]; then root="."; 
+          elif [ -f srcs/MainCar/CMakeLists.txt ]; then root="srcs/MainCar"; 
+          elif [ -f srcs/Controller/CMakeLists.txt ]; then root="srcs/Controller"; 
+          else
+            root=$(git ls-files | grep -E '/CMakeLists\.txt$' | sed 's|/CMakeLists\.txt$||' | sort -u | head -n1 || true)
+            if [ -z "$root" ]; then echo "::warning::No CMakeLists.txt found, skipping build"; root=""; fi
+          fi
+          echo "root=$root" >> $GITHUB_OUTPUT
+          echo "Using CMake root: $root"
+
+      - name: Configure (Release + warnings)
+        if: steps.cmakeroot.outputs.root != ''
+        run: |
+          cmake -S "${{ steps.cmakeroot.outputs.root }}" -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_C_FLAGS="-Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="-Wall -Wextra -Wpedantic -Werror -fno-omit-frame-pointer"
+
+      - name: Build
+        if: steps.cmakeroot.outputs.root != ''
+        run: cmake --build build -- -k 0
+
+      - name: Expose compile_commands.json
+        if: steps.cmakeroot.outputs.root != ''
+        run: |
+          if [ -f build/compile_commands.json ]; then cp build/compile_commands.json .; fi
+
+      - name: Clang-Tidy
+        if: steps.cmakeroot.outputs.root != ''
+        run: |
+          TIDY=clang-tidy
+          # Collect project files, excluding vendor/third_party and docs
+          mapfile -t FILES < <(
+            git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp' \
+            | grep -Ev '^(docs/|tools/|third_party/|vendor/|external/|build/|srcs/Controller/libraries/|srcs/Controller/eigen/)' || true
+          )
+          if [ ${#FILES[@]} -eq 0 ]; then echo "No C/C++ files found"; exit 0; fi
+          echo "Running clang-tidy on ${#FILES[@]} files"
+          xargs -r -n 20 -P 2 $TIDY -p build -warnings-as-errors='*' -- <<< "${FILES[*]}"
+
+      - name: Clang-Format check
+        run: |
+          mapfile -t FILES < <(
+            git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp' \
+            | grep -Ev '^(docs/|tools/|third_party/|vendor/|external/|build/|srcs/Controller/libraries/|srcs/Controller/eigen/)' || true
+          )
+          if [ ${#FILES[@]} -eq 0 ]; then exit 0; fi
+          clang-format -style=file -n --Werror "${FILES[@]}"
+
+      - name: Cppcheck (project)
+        if: steps.cmakeroot.outputs.root != ''
+        run: |
+          if [ -f build/compile_commands.json ]; then
+            cppcheck --project=build/compile_commands.json \
+              --enable=all --inconclusive --std=c++17 \
+              --suppress=missingIncludeSystem --inline-suppr --error-exitcode=1 --quiet \
+              --exclude=srcs/Controller/libraries --exclude=srcs/Controller/eigen \
+              --exclude=docs --exclude=tools --exclude=build
+          else
+            echo "No compile_commands.json; running basic cppcheck"
+            cppcheck . --enable=warning,style,performance,portability --std=c++17 \
+              --error-exitcode=1 --quiet \
+              --exclude=srcs/Controller/libraries --exclude=srcs/Controller/eigen \
+              --exclude=docs --exclude=tools --exclude=build
+          fi
+
+      - name: cpplint
+        run: |
+          mapfile -t FILES < <(
+            git ls-files '*.h' '*.hpp' '*.c' '*.cc' '*.cpp' '*.cxx' \
+            | grep -Ev '^(docs/|tools/|third_party/|vendor/|external/|build/|srcs/Controller/libraries/|srcs/Controller/eigen/)' || true
+          )
+          if [ ${#FILES[@]} -eq 0 ]; then exit 0; fi
+          cpplint --filter=-build/c++11 \
+            --linelength=120 \
+            --quiet \
+            "${FILES[@]}"
+
+      - name: Include-What-You-Use (advice)
+        continue-on-error: true
+        run: |
+          IWYU_BIN=$(command -v include-what-you-use || command -v iwyu || true)
+          if [ -z "$IWYU_BIN" ]; then echo "IWYU not available, skipping"; exit 0; fi
+          mapfile -t FILES < <(
+            git ls-files '*.cc' '*.cpp' '*.cxx' \
+            | grep -Ev '^(docs/|tools/|third_party/|vendor/|external/|build/|srcs/Controller/libraries/|srcs/Controller/eigen/)' || true
+          )
+          if [ ${#FILES[@]} -eq 0 ]; then exit 0; fi
+          xargs -r -n 1 -P 2 "$IWYU_BIN" -- <<< "${FILES[*]}" || true
+
+      - name: Run tests (ctest if available)
+        run: ctest --test-dir build --output-on-failure || true
+
+  sanitizers:
+    name: Address/UBSan build and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang
+
+      - name: Choose CMake root
+        id: cmakeroot
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f CMakeLists.txt ]; then root="."; 
+          elif [ -f srcs/MainCar/CMakeLists.txt ]; then root="srcs/MainCar"; 
+          elif [ -f srcs/Controller/CMakeLists.txt ]; then root="srcs/Controller"; 
+          else
+            root=$(git ls-files | grep -E '/CMakeLists\.txt$' | sed 's|/CMakeLists\.txt$||' | sort -u | head -n1 || true)
+            if [ -z "$root" ]; then echo "::warning::No CMakeLists.txt found, skipping sanitizer build"; root=""; fi
+          fi
+          echo "root=$root" >> $GITHUB_OUTPUT
+
+      - name: Configure with ASan/UBSan
+        if: steps.cmakeroot.outputs.root != ''
+        run: |
+          cmake -S "${{ steps.cmakeroot.outputs.root }}" -B build-sani -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
+            -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build (sanitizers)
+        if: steps.cmakeroot.outputs.root != ''
+        run: cmake --build build-sani -- -k 0
+
+      - name: Run tests (sanitizers)
+        env:
+          ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1:check_initialization_order=1:strict_init_order=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: ctest --test-dir build-sani --output-on-failure || true
