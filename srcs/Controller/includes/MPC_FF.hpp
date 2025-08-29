@@ -1,0 +1,44 @@
+// Version: v9 (2025-08-28)
+#ifndef MPC_HPP
+#define MPC_HPP
+
+#include <Eigen/Dense>
+#include "Configs.hpp"
+
+class MPCController {
+public:
+    MPCController(float wheelbase, float dt, int horizon);
+	// Update state and compute optimal control
+    void update(float ey, float yaw, float v);
+	// Control outputs
+    float getSteeringAngle() const;
+    float getAcceleration() const;
+
+private:
+	// fixed parameters
+    float L_; // Wheelbase (m)
+    float dt_; // Time step (s)
+    int N_; // Prediction horizon
+
+    Eigen::Matrix2f	Q_; // State cost matrix
+    Eigen::Matrix2f	Qf_; // Terminal cost matrix
+    float 			R_; // Control cost
+    float 			max_delta_; // Max physical steering angle (rad)
+    float 			k_delta_; // Speed-dependent delta constant (rad·m/s)
+    float 			min_delta_; // Minimum delta limit (rad)
+
+	// dynamic states
+    Eigen::Vector2f	state_; // [ey, yaw]
+    float 			v_; // Current speed (m/s)
+    float 			delta_; // Steering angle (rad)
+    float 			a_; // Acceleration (m/s^2)
+    float 			delta_prev_; // Previous delta for rate penalty
+	float 			R_delta_rate_; // Penalty for delta rate change
+
+	// feed-forward control
+	float			k_ff_; // Feed-forward gain
+	float			lookahead_;
+	float 			estimateCurvature(float yaw) const;
+};
+
+#endif // MPC_HPP

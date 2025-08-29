@@ -221,8 +221,8 @@ void Controller::listen() {
 		auto loop_end = std::chrono::steady_clock::now();
 		auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end - loop_start).count();
 
-		std::cout << "[" << __func__ << "] "
-				<< "Loop duration: " << duration_ms << " ms \r" << std::flush;
+		// std::cout << "[" << __func__ << "] "
+		// 		<< "Loop duration: " << duration_ms << " ms \r" << std::flush;
 		if (duration_ms < 99) {
         	std::this_thread::sleep_for(std::chrono::milliseconds(100 - duration_ms));
     	}
