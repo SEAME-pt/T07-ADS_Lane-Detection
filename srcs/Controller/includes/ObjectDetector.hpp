@@ -2,15 +2,20 @@
 #define OBJECT_DETECTOR_HPP
 
 #include <NvInfer.h>
-#include <NvInferRuntime.h>
 #include <opencv2/opencv.hpp>
-#include <vector>
-#include <string>
-#include <fstream>
-#include <iostream>
-#include <cuda_runtime_api.h>
+#include <opencv2/dnn.hpp>
+#include <cuda_runtime.h>
 #include "LaneDetector.hpp"
 
+#include <iostream>
+#include <fstream>
+#include <map>
+#include <vector>
+#include <string>
+
+using namespace nvinfer1;
+
+// Estrutura para detecções
 struct Detection {
     int class_id;
     std::string class_name;
@@ -18,34 +23,43 @@ struct Detection {
     cv::Rect bbox;
 };
 
-
+// Classe principal para YOLO TensorRT
 class ObjectDetector {
+private:
+    Logger logger;
+    IRuntime* runtime = nullptr;
+    ICudaEngine* engine = nullptr;
+    IExecutionContext* context = nullptr;
+
+    struct Buffer {
+        void* device;
+        float* host;
+        size_t size;
+    };
+
+    std::vector<Buffer> inputBuffers;
+    std::vector<Buffer> outputBuffers;
+    std::vector<void*> bindings;
+
+    int input_size;
+    int num_classes;
+    size_t output_size;
+
+    std::map<int, std::string> classes;
+    std::map<int, cv::Scalar> colors;
+
+    void allocateBuffers();
+
 public:
-    ObjectDetector(const std::string& engine_path, int input_dim = 640);
+    ObjectDetector(const std::string& engine_path, int input_sz = 320);
     ~ObjectDetector();
 
-    std::vector<Detection> infer(const cv::Mat& frame);
-
-private:
-    void preprocess(const cv::Mat& input, float* gpu_input, float& scale, int& dw, int& dh);
+    std::vector<float> preprocess(const cv::Mat& image, float& scale, int& dw, int& dh);
     std::vector<Detection> postprocess(const std::vector<float>& output, float scale, int dw, int dh,
-                                       float conf_threshold, float nms_threshold);
+                                       float conf_threshold = 0.3, float nms_threshold = 0.4);
+    std::vector<Detection> infer(const cv::Mat& image);
 
-    int inputDim;
-    int numClasses;
-    std::vector<std::string> classNames;
-
-    Logger logger;
-    nvinfer1::IRuntime* runtime{nullptr};
-    nvinfer1::ICudaEngine* engine{nullptr};
-    nvinfer1::IExecutionContext* context{nullptr};
-
-    void* buffers[2]; // GPU buffers: input/output
-    int inputIndex;
-    int outputIndex;
-    size_t inputSize;
-    size_t outputSize;
-    cudaStream_t stream;
+    cv::Scalar getColor(int class_id);
 };
 
-#endif
+#endif // OBJECT_DETECTOR_HPP

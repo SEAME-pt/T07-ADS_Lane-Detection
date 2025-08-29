@@ -22,6 +22,8 @@ void Debug::showOutputVideo(cv::Mat& binary_mask, cv::Mat& output_frame, imgGeom
         output_frame.convertTo(output_frame, CV_8UC3);
     }
 
+
+
 	// Draw angle and offset on top left corner
 	std::string angle_text = "iGeo.yaw: " + std::to_string(iGeo.angle * 180 / CV_PI) + " deg";
 	std::string offset_text = "iGeo.offset : " + std::to_string(iGeo.offset) + " m";

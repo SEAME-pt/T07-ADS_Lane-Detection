@@ -193,11 +193,8 @@ void Controller::listen() {
 
         float ey, yaw;
 
-        // Atualiza detecções do Python
-		 std::vector<Detection> detections = objectDetector->infer(frame);
-
-		 output_frame = frame.clone();
-
+        output_frame = frame.clone();
+        std::vector<Detection> detections = objectDetector->infer(frame);
         // Desenhar caixas no output_frame
         for (const auto& det : detections) {
             cv::rectangle(output_frame, det.bbox, cv::Scalar(0, 255, 0), 2);
@@ -205,8 +202,9 @@ void Controller::listen() {
             cv::putText(output_frame, label, cv::Point(det.bbox.x, det.bbox.y-5),
                         cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 1);
         }
+        
 
-        //laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
+        laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
 		// std::cout << "["<< __func__ <<"] : "
 		// 			<< "Offset: " << ey << " m, Yaw: " << yaw * (180.0f / CV_PI) << " deg, Speed: " << currentSpeed.load(std::memory_order_relaxed) << " m/s" << std::endl;
         if (_currentMode == MODE_AUTONOMOUS) {
@@ -249,6 +247,8 @@ void Controller::listen() {
 		if (duration_ms < 99) {
         	std::this_thread::sleep_for(std::chrono::milliseconds(100 - duration_ms));
     	}
+
+
 
 		// // Optional: Print actual duration (will be ~100+ ms)
 		// auto loop_total_end = std::chrono::steady_clock::now();

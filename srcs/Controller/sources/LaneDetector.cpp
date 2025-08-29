@@ -486,7 +486,7 @@ void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv:
 	cv::threshold(lane_mask_, binary_mask, threshold, 1.0, cv::THRESH_BINARY);
 	cv::resize(lane_mask_, lane_mask_, cv::Size(F_W, F_H), 0, 0, cv::INTER_CUBIC); // Resize to original frame size
 
-	output_frame = frame.clone();
+	//output_frame = frame.clone();
 	bool laneOk = calculateLaneGeometry(offset, angle, visualize_mask);
 	// Debugging output
 	// std::cout << "[" << __func__ << "] : "

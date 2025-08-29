@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 	std::string modelLanePath = argv[1];
 	std::string modelObjectPath = argv[2];
     auto laneDetector = std::make_unique<LaneDetector>(modelLanePath);
-	auto objectDetector = std::make_unique<ObjectDetector>(modelObjectPath);
+	auto objectDetector = std::make_unique<ObjectDetector>(modelObjectPath, 320);
 
 
 	std::cout << "[Main] LaneDetector inicializado com sucesso!" << std::endl;
