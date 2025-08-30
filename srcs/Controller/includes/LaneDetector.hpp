@@ -28,7 +28,7 @@ class LaneDetector {
 public:
 	LaneDetector(const std::string& trt_model_path);
 	~LaneDetector();
-	void processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask);
+	void processFrame(const cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask);
 
 
 private:

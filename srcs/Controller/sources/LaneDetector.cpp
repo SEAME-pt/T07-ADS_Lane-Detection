@@ -434,7 +434,7 @@ void LaneDetector::preprocess(const cv::Mat& frame) {
 /// @param angle	The calculated angle of the lane in radians.
 /// @param output_frame	The output frame with visualizations (if enabled).
 /// @param visualize_mask	Flag to enable visualization of the lane mask.
-void LaneDetector::processFrame(cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
+void LaneDetector::processFrame(const cv::Mat& frame, float& offset, float& angle, cv::Mat& output_frame, bool visualize_mask) {
 	preprocess(frame);
 	infer();
 

@@ -3,10 +3,13 @@
 ObjectDetector::ObjectDetector(const std::string& engine_path, int input_sz) 
     : input_size(input_sz) 
 {
+    // {0: 'STOP', 1: 'car', 2: 'crosswalk', 3: 'danger', 4: 'prioridade', 5: 'sinalGreen', 
+    // 6: 'sinalRed', 7: 'sinalYellow', 8: 'speed50', 9: 'speed80'}
+
     classes = {
         {0, "STOP"}, {1, "car"}, {2, "crosswalk"}, {3, "danger"},
-        {4, "yield"}, {5, "LIGHT_GREEN"}, {6, "LIGHT_RED"}, 
-        {7, "LIGHT_YELLOW"}, {8, "SPEED50"}, {9, "SPEED80"}
+        {4, "prioridade"}, {5, "sinalGreen"}, {6, "sinalRed"}, 
+        {7, "sinalYellow"}, {8, "speed50"}, {9, "speed80"}
     };
 
     colors = {
@@ -186,11 +189,19 @@ std::vector<Detection> ObjectDetector::postprocess(const std::vector<float>& out
     return detections;
 }
 
-std::vector<Detection> ObjectDetector::infer(const cv::Mat& image) {
+std::vector<Detection> ObjectDetector::infer(const cv::Mat& image, const cv::Rect& roi) {
     try {
+        // Crop ROI if provided
+        cv::Mat cropped;
+        if (roi.width > 0 && roi.height > 0) {
+            cropped = image(roi).clone();
+        } else {
+            cropped = image.clone();
+        }
+
         float scale;
         int dw, dh;
-        std::vector<float> input_data = preprocess(image, scale, dw, dh);
+        std::vector<float> input_data = preprocess(cropped, scale, dw, dh);
 
         std::copy(input_data.begin(), input_data.end(), inputBuffers[0].host);
         cudaMemcpy(inputBuffers[0].device, inputBuffers[0].host, inputBuffers[0].size, cudaMemcpyHostToDevice);
@@ -201,13 +212,25 @@ std::vector<Detection> ObjectDetector::infer(const cv::Mat& image) {
 
         std::vector<float> output(outputBuffers[0].host, outputBuffers[0].host + output_size);
 
-        return postprocess(output, scale, dw, dh, 0.6, 0.4);
+        // Pós-processamento (mas tem que ajustar coordenadas ao ROI!)
+        std::vector<Detection> detections = postprocess(output, scale, dw, dh, 0.6, 0.4);
+
+        // Ajustar bounding boxes para coordenadas da imagem original
+        if (roi.width > 0 && roi.height > 0) {
+            for (auto& det : detections) {
+                det.bbox.x += roi.x;
+                det.bbox.y += roi.y;
+            }
+        }
+
+        return detections;
 
     } catch (const std::exception& e) {
         std::cerr << "Erro durante inferência: " << e.what() << std::endl;
         return {};
     }
 }
+
 
 cv::Scalar ObjectDetector::getColor(int class_id) {
     return colors.count(class_id) ? colors[class_id] : cv::Scalar(255, 255, 255);

@@ -57,7 +57,7 @@ public:
     std::vector<float> preprocess(const cv::Mat& image, float& scale, int& dw, int& dh);
     std::vector<Detection> postprocess(const std::vector<float>& output, float scale, int dw, int dh,
                                        float conf_threshold = 0.3, float nms_threshold = 0.4);
-    std::vector<Detection> infer(const cv::Mat& image);
+    std::vector<Detection> infer(const cv::Mat& image, const cv::Rect& roi);
 
     cv::Scalar getColor(int class_id);
 };

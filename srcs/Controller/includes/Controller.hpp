@@ -11,6 +11,7 @@
 #include <memory>
 #include <atomic>
 #include <mutex>
+#include <thread>
 #include <fstream>
 #include "JetCar.hpp"
 #include "LaneDetector.hpp"
@@ -93,8 +94,8 @@ private:
 
     // Stop control
     int stopCounter = 0;  // conta quantos frames seguidos detectou STOP
-    const int STOP_THRESHOLD = 5;  // precisa de 5 frames seguidos pra acionar
-    void checkStopSign(const std::vector<Detection>& detections);
+    const int STOP_THRESHOLD = 1;  // precisa de 5 frames seguidos pra acionar
+    bool checkStopSign(const std::vector<Detection>& detections);
 
 
 };
