@@ -188,6 +188,15 @@ void Controller::listen() {
             processEvent(event);
         }
 
+        std::vector<Detection> detections = objectDetector->infer(frame);
+        // Desenhar caixas no output_frame
+        for (const auto& det : detections) {
+            cv::rectangle(output_frame, det.bbox, cv::Scalar(0, 255, 0), 2);
+            std::string label = det.class_name + " " + std::to_string(int(det.confidence*100)) + "%";
+            cv::putText(output_frame, label, cv::Point(det.bbox.x, det.bbox.y-5),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 1);
+        }
+
         float ey, yaw;
         laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
         if (_currentMode == MODE_AUTONOMOUS) {
@@ -199,7 +208,6 @@ void Controller::listen() {
 		} else {
 			visualize_mask_ = true;
 		}
-
 
         if (buttonStates[BTN_SELECT] && buttonStates[BTN_START]) {
             break;
@@ -270,4 +278,8 @@ void Controller::autonomous(float ey, float yaw) {
 
 void Controller::setLaneDetector(std::unique_ptr<LaneDetector> detector) {
     laneDetector = std::move(detector);
+}
+
+void Controller::setObjectDetector(std::unique_ptr<ObjectDetector> detector) {
+	objectDetector = std::move(detector);
 }

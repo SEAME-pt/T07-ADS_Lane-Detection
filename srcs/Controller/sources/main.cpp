@@ -1,6 +1,7 @@
 #include <iostream>
 #include "JetCar.hpp"
 #include "LaneDetector.hpp"
+#include "ObjectDetector.hpp"
 #include <csignal>
 #include "Controller.hpp"
 
@@ -37,13 +38,14 @@ int changeMode(int mode, Controller &controller, JetCar &jetCar) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <path_to_model>" << std::endl;
-        return 1;
-    }
+    if (argc < 3) {
+		std::cerr << "Usage: " << argv[0] << " <path_to_model>" << std::endl; return 1;
+	}
 
     std::string modelPath = argv[1];
+    std::string modelObjectPath = argv[2];
     auto laneDetector = std::make_unique<LaneDetector>(modelPath); // Criar com unique_ptr
+    auto objectDetector = std::make_unique<ObjectDetector>(modelObjectPath, 320);
 
 	std::cout << "[Main] LaneDetector inicializado com sucesso!" << std::endl;
 	std::cout << "[Main] Versao..." << VERSAO << std::endl;
@@ -56,6 +58,7 @@ int main(int argc, char *argv[]) {
     try {
         Controller controller(&jetCar); // Passar ponteiro para JetCar
         controller.setLaneDetector(std::move(laneDetector)); // Transferir posse
+        controller.setObjectDetector(std::move(objectDetector));
 
         std::cout << "[Main] Initializing controller" << std::endl;
         if (!controller.initialize()) {

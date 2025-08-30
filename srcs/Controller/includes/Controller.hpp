@@ -14,6 +14,7 @@
 #include <fstream>
 #include "JetCar.hpp"
 #include "LaneDetector.hpp"
+#include "ObjectDetector.hpp"
 #include "SpeedSubscriber.hpp"
 #include "TimeTracker.hpp"
 #include "SpeedPIDController.hpp"
@@ -59,6 +60,7 @@ public:
     void listen();
     void autonomous(float ey, float yaw);
     void setLaneDetector(std::unique_ptr<LaneDetector> detector);
+    void setObjectDetector(std::unique_ptr<ObjectDetector> detector);
     bool initialize();
 
     cv::VideoCapture cap_;
@@ -67,6 +69,7 @@ private:
     SDL_Joystick* joystick;
     JetCar* jetCar;
     std::unique_ptr<LaneDetector> laneDetector;
+    std::unique_ptr<ObjectDetector> objectDetector;
     SpeedSubscriber speed;
     SpeedPIDController* speedPIDController;
     std::array<bool, 16> buttonStates;
