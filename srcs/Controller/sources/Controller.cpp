@@ -191,17 +191,17 @@ void Controller::listen() {
        std::vector<Detection> detections = objectDetector->infer(frame);
        // 🚦 checar se deve parar
        // print detections vector
-       for (const auto& det : detections) {
-           std::cout << "[" << __func__ << "] "
-                     << "Detections: " << det.class_name << " " << det.confidence << std::endl;
-       }
+    //    for (const auto& det : detections) {
+    //        std::cout << "[" << __func__ << "] "
+    //                  << "Detections: " << det.class_name << " " << det.confidence << std::endl;
+    //    }
        checkStopSign(detections);
-        for (const auto& det : detections) {
-            cv::rectangle(output_frame, det.bbox, cv::Scalar(0, 255, 0), 2);
-            std::string label = det.class_name + " " + std::to_string(int(det.confidence*100)) + "%";
-            cv::putText(output_frame, label, cv::Point(det.bbox.x, det.bbox.y-5),
-                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 1);
-        }
+        // for (const auto& det : detections) {
+        //     cv::rectangle(output_frame, det.bbox, cv::Scalar(0, 255, 0), 2);
+        //     std::string label = det.class_name + " " + std::to_string(int(det.confidence*100)) + "%";
+        //     cv::putText(output_frame, label, cv::Point(det.bbox.x, det.bbox.y-5),
+        //                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 1);
+        // }
 
 
         float ey, yaw;
@@ -236,8 +236,8 @@ void Controller::listen() {
 		auto loop_end = std::chrono::steady_clock::now();
 		auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end - loop_start).count();
 
-		// std::cout << "[" << __func__ << "] "
-		// 		<< "Loop duration: " << duration_ms << " ms \r" << std::flush;
+		std::cout << "[" << __func__ << "] "
+				<< "Loop duration: " << duration_ms << " ms \r" << std::flush;
 		if (duration_ms < 99) {
         	std::this_thread::sleep_for(std::chrono::milliseconds(100 - duration_ms));
     	}
@@ -263,9 +263,9 @@ void Controller::checkStopSign(const std::vector<Detection>& detections) {
     if (foundStop) {
         stopCounter++;
         if (stopCounter >= STOP_THRESHOLD) {
-            std::cout << "[Controller] STOP sign detected! Switching to manual mode." << std::endl;
-            jetCar->set_motor_speed(0);   // freia
-            setMode(MODE_JOYSTICK);       // troca pra manual
+            std::cout << "[" << __func__ << "] : STOP sign detected! Switching to manual mode." << std::endl;
+            // jetCar->set_motor_speed(0);   // freia
+            // setMode(MODE_JOYSTICK);       // troca pra manual
             stopCounter = 0;              // reseta contador
         }
     } else {

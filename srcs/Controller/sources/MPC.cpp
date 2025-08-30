@@ -26,7 +26,7 @@ void MPCController::update(float ey, float yaw, float v) {
     // Clip invalid velocity
     if (v < 0.0f || v > V_MAX) {
         v = V_MIN;
-        std::cout << "[" << __func__ << "] Warning: SSSSInvalid v clipped to V_MIN=" << V_MIN << std::endl;
+        std::cout << "[" << __func__ << "] Warning: Invalid v clipped to V_MIN=" << V_MIN << std::endl;
     }
 
     state_ << ey, yaw;
@@ -137,7 +137,7 @@ void MPCController::update(float ey, float yaw, float v) {
     }
 
     delta_prev_ = delta_;
-	std::cout << v_ << "\t" << ey << "\t" << yaw << "\t" << u(0) << std::endl;
+	// std::cout << v_ << "\t" << ey << "\t" << yaw << "\t" << u(0) << std::endl;
     delta_ = u(0);
 }
 
