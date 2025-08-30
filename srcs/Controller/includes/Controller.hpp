@@ -91,6 +91,12 @@ private:
 	float delta_;
 	MPCController mpc_;
 
+    // Stop control
+    int stopCounter = 0;  // conta quantos frames seguidos detectou STOP
+    const int STOP_THRESHOLD = 5;  // precisa de 5 frames seguidos pra acionar
+    void checkStopSign(const std::vector<Detection>& detections);
+
+
 };
 
 

@@ -188,14 +188,21 @@ void Controller::listen() {
             processEvent(event);
         }
 
-        std::vector<Detection> detections = objectDetector->infer(frame);
-        // Desenhar caixas no output_frame
+       std::vector<Detection> detections = objectDetector->infer(frame);
+       // 🚦 checar se deve parar
+       // print detections vector
+       for (const auto& det : detections) {
+           std::cout << "[" << __func__ << "] "
+                     << "Detections: " << det.class_name << " " << det.confidence << std::endl;
+       }
+       checkStopSign(detections);
         for (const auto& det : detections) {
             cv::rectangle(output_frame, det.bbox, cv::Scalar(0, 255, 0), 2);
             std::string label = det.class_name + " " + std::to_string(int(det.confidence*100)) + "%";
             cv::putText(output_frame, label, cv::Point(det.bbox.x, det.bbox.y-5),
                         cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 1);
         }
+
 
         float ey, yaw;
         laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
@@ -243,7 +250,29 @@ void Controller::listen() {
 	}
 }
 
+void Controller::checkStopSign(const std::vector<Detection>& detections) {
+    bool foundStop = false;
 
+    for (const auto& det : detections) {
+        if (det.class_name == "stop" && det.confidence > 0.6f) {
+            foundStop = true;
+            break;
+        }
+    }
+
+    if (foundStop) {
+        stopCounter++;
+        if (stopCounter >= STOP_THRESHOLD) {
+            std::cout << "[Controller] STOP sign detected! Switching to manual mode." << std::endl;
+            jetCar->set_motor_speed(0);   // freia
+            setMode(MODE_JOYSTICK);       // troca pra manual
+            stopCounter = 0;              // reseta contador
+        }
+    } else {
+        // não viu STOP nesse frame → reseta contador
+        stopCounter = 0;
+    }
+}
 
 void Controller::autonomous(float ey, float yaw) {
     tracker.mark();
