@@ -1,0 +1,107 @@
+name: C++ Code Quality CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  code-quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup C++ environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build build-essential \
+            clang-18 clang-tidy-18 clang-format-18 \
+            cppcheck lcov
+
+      - name: Setup compiler alternatives
+        run: |
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 100
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build project
+        run: cmake --build build
+
+      - name: Run clang-format check
+        run: |
+          find src include -name "*.cpp" -o -name "*.hpp" -o -name "*.h" -o -name "*.c" | \
+          xargs clang-format --dry-run --Werror
+
+      - name: Run clang-tidy
+        run: |
+          find src include -name "*.cpp" -o -name "*.c" | \
+          xargs clang-tidy -p build --warnings-as-errors='*'
+
+      - name: Run cppcheck
+        run: |
+          cppcheck --project=build/compile_commands.json \
+            --enable=all --inconclusive \
+            --suppress=missingIncludeSystem \
+            --error-exitcode=1
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure || true
+
+  sanitizers:
+    name: Sanitizer Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-18
+
+      - name: Configure with sanitizers
+        run: |
+          cmake -B build-sanitizers -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+
+      - name: Build with sanitizers
+        run: cmake --build build-sanitizers
+
+      - name: Run sanitizer tests
+        env:
+          ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: |
+          cd build-sanitizers
+          ctest --output-on-failure || true

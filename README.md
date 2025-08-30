@@ -1,6 +1,72 @@
 # ADS Project - Lane Keeping Assist - Level 1 Autonomy ADAS feature  
 ## Your lane, your pace!
-</br>
+
+[![CI](https://github.com/SEAME-pt/T07-ADS_Lane-Detection/actions/workflows/code-quality.yml/badge.svg)](https://github.com/SEAME-pt/T07-ADS_Lane-Detection/actions/workflows/code-quality.yml)
+
+This repository includes automated code quality checks using clang-tidy, clang-format, and other tools, with both local development container support and CI/CD integration.
+
+## Quick Start for Development
+
+### Using Development Container (Recommended)
+
+1. **Setup the development environment:**
+   ```bash
+   ./dev.sh setup
+   ```
+
+2. **Build and start the development container:**
+   ```bash
+   ./dev.sh build
+   ./dev.sh start
+   ```
+
+3. **Open a shell in the container:**
+   ```bash
+   ./dev.sh shell
+   ```
+
+4. **Build the project:**
+   ```bash
+   cmake -B build -DCMAKE_BUILD_TYPE=Debug
+   cmake --build build
+   ```
+
+### Development Commands
+
+#### Container Management
+```bash
+./dev.sh build      # Build the development container
+./dev.sh start      # Start the container
+./dev.sh shell      # Open interactive shell
+./dev.sh stop       # Stop the container
+./dev.sh restart    # Restart the container
+./dev.sh clean      # Clean rebuild container
+```
+
+#### Code Quality Tools
+```bash
+./dev.sh format     # Run clang-format on all files
+./dev.sh tidy       # Run clang-tidy on all files
+./dev.sh setup      # Setup git hooks and project structure
+```
+
+### Code Quality Standards
+
+#### Pre-commit Checks
+Git hooks automatically run:
+- **clang-format**: Automatically formats code before commit
+- **clang-tidy**: Static analysis and linting
+
+#### CI/CD Pipeline
+Every push and pull request triggers:
+- **Build verification** with strict warnings
+- **clang-format** compliance check
+- **clang-tidy** static analysis
+- **cppcheck** additional analysis
+- **Sanitizer builds** (AddressSanitizer + UBSanitizer)
+- **Unit tests** (if present)
+
+---
 
 
 - [ADS Project - Lane Keeping Assist - Level 1 Autonomy ADAS feature](#ads-project---lane-keeping-assist---level-1-autonomy-adas-feature)

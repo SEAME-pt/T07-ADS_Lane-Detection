@@ -1,23 +1,71 @@
+---
 BasedOnStyle: LLVM
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
-ColumnLimit: 120
+ColumnLimit: 100
 AccessModifierOffset: -2
+
+# Pointer and reference alignment
 DerivePointerAlignment: false
 PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Function formatting
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+
+# Braces
 BreakBeforeBraces: Allman
+Cpp11BracedListStyle: true
+
+# Indentation
 NamespaceIndentation: All
-SortIncludes: true
+IndentCaseLabels: true
+IndentPPDirectives: BeforeHash
+
+# Includes
+SortIncludes: CaseInsensitive
 IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:           '^<.*\.h>'
+    Priority:        1
+    SortPriority:    0
+  - Regex:           '^<.*>'
+    Priority:        2
+    SortPriority:    0
+  - Regex:           '.*'
+    Priority:        3
+    SortPriority:    0
+
+# Comments and spacing
 FixNamespaceComments: true
-SpacesInAngles:  false
+SpacesInAngles: false
 SpaceAfterCStyleCast: true
 SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+
+# Parameter and argument formatting
 BinPackArguments: false
 BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllArgumentsOnNextLine: false
+
+# Alignment
 AlignConsecutiveAssignments: Consecutive
 AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveMacros: Consecutive
+AlignOperands: Align
+
+# Line breaks
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeColon
+BreakInheritanceList: BeforeColon
+
+# Other
 ReflowComments: true
+SortUsingDeclarations: true
+SpaceAfterTemplateKeyword: true
