@@ -173,8 +173,7 @@ void Controller::listen() {
 				<< " ** CAR CM : " << CAR_CM
 				<< "\n\t## Q_EY : " << Q_EY
 				<< " ## Q_YAW : " << Q_YAW
-				<< " ## Q_V : " << Q_V
-				<< "\n\t@@ V_REF_PWM : " << V_REF_PWM << std::endl;
+				<< "\n\tV_REF_PWM : " << V_REF_PWM << " @ FREQ_PWM : " << V_PWM_FREQ << std::endl;
 
     while (true) {
 		auto loop_start = std::chrono::steady_clock::now();
@@ -188,14 +187,14 @@ void Controller::listen() {
             processEvent(event);
         }
 
-       std::vector<Detection> detections = objectDetector->infer(frame);
+    //    std::vector<Detection> detections = objectDetector->infer(frame);
        // 🚦 checar se deve parar
        // print detections vector
     //    for (const auto& det : detections) {
     //        std::cout << "[" << __func__ << "] "
     //                  << "Detections: " << det.class_name << " " << det.confidence << std::endl;
     //    }
-       checkStopSign(detections);
+    //    checkStopSign(detections);
         // for (const auto& det : detections) {
         //     cv::rectangle(output_frame, det.bbox, cv::Scalar(0, 255, 0), 2);
         //     std::string label = det.class_name + " " + std::to_string(int(det.confidence*100)) + "%";
@@ -236,8 +235,8 @@ void Controller::listen() {
 		auto loop_end = std::chrono::steady_clock::now();
 		auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end - loop_start).count();
 
-		std::cout << "[" << __func__ << "] "
-				<< "Loop duration: " << duration_ms << " ms \r" << std::flush;
+		// std::cout << "[" << __func__ << "] "
+		// 		<< "Loop duration: " << duration_ms << " ms \r" << std::flush;
 		if (duration_ms < 99) {
         	std::this_thread::sleep_for(std::chrono::milliseconds(100 - duration_ms));
     	}
@@ -285,7 +284,7 @@ void Controller::autonomous(float ey, float yaw) {
 		// std::cout << "[" << __func__ << "] Speed is " << speed << ", LKAS ON" << std::endl;
 		mpc_.update(-ey, -yaw, speed);
 	} else {
-		std::cout << "[" << __func__ << "] Speed is " << speed <<  "! Too low, LKAS OFF" << std::endl;
+		// std::cout << "[" << __func__ << "] Speed is " << speed <<  "! Too low, LKAS OFF" << std::endl;
 		return;
 	}
 
