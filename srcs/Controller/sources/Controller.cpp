@@ -207,7 +207,28 @@ void Controller::listen() {
         float ey, yaw;
         laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
         if (_currentMode == MODE_AUTONOMOUS) {
-			jetCar->set_motor_speed(static_cast<int>(cruise_speed_));  // Convert m/s to cm/s
+			static int cruise_delta_ = 0;
+			if (std::abs(yaw) < 0.1 && std::abs(ey) < 0.05) {
+				cruise_reset_ = true;
+				cruise_delta_++; // small speed boost on straight roads
+			} else {
+				cruise_delta_ = 0.0f;
+				if (cruise_reset_) {
+						std::cout << "[" << __func__ << "] "
+								<< "Curve detected! Resetting cruise control." << std::endl;
+						if (std::abs(yaw) > 0.38f){
+							std::cout << "[" << __func__ << "] "
+									<< "Sharp curve detected! Briefly stopping to reset cruise control." << std::endl;
+							jetCar->set_motor_speed(static_cast<int>(0));
+							sleep(0.1); // 0.1s pause to reset motor
+						}
+						cruise_reset_ = false;
+						std::cout << "[" << __func__ << "] "
+								<< "Resuming cruise speed at " << cruise_speed_ << " cm/s" << std::endl;
+					}
+			}
+			cruise_delta_ = std::min(cruise_delta_, static_cast<int>(cruise_speed_ * 0.3f)); // limit max boost to 5 cm/s
+			jetCar->set_motor_speed(static_cast<int>(cruise_speed_ + cruise_delta_));  // Convert m/s to cm/s
 			autonomous(ey, yaw);
 			visualize_mask_ = false;
 		} else {

@@ -20,7 +20,7 @@ const double DT = 0.1;		  // Time step (s)
 // Car velovity limits
 const double	V_MAX = 2.5;		// Maximal velocity (m/s)
 const double	V_MIN = 0.1;		// Minimal velocity for MPC update (m/s)
-const double	V_REF_PWM = 25;	// Reference velocity (%) v = V_REF_PWM * V_MAX / V_MAX_PWM
+const double	V_REF_PWM = 28;	// Reference velocity (%) v = V_REF_PWM * V_MAX / V_MAX_PWM
 // Car steering limits
 const double	DELTA_MAX = 0.5;		// Max steering angle (rad, ~30 deg)
 const double	DELTA_RATE_MAX = 0.1;	// Max steering rate (rad/step)
@@ -30,7 +30,7 @@ const double	A_MAX = 2.0;			// Max acceleration (m/s^2)
 const int	V_PWM_FREQ = 120; // PWM frequency in Hz *** tested [120] high pwm -> low momentum
 
 // MPC parameters
-const int	N = 30;			// Prediction horizon steps
+const int	N = 10;			// Prediction horizon steps
 const int 	MPC_ITER = 1000;	// Max gradient descent iterations
 
 // MPC cross-track error and heading error weights

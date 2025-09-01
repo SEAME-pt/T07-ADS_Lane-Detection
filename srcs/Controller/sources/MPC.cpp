@@ -53,20 +53,24 @@ void MPCController::adaptativ(float yaw, float v) {
 	(void)v;
 
 	float qYaw = Q_YAW;
-	if (std::abs(yaw) < 0.3f) {
+	float qEy = Q_EY;
+	if (std::abs(yaw) < 0.2f) {
 		qYaw = Q_YAW * 0.8f;  // Reduce weight for small yaws
+		qEy = Q_EY * 0.2f;  // Reduce weight for small yaws
 	} else if (std::abs(yaw) > 0.2f && std::abs(yaw) < 0.4f) {
 		qYaw = Q_YAW;  // Increase weight for large yaws
 	} else if (std::abs(yaw) > 0.4f && std::abs(yaw) < 0.5f){
-		qYaw = Q_YAW * 1.2f;  // Increase weight for large yawselse {
+		qYaw = Q_YAW * 1.2f;
+		qEy = Q_EY * 2.0f; // Increase weight for large yaw
 	} else {
-		qYaw = 10.0f;  // Normal weight
+		qYaw = 10.0f;
+		qEy = Q_EY * 4.0f;  // Normal weight
 	}
 
 	// Example: Adjust Q_EY based on speed (higher speed -> lower weight)
-	Q_ << Q_EY, 0.0f,
+	Q_ << qEy, 0.0f,
 		  0.0f, qYaw; // ey: 20, yaw: 5 0.2 is the smallest yaw expected
-    Qf_ << Q_EY * 5.0, 0.0f,
+    Qf_ << qEy * 5.0, 0.0f,
 		   0.0f, qYaw * 5.0; // ey: 100, yaw: 25
 
 }

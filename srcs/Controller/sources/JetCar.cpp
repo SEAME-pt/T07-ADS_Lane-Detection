@@ -75,9 +75,17 @@ void JetCar::set_motor_speed(int speed) {
         setMotorPwm(7, pwmValue);  // ENB
     } else {
         // Parando
-        for (int channel = 0; channel < 9; ++channel) {
-            setMotorPwm(channel, 0);
-        }
+		// Example: Active braking for left and right motors
+		setMotorPwm(0, 4095); // IN1 HIGH
+		setMotorPwm(1, 4095); // IN2 HIGH
+		setMotorPwm(2, static_cast<int>(4095)); // ENA set to pwmValue (controls brake strength)
+
+		setMotorPwm(5, 4095); // IN3 HIGH
+		setMotorPwm(6, 4095); // IN4 HIGH
+		setMotorPwm(7, static_cast<int>(4095)); // ENB set to pwmValue (controls brake strength)
+        // for (int channel = 0; channel < 9; ++channel) {
+        //     setMotorPwm(channel, 0);
+        // }
     }
 }
 
