@@ -8,12 +8,13 @@
 #include <sstream>
 #include <deque>
 
+
 std::deque<cv::Rect> stopHistory;
 const int HISTORY_SIZE = 8;
 const int MIN_CONFIRM = 3;  // STOP needs to appear in at least 6 of the last 10 frames
 
-Controller::Controller(JetCar* jetCar) : 
-    joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK), mpc_(L, DT, N) 
+Controller::Controller() : 
+    joystick(nullptr), jetCar(0x60, 0x40), mapping(&jetCar), mpc_(L, DT, N)
 {
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0) {
         throw std::runtime_error("Failed to initialize SDL2 Joystick: " + std::string(SDL_GetError()));
@@ -76,43 +77,20 @@ bool Controller::initialize() {
     return true;
 }
 
-void Controller::setButtonAction(int button, Actions actions) {
-    buttonActions[button] = actions;
-}
-
-void Controller::setAxisAction(int axis, std::function<void(int)> action) {
-    axisActions[axis] = action;
-}
-
 void Controller::processEvent(const SDL_Event& event) {
-    if (event.type == SDL_JOYBUTTONDOWN || event.type == SDL_JOYBUTTONUP) {
-        bool isPressed = (event.type == SDL_JOYBUTTONDOWN);
-        int button = event.jbutton.button;
-
-        if (button < static_cast<int>(buttonStates.size())) {
-            buttonStates[button] = isPressed;
-            if (buttonActions.find(button) != buttonActions.end()) {
-                if (isPressed && buttonActions[button].onPress) buttonActions[button].onPress();
-                else if (!isPressed && buttonActions[button].onRelease) buttonActions[button].onRelease();
-            }
-        }
-    } else if (event.type == SDL_JOYAXISMOTION) {
-        int axis = event.jaxis.axis;
-        int value = event.jaxis.value;
-        if (axisActions.find(axis) != axisActions.end()) {
-            axisActions[axis](value);
-        }
-    } else if (event.type == SDL_JOYDEVICEADDED) {
+    if (event.type == SDL_JOYDEVICEADDED) {
         if (!joystick) joystick = SDL_JoystickOpen(0);
     } else if (event.type == SDL_JOYDEVICEREMOVED) {
         if (joystick) SDL_JoystickClose(joystick);
         joystick = nullptr;
         exit(1);
+    } else {
+        mapping.processEvent(event);
     }
 }
 
-void Controller::setMode(const int &mode) { _currentMode = mode; }
-int Controller::getMode() { return _currentMode; }
+// void Controller::setMode(const int &mode) { _currentMode = mode; }
+// int Controller::getMode() { return _currentMode; }
 
 /**
  * @brief Main loop for reading camera, running detections and controlling car.
@@ -148,9 +126,8 @@ void Controller::listen() {
         //laneCounter++;
         
         // Autonomous control
-        if (_currentMode == MODE_AUTONOMOUS) {
-            if (currentSpeed.load(std::memory_order_relaxed) < V_MIN)
-                jetCar->set_motor_speed(static_cast<int>(V_REF_PWM));
+        std::cout << "Modo atual: " << (jetCar.getCurrentMode() == MODE_JOYSTICK ? "Joystick" : "Autônomo") << std::endl;
+        if (jetCar.getCurrentMode() == MODE_AUTONOMOUS) {
             autonomous(ey, yaw);
             visualize_mask_ = false;
         } else {
@@ -160,12 +137,14 @@ void Controller::listen() {
         cv::Rect roi(frame.cols * 0.6, 0, frame.cols * 0.4, frame.rows);
         std::vector<Detection> detections = objectDetector->infer(frame, roi);
         if (checkStopSign(detections)) {
-            jetCar->set_motor_speed(0);
-            setMode(MODE_JOYSTICK);
+            jetCar.set_motor_speed(0);
+            jetCar.setCurrentMode(MODE_JOYSTICK);
         }
 
         // Exit conditions
-        if (buttonStates[BTN_SELECT] && buttonStates[BTN_START]) break;
+        if (jetCar.getTurnOn() == 0) {
+            break;
+        }
         if (!joystick) break;
 
         // std::string modeText = (_currentMode == MODE_JOYSTICK) ? "Joystick Mode" : "Autonomous Mode";
@@ -243,7 +222,11 @@ void Controller::autonomous(float ey, float yaw) {
 
     float delta = mpc_.getSteeringAngle();
     float steeringDEG = std::max(-DELTA_MAX, std::min(DELTA_MAX, (double)delta)) * 180.0 / CV_PI;
-    jetCar->set_servo_angle(static_cast<int>(steeringDEG));
+    jetCar.set_servo_angle(static_cast<int>(steeringDEG));
+
+    // NOVO: aplica a velocidade atual do VRefPwm
+    double curr_v_ref = jetCar.getVRefPwm();
+    jetCar.set_motor_speed(static_cast<int>(-curr_v_ref));
 
     // tracker.mark();
     // cv::putText(output_frame, "Servo: " + std::to_string(delta*180/CV_PI) + " deg", cv::Point(10,270), cv::FONT_HERSHEY_SIMPLEX,0.5, cv::Scalar(255,255,255),1);

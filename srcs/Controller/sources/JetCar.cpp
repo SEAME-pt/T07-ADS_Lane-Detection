@@ -7,6 +7,10 @@ JetCar::JetCar(int motorAddr, int servoAddr)
       _maxAngle(30), _servoLeftPwm(170), _servoRightPwm(430), _servoCenterPwm(300),
       _steeringChannel(0), _currentAngle(0) {
 
+    _currentMode = MODE_JOYSTICK;
+    V_REF_PWM = 35.0;
+    _isTurnOn = 1;
+
     // Inicializar servo e motores
     open_servo_i2c_bus();
     if (!init_servo()) {
@@ -29,15 +33,19 @@ JetCar::~JetCar() {
 }
 
 void JetCar::set_servo_angle(int angle) {
+    
+    int servoAngle = static_cast<int>((angle / 32768.0) * 90);
+    servoAngle = std::max(-90, std::min(90, servoAngle));
+    
 	// converet to rad
-	_currentAngle = (angle * 3.1415f / 180.0f);  // Atualiza o ângulo atual do servo
-    angle = std::max(-_maxAngle, std::min(_maxAngle, angle));
+	_currentAngle = (servoAngle * 3.1415f / 180.0f);  // Atualiza o ângulo atual do servo
+    servoAngle = std::max(-_maxAngle, std::min(_maxAngle, servoAngle));
 
     int pwm;
-    if (angle < 0) {
-        pwm = static_cast<int>(_servoCenterPwm + (static_cast<float>(angle) / _maxAngle) * (_servoCenterPwm - _servoLeftPwm));
-    } else if (angle > 0) {
-        pwm = static_cast<int>(_servoCenterPwm + (static_cast<float>(angle) / _maxAngle) * (_servoRightPwm - _servoCenterPwm));
+    if (servoAngle < 0) {
+        pwm = static_cast<int>(_servoCenterPwm + (static_cast<float>(servoAngle) / _maxAngle) * (_servoCenterPwm - _servoLeftPwm));
+    } else if (servoAngle > 0) {
+        pwm = static_cast<int>(_servoCenterPwm + (static_cast<float>(servoAngle) / _maxAngle) * (_servoRightPwm - _servoCenterPwm));
     } else {
         pwm = _servoCenterPwm;
     }
@@ -51,35 +59,56 @@ void JetCar::set_servo_angle(int angle) {
 
 void JetCar::set_motor_speed(int speed) {
     int pwmValue;
+
+    // Inverte o sinal se necessário
+    speed = -speed;
+
+    // Limita o valor entre -V_MAX_PWM e V_MAX_PWM
     speed = std::max(-V_MAX_PWM, std::min(V_MAX_PWM, speed));
-    // std::cout << "Motor speed: " << speed << std::endl;
+
+    std::cout << "[Motor] Speed set to: " << speed << std::endl;
+
+    // Converte para valor de PWM (0-4095)
     pwmValue = static_cast<int>(std::abs(speed) / 100.0 * 4095);
 
     if (speed > 0) {
-        // Movendo para frente
-        setMotorPwm(0, pwmValue);  // IN1
-        setMotorPwm(1, 0);         // IN2
-        setMotorPwm(2, pwmValue);  // ENA
+        // --- MOVIMENTO PARA FRENTE ---
+        // Motor A
+        setMotorPwm(0, pwmValue); // IN1
+        setMotorPwm(1, 0);        // IN2
+        setMotorPwm(2, pwmValue); // ENA
 
-        setMotorPwm(5, pwmValue);  // IN3
-        setMotorPwm(6, 0);         // IN4
-        setMotorPwm(7, pwmValue);  // ENB
+        // Motor B
+        setMotorPwm(5, pwmValue); // IN3
+        setMotorPwm(6, 0);        // IN4
+        setMotorPwm(7, pwmValue); // ENB
+
     } else if (speed < 0) {
-        // Movendo para trás
-        setMotorPwm(0, pwmValue);  // IN1
-        setMotorPwm(1, pwmValue);  // IN2
-        setMotorPwm(2, 0);         // ENA
+        // --- MOVIMENTO PARA RÉ ---
+        // Motor A
+        setMotorPwm(0, 0);        // IN1
+        setMotorPwm(1, pwmValue); // IN2
+        setMotorPwm(2, pwmValue); // ENA
 
-        setMotorPwm(5, 0);         // IN3
-        setMotorPwm(6, pwmValue);  // IN4
-        setMotorPwm(7, pwmValue);  // ENB
+        // Motor B
+        setMotorPwm(5, 0);        // IN3
+        setMotorPwm(6, pwmValue); // IN4
+        setMotorPwm(7, pwmValue); // ENB
+
     } else {
-        // Parando
-        for (int channel = 0; channel < 9; ++channel) {
-            setMotorPwm(channel, 0);
-        }
-    }
+        // --- FREIO ATIVO SEGURO ---
+        // Motor A
+        setMotorPwm(0, 0); // IN1
+        setMotorPwm(1, 0); // IN2
+        setMotorPwm(2, 0); // ENA
+
+        // Motor B
+        setMotorPwm(5, 0); // IN3
+        setMotorPwm(6, 0); // IN4
+        setMotorPwm(7, 0); // ENB
 }
+}
+
 
 // Métodos privados para controle de I2C
 
@@ -185,4 +214,71 @@ bool JetCar::setMotorPwm(const int channel, int value) {
 // get servor angle
 float JetCar::get_servo_angle() const {
 	return _currentAngle;
+}
+
+void JetCar::setCurrentMode(int mode) {
+    if (mode == MODE_JOYSTICK || mode == MODE_AUTONOMOUS) {
+        _currentMode = mode;
+    }
+}
+
+int JetCar::getCurrentMode() const {
+    return _currentMode;
+}
+
+void JetCar::changeCurrentMode() {
+    if (_currentMode == MODE_JOYSTICK) {
+        _currentMode = MODE_AUTONOMOUS;
+        // std::cout << "Modo autônomo ativado!" << std::endl;
+    } else {
+        _currentMode = MODE_JOYSTICK;
+        set_motor_speed(0);
+        set_servo_angle(0);
+        // std::cout << "Modo joystick ativado!" << std::endl;
+    }
+    std::cout << "Modo atual: " << (_currentMode == MODE_JOYSTICK ? "Joystick" : "Autônomo") << std::endl;
+}
+
+int JetCar::turnOff() {
+    if (_isTurnOn) {
+        set_motor_speed(0);
+        set_servo_angle(0);
+    }
+    return 1;
+}
+
+
+
+void JetCar::increaseSpeedby1() {
+    V_REF_PWM = std::min(V_REF_PWM + 1.0, static_cast<double>(V_MAX_PWM));
+    std::cout << "Velocidade aumentada para: " << V_REF_PWM << std::endl;
+}
+
+void JetCar::slowSpeedby1() {
+    V_REF_PWM = std::max(V_REF_PWM - 1.0, 0.0);
+    std::cout << "Velocidade reduzida para: " << V_REF_PWM << std::endl;
+}
+
+void JetCar::setVRefPwm(double value) {
+    V_REF_PWM = value;
+}
+
+double JetCar::getVRefPwm() const {
+    return V_REF_PWM;
+}
+
+void JetCar::setTurnOn(const int &value) {
+    _isTurnOn = value;
+}
+
+int JetCar::getTurnOn() const {
+    return _isTurnOn;
+}
+
+void JetCar::manualSteering(int angle) {
+    set_servo_angle(angle);
+}
+
+void JetCar::manualMotorSpeed(int speed) {
+    set_motor_speed(speed);
 }
