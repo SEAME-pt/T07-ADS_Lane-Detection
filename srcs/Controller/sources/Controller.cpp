@@ -39,6 +39,7 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
         currentSpeed.store(speed, std::memory_order_relaxed);
     });
 
+	cruise_speed_ = V_REF_PWM; // Default cruise speed
     // Setup video streaming pipeline
     // std::string pipeline = "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
     //                       "rtph264pay ! udpsink host=239.255.0.1 port=5000 sync=false multi-cast=true";
@@ -206,9 +207,7 @@ void Controller::listen() {
         float ey, yaw;
         laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
         if (_currentMode == MODE_AUTONOMOUS) {
-			if (currentSpeed.load(std::memory_order_relaxed) < V_MIN) {
-				jetCar->set_motor_speed(static_cast<int>(V_REF_PWM));  // Convert m/s to cm/s
-			}
+			jetCar->set_motor_speed(static_cast<int>(cruise_speed_));  // Convert m/s to cm/s
 			autonomous(ey, yaw);
 			visualize_mask_ = false;
 		} else {

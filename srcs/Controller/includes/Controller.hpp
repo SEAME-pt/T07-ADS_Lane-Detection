@@ -96,6 +96,7 @@ private:
     const int STOP_THRESHOLD = 5;  // precisa de 5 frames seguidos pra acionar
     void checkStopSign(const std::vector<Detection>& detections);
 
+	int cruise_speed_;
 
 };
 

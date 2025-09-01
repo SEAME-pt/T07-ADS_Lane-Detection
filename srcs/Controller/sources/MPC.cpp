@@ -53,8 +53,8 @@ void MPCController::adaptativ(float yaw, float v) {
 	(void)v;
 	float k_yaw = std::abs(yaw);
 	// Example: Adjust Q_EY based on speed (higher speed -> lower weight)
-	Q_ << Q_EY * k_yaw / 0.5, 0.0f,
-		  0.0f, Q_YAW; // ey: 20, yaw: 5
+	Q_ << 14 * k_yaw + Q_EY, 0.0f,
+		  0.0f, std::max(32.5f * k_yaw - 9.5, Q_YAW); // ey: 20, yaw: 5 0.2 is the smallest yaw expected
     Qf_ << Q_EY * 5.0, 0.0f,
 		   0.0f, Q_YAW * 5.0; // ey: 100, yaw: 25
 
@@ -71,6 +71,8 @@ void MPCController::update(float ey, float yaw, float v) {
     v_ = std::max(0.1f, v);
 
 	adaptativ(yaw, v_);
+
+
 
     float delta_max = max_delta_; // 0.5 rad
 
@@ -153,7 +155,7 @@ void MPCController::update(float ey, float yaw, float v) {
     }
 
     delta_prev_ = delta_;
-	std::cout << v_ << "\t" << ey << "\t" << yaw << "\t" << curvature << "\t" << delta_ff << "\t" << u(0) << std::endl;
+	std::cout << v_ << "\t" << ey << "\t" << yaw << "\t" << curvature << "\t" << delta_ff << "\t" << u(0) << "\t" << Q_(0,0) << "\t" << Q_(1,1) << std::endl;
     delta_ = std::clamp(delta_ff + u(0), -delta_max, delta_max);
 
 }
