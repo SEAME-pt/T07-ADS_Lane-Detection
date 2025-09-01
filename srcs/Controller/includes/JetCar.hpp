@@ -55,6 +55,7 @@ public:
 
     int getCruiseSpeed() const;
     void setCruiseSpeed(int speed);
+    void stopCar();
 
 private:
     void open_motor_i2c_bus();

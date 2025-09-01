@@ -183,21 +183,44 @@ void Controller::listen() {
             processEvent(event);
         }
 
-        float ey, yaw;
-        laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
         if (jetCar.getCurrentMode() == MODE_AUTONOMOUS) {
-            std::cout << "speed to set motor speed: " << jetCar.getCruiseSpeed() << std::endl;
-            jetCar.set_motor_speed(jetCar.getCruiseSpeed());  // Convert m/s to cm/s
-			autonomous(ey, yaw);
-			visualize_mask_ = false;
+            float ey, yaw;
+            laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
+            autonomous(ey, yaw);
+            static int cruise_delta_ = 0;
+			if (std::abs(yaw) < 0.1 && std::abs(ey) < 0.04) {
+				cruise_reset_ = true;
+                if (count_steps_ % 5 == 0)
+                    cruise_delta_++; // small speed boost on straight roads
+			} else {
+				cruise_delta_ = 0.0f;
+				if (cruise_reset_) {
+						std::cout << "[" << __func__ << "] "
+								<< "Curve detected! Resetting cruise control." << std::endl;
+						if (std::abs(yaw) > 0.36f){
+							std::cout << "[" << __func__ << "] "
+									<< "Sharp curve detected! Briefly stopping to reset cruise control." << std::endl;
+							jetCar.stopCar();
+							sleep(0.1); // 0.1s pause to reset motor
+						}
+						cruise_reset_ = false;
+						std::cout << "[" << __func__ << "] "
+								<< "Resuming cruise speed at " << jetCar.getCruiseSpeed() << " cm/s" << std::endl;
+					}
+			}
+			cruise_delta_ = std::min(cruise_delta_, static_cast<int>(jetCar.getCruiseSpeed() * 0.3f)); // limit max boost to 5 cm/s
+			jetCar.set_motor_speed(static_cast<int>(jetCar.getCruiseSpeed() + cruise_delta_));  // Convert m/s to cm/s
+            visualize_mask_ = false;
 		} else {
 			visualize_mask_ = true;
 		}
+        if (count_steps_ % 5 == 0) count_steps_ = 0;
+        count_steps_++;
 
         cv::Rect roi(frame.cols * 0.6, 0, frame.cols * 0.4, frame.rows);
         std::vector<Detection> detections = objectDetector->infer(frame, roi);
         if (checkStopSign(detections)) {
-            jetCar.set_motor_speed(0);
+            jetCar.stopCar();
             jetCar.setCurrentMode(MODE_JOYSTICK);
         }
 

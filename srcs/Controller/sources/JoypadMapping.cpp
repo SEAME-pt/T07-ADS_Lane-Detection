@@ -34,7 +34,7 @@ JoypadMapping::JoypadMapping(JetCar* car) : jetCar(car) {
     };
 
     // Configure axis actions
-    axisMappings[0] = [this](int value) { jetCar->manualSteering(value); };
+    axisMappings[0] = [this](int value) { jetCar->set_servo_angle(value); };
     axisMappings[3] = [this](int value) { jetCar->manualMotorSpeed(value); };
 }
 
@@ -47,13 +47,23 @@ void JoypadMapping::processEvent(const SDL_Event& event) {
             if (pressed && it->second.onPress) it->second.onPress();
             else if (!pressed && it->second.onRelease) it->second.onRelease();
         }
-    } else if (event.type == SDL_JOYAXISMOTION && jetCar->getCurrentMode() == MODE_JOYSTICK) {
+    } else if (event.type == SDL_JOYAXISMOTION && jetCar->getCurrentMode() != MODE_AUTONOMOUS) {
         int axis = event.jaxis.axis;
         int value = event.jaxis.value;
         auto it = axisMappings.find(axis);
         if (it != axisMappings.end() && it->second) {
             it->second(value);
         }
+    } else if( event.type == SDL_JOYAXISMOTION && jetCar->getCurrentMode() == MODE_AUTONOMOUS) {
+        int axis = event.jaxis.axis;
+        int value = event.jaxis.value;
+        auto it = axisMappings.find(axis);
+        if (axis == 3) {
+            if (it != axisMappings.end() && it->second) {
+                it->second(value);
+            }
+        }
     }
+
 }
 

@@ -68,6 +68,8 @@ private:
     bool checkStopSign(const std::vector<Detection>& detections);
 
 	int cruise_speed_;
+    int count_steps_ = 0;
+    bool cruise_reset_ = false;
 
 };
 

@@ -27,6 +27,7 @@ JetCar::JetCar(int motorAddr, int servoAddr)
 
 JetCar::~JetCar() {
     set_motor_speed(0);
+    set_servo_angle(0);
     close(_fdMotor);
     close(_fdServo);
     std::cout << "Destruindo o JetCar..." << std::endl;
@@ -237,14 +238,6 @@ void JetCar::decreaseSpeed(int current_speed, int scale) {
     std::cout << "Velocidade reduzida para: " << cruise_speed_ << std::endl;
 }
 
-// void JetCar::setVRefPwm(double value) {
-//     V_REF_PWM = value;
-// }
-
-// double JetCar::getVRefPwm() const {
-//     return V_REF_PWM;
-// }
-
 void JetCar::setTurnOn(const int &value) {
     _isTurnOn = value;
 }
@@ -267,4 +260,11 @@ void JetCar::setCruiseSpeed(int speed) {
 
 int JetCar::getCruiseSpeed() const {
     return cruise_speed_;
+}
+
+void JetCar::stopCar() {
+    for (int channel = 0; channel < 9; ++channel) {
+        setMotorPwm(channel, 4095);
+    }
+    set_servo_angle(0);
 }
