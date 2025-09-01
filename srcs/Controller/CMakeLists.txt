@@ -66,6 +66,7 @@ set(SOURCES
     /workspace/libraries/CppAD/cppad_lib/temp_file.cpp # <- Essencial para evitar "undefined reference"
     sources/Controller.cpp
     sources/SpeedPIDController.cpp
+    sources/JoypadMapping.cpp
     sources/JetCar.cpp
     sources/devices.cpp
     sources/LaneDetector.cpp
