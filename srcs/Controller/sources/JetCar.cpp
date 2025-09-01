@@ -7,6 +7,10 @@ JetCar::JetCar(int motorAddr, int servoAddr)
       _maxAngle(30), _servoLeftPwm(170), _servoRightPwm(430), _servoCenterPwm(300),
       _steeringChannel(0), _currentAngle(0) {
 
+    _currentMode = MODE_JOYSTICK;
+    cruise_speed_= V_REF_PWM;
+    _isTurnOn = 1;
+
     // Inicializar servo e motores
     open_servo_i2c_bus();
     if (!init_servo()) {
@@ -185,4 +189,82 @@ bool JetCar::setMotorPwm(const int channel, int value) {
 // get servor angle
 float JetCar::get_servo_angle() const {
 	return _currentAngle;
+}
+
+
+void JetCar::setCurrentMode(int mode) {
+    if (mode == MODE_JOYSTICK || mode == MODE_AUTONOMOUS) {
+        _currentMode = mode;
+    }
+}
+
+int JetCar::getCurrentMode() const {
+    return _currentMode;
+}
+
+void JetCar::changeCurrentMode() {
+    if (_currentMode == MODE_JOYSTICK) {
+        _currentMode = MODE_AUTONOMOUS;
+        // std::cout << "Modo autônomo ativado!" << std::endl;
+    } else {
+        _currentMode = MODE_JOYSTICK;
+        set_motor_speed(0);
+        set_servo_angle(0);
+        // std::cout << "Modo joystick ativado!" << std::endl;
+    }
+    std::cout << "Modo atual: " << (_currentMode == MODE_JOYSTICK ? "Joystick" : "Autônomo") << std::endl;
+}
+
+int JetCar::turnOff() {
+    if (_isTurnOn) {
+        set_motor_speed(0);
+        set_servo_angle(0);
+    }
+    return 1;
+}
+
+
+
+void JetCar::increaseSpeed(int current_speed, int scale) {
+    current_speed = std::min(current_speed + scale, V_MAX_PWM);
+    cruise_speed_ = current_speed;
+    std::cout << "Velocidade aumentada para: " << cruise_speed_ << std::endl;
+}
+
+void JetCar::decreaseSpeed(int current_speed, int scale) {
+    current_speed = std::max(current_speed - scale, 0);
+    cruise_speed_ = current_speed;
+    std::cout << "Velocidade reduzida para: " << cruise_speed_ << std::endl;
+}
+
+// void JetCar::setVRefPwm(double value) {
+//     V_REF_PWM = value;
+// }
+
+// double JetCar::getVRefPwm() const {
+//     return V_REF_PWM;
+// }
+
+void JetCar::setTurnOn(const int &value) {
+    _isTurnOn = value;
+}
+
+int JetCar::getTurnOn() const {
+    return _isTurnOn;
+}
+
+void JetCar::manualSteering(int angle) {
+    set_servo_angle(angle);
+}
+
+void JetCar::manualMotorSpeed(int speed) {
+    set_motor_speed(-speed);
+}
+
+void JetCar::setCruiseSpeed(int speed) {
+    cruise_speed_ = speed;
+}
+
+int JetCar::getCruiseSpeed() const {
+    return cruise_speed_;
 }

@@ -7,7 +7,11 @@
 #include <chrono>
 #include <sstream>
 
-Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _currentMode(MODE_JOYSTICK), mpc_(L, DT, N) {
+std::deque<cv::Rect> stopHistory;
+const int HISTORY_SIZE = 8;
+const int MIN_CONFIRM = 3;  // STOP needs to appear in at least 6 of the last 10 frames
+
+Controller::Controller() : joystick(nullptr), jetCar(0x60, 0x40), mapping(&jetCar), mpc_(L, DT, N) {
 
 
 	// Initialize SDL for joystick input
@@ -21,8 +25,6 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
 
     int joystickCount = SDL_NumJoysticks();
     std::cout << "Number of joysticks connected: " << joystickCount << std::endl;
-
-    buttonStates.fill(false);  // Initialize all button states to false
 
     if (joystickCount > 0) {
         joystick = SDL_JoystickOpen(0);
@@ -43,11 +45,11 @@ Controller::Controller(JetCar* jetCar) : joystick(nullptr), jetCar(jetCar), _cur
     // std::string pipeline = "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
     //                       "rtph264pay ! udpsink host=239.255.0.1 port=5000 sync=false multi-cast=true";
 
-std::string pipeline =
-    "appsrc ! videoconvert ! video/x-raw,format=I420 ! "  // Force 4:2:0
-    "x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
-    "rtph264pay config-interval=1 pt=96 ! "
-    "udpsink host=239.255.0.1 port=5000 auto-multicast=true loop=1";
+    std::string pipeline =
+        "appsrc ! videoconvert ! video/x-raw,format=I420 ! "  // Force 4:2:0
+        "x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
+        "rtph264pay config-interval=1 pt=96 ! "
+        "udpsink host=239.255.0.1 port=5000 auto-multicast=true loop=1";
 
 
 
@@ -99,71 +101,64 @@ bool Controller::initialize() {
     return cap_.isOpened();
 }
 
-void Controller::setButtonAction(int button, Actions actions) {
-    buttonActions[button] = actions;
-}
-
-void Controller::setAxisAction(int axis, std::function<void(int)> action) {
-    axisActions[axis] = action;
-}
-
 void Controller::processEvent(const SDL_Event& event) {
-    // Unchanged from original
-    if (event.type == SDL_JOYBUTTONDOWN || event.type == SDL_JOYBUTTONUP) {
-        bool isPressed = (event.type == SDL_JOYBUTTONDOWN);
-        int button = event.jbutton.button;
+    // // Unchanged from original
+    // if (event.type == SDL_JOYBUTTONDOWN || event.type == SDL_JOYBUTTONUP) {
+    //     bool isPressed = (event.type == SDL_JOYBUTTONDOWN);
+    //     int button = event.jbutton.button;
 
-        if (button < static_cast<int>(buttonStates.size())) {
-            // std::cout << "Button " << button << " " << (isPressed ? "pressed" : "released") << std::endl;
-            buttonStates[button] = isPressed;
-            if (buttonActions.find(button) != buttonActions.end()) {
-                if (isPressed && buttonActions[button].onPress) {
-                    buttonActions[button].onPress();
-                } else if (!isPressed && buttonActions[button].onRelease) {
-                    buttonActions[button].onRelease();
-                }
-            }
-        }
-    } else if (event.type == SDL_JOYAXISMOTION && _currentMode != MODE_AUTONOMOUS) {
-        int axis = event.jaxis.axis;
-        int value = event.jaxis.value;
-        // std::cout << "Axis " << axis << " moved to " << value << std::endl;
-        if (axisActions.find(axis) != axisActions.end()) {
-            axisActions[axis](value);
-        }
-    } else if (event.type == SDL_JOYAXISMOTION && _currentMode == MODE_AUTONOMOUS) {
-        int axis = event.jaxis.axis;
-        int value = event.jaxis.value;
-        // std::cout << "Axis " << axis << " moved to " << value << std::endl;
-        if (axisActions.find(axis) != axisActions.end() && axis == 3) {
-            axisActions[axis](value);
-        }
-    } else if (event.type == SDL_JOYDEVICEADDED) {
-        std::cout << "Joystick connected!" << std::endl;
-        if (!joystick) {
-            joystick = SDL_JoystickOpen(0);
-            if (joystick) {
-                std::cout << "Joystick 0 connected!" << std::endl;
-            } else {
-                throw std::runtime_error("Failed to open joystick: " + std::string(SDL_GetError()));
-            }
-        }
+    //     if (button < static_cast<int>(buttonStates.size())) {
+    //         // std::cout << "Button " << button << " " << (isPressed ? "pressed" : "released") << std::endl;
+    //         buttonStates[button] = isPressed;
+    //         if (buttonActions.find(button) != buttonActions.end()) {
+    //             if (isPressed && buttonActions[button].onPress) {
+    //                 buttonActions[button].onPress();
+    //             } else if (!isPressed && buttonActions[button].onRelease) {
+    //                 buttonActions[button].onRelease();
+    //             }
+    //         }
+    //     }
+    // } else if (event.type == SDL_JOYAXISMOTION && _currentMode != MODE_AUTONOMOUS) {
+    //     int axis = event.jaxis.axis;
+    //     int value = event.jaxis.value;
+    //     // std::cout << "Axis " << axis << " moved to " << value << std::endl;
+    //     if (axisActions.find(axis) != axisActions.end()) {
+    //         axisActions[axis](value);
+    //     }
+    // } else if (event.type == SDL_JOYAXISMOTION && _currentMode == MODE_AUTONOMOUS) {
+    //     int axis = event.jaxis.axis;
+    //     int value = event.jaxis.value;
+    //     // std::cout << "Axis " << axis << " moved to " << value << std::endl;
+    //     if (axisActions.find(axis) != axisActions.end() && axis == 3) {
+    //         axisActions[axis](value);
+    //     }
+    // } else if (event.type == SDL_JOYDEVICEADDED) {
+    //     std::cout << "Joystick connected!" << std::endl;
+    //     if (!joystick) {
+    //         joystick = SDL_JoystickOpen(0);
+    //         if (joystick) {
+    //             std::cout << "Joystick 0 connected!" << std::endl;
+    //         } else {
+    //             throw std::runtime_error("Failed to open joystick: " + std::string(SDL_GetError()));
+    //         }
+    //     }
+    // } else if (event.type == SDL_JOYDEVICEREMOVED) {
+    //     std::cout << "Joystick disconnected!" << std::endl;
+    //     if (joystick) {
+    //         SDL_JoystickClose(joystick);
+    //         joystick = nullptr;
+    //     }
+    //     exit(1);
+    // }
+    if (event.type == SDL_JOYDEVICEADDED) {
+        if (!joystick) joystick = SDL_JoystickOpen(0);
     } else if (event.type == SDL_JOYDEVICEREMOVED) {
-        std::cout << "Joystick disconnected!" << std::endl;
-        if (joystick) {
-            SDL_JoystickClose(joystick);
-            joystick = nullptr;
-        }
+        if (joystick) SDL_JoystickClose(joystick);
+        joystick = nullptr;
         exit(1);
+    } else {
+        mapping.processEvent(event);
     }
-}
-
-void Controller::setMode(const int &mode) {
-    _currentMode = mode;
-}
-
-int Controller::getMode() {
-    return _currentMode;
 }
 
 void Controller::listen() {
@@ -188,45 +183,32 @@ void Controller::listen() {
             processEvent(event);
         }
 
-       std::vector<Detection> detections = objectDetector->infer(frame);
-       // 🚦 checar se deve parar
-       // print detections vector
-    //    for (const auto& det : detections) {
-    //        std::cout << "[" << __func__ << "] "
-    //                  << "Detections: " << det.class_name << " " << det.confidence << std::endl;
-    //    }
-       checkStopSign(detections);
-        // for (const auto& det : detections) {
-        //     cv::rectangle(output_frame, det.bbox, cv::Scalar(0, 255, 0), 2);
-        //     std::string label = det.class_name + " " + std::to_string(int(det.confidence*100)) + "%";
-        //     cv::putText(output_frame, label, cv::Point(det.bbox.x, det.bbox.y-5),
-        //                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 1);
-        // }
-
-
         float ey, yaw;
         laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
-        if (_currentMode == MODE_AUTONOMOUS) {
-			if (currentSpeed.load(std::memory_order_relaxed) < V_MIN) {
-				jetCar->set_motor_speed(static_cast<int>(V_REF_PWM));  // Convert m/s to cm/s
-			}
+        if (jetCar.getCurrentMode() == MODE_AUTONOMOUS) {
+            std::cout << "speed to set motor speed: " << jetCar.getCruiseSpeed() << std::endl;
+            jetCar.set_motor_speed(jetCar.getCruiseSpeed());  // Convert m/s to cm/s
 			autonomous(ey, yaw);
 			visualize_mask_ = false;
 		} else {
 			visualize_mask_ = true;
 		}
 
-        if (buttonStates[BTN_SELECT] && buttonStates[BTN_START]) {
-            break;
+        cv::Rect roi(frame.cols * 0.6, 0, frame.cols * 0.4, frame.rows);
+        std::vector<Detection> detections = objectDetector->infer(frame, roi);
+        if (checkStopSign(detections)) {
+            jetCar.set_motor_speed(0);
+            jetCar.setCurrentMode(MODE_JOYSTICK);
         }
 
-        if (!joystick) {
-            std::cout << "No joystick connected, quitting..." << std::endl;
+        // Exit conditions
+        if (jetCar.getTurnOn() == 0) {
             break;
         }
+        if (!joystick) break;
 
         // Display mode on output_frame bottom right corner
-        std::string modeText = (_currentMode == MODE_JOYSTICK) ? "Joystick Mode" : "Autonomous Mode";
+        std::string modeText = (jetCar.getCurrentMode() == MODE_JOYSTICK) ? "Joystick Mode" : "Autonomous Mode";
         cv::putText(output_frame, modeText, cv::Point(330, 340), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
         video_writer.write(output_frame);
 
@@ -250,28 +232,44 @@ void Controller::listen() {
 	}
 }
 
-void Controller::checkStopSign(const std::vector<Detection>& detections) {
-    bool foundStop = false;
+bool Controller::checkStopSign(const std::vector<Detection>& detections) {
+    bool found = false;
+    cv::Rect currentBox;
 
     for (const auto& det : detections) {
-        if (det.class_name == "stop" && det.confidence > 0.6f) {
-            foundStop = true;
+        if ((det.class_name == "STOP" || det.class_name == "crosswalk") && det.confidence > 0.7) {
+            found = true;
+            currentBox = det.bbox;
             break;
         }
     }
 
-    if (foundStop) {
-        stopCounter++;
-        if (stopCounter >= STOP_THRESHOLD) {
-            std::cout << "[" << __func__ << "] : STOP sign detected! Switching to manual mode." << std::endl;
-            // jetCar->set_motor_speed(0);   // freia
-            // setMode(MODE_JOYSTICK);       // troca pra manual
-            stopCounter = 0;              // reseta contador
+    if (found) stopHistory.push_back(currentBox);
+    else stopHistory.push_back(cv::Rect());
+
+    if (stopHistory.size() > HISTORY_SIZE) stopHistory.pop_front();
+
+    int count = 0;
+    for (auto& b : stopHistory) if (b.area() > 0) count++;
+
+    if (count >= MIN_CONFIRM) {
+        cv::Rect ref = stopHistory.back();
+        int consistent = 0;
+        for (auto& b : stopHistory) {
+            if (b.area() > 0) {
+                float iou = (float)(ref & b).area() / (ref | b).area();
+                if (iou > 0.3) consistent++;
+            }
         }
-    } else {
-        // não viu STOP nesse frame → reseta contador
-        stopCounter = 0;
+
+        if (consistent >= MIN_CONFIRM/2 && ref.width > frame.cols * 0.05) {
+            std::cout << "[STOP] Confirmed!" << std::endl;
+            stopHistory.clear();
+            return true;
+        }
     }
+
+    return false;
 }
 
 void Controller::autonomous(float ey, float yaw) {
@@ -293,7 +291,7 @@ void Controller::autonomous(float ey, float yaw) {
 	float a = mpc_.getAcceleration();
 
 	float steeringDEG = static_cast<int>(std::max(-DELTA_MAX, std::min(DELTA_MAX, static_cast<double>(delta))) * 180 / CV_PI);  // Convert radians to % PWM
-	jetCar->set_servo_angle(static_cast<int>(steeringDEG));  // Converted to degrees
+	jetCar.set_servo_angle(static_cast<int>(steeringDEG));  // Converted to degrees
 
     tracker.mark();
 	std::string servo_text = "Servo: " + std::to_string(delta * 180.0 / CV_PI) + " deg";
