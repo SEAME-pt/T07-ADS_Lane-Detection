@@ -3,12 +3,7 @@
 #include "JetCar.hpp"
 
 JoypadMapping::JoypadMapping(JetCar* car) : jetCar(car) {
-    // Configure button actions
-    // buttonMappings[0] = { 
-    //     [this]() { jetCar->accelerate(); }, 
-    //     [this]() { jetCar->stopAccelerating(); }
-    // };
-    
+
     // Change Mode
     buttonMappings[BTN_START] = { 
         [this]() { nullptr; },

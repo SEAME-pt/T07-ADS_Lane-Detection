@@ -12,6 +12,8 @@
 //for max and min
 #include <algorithm>
 #include "Configs.hpp"
+#include "zmq.hpp"
+#include "ObjectDetector.hpp"
 
 // const int V_MAX_PWM = 100; // Max PWM value for speed (0-100%)
 // const int V_PWM_FREQ = 480; // Frequência do PWM em Hz
@@ -56,6 +58,11 @@ public:
     int getCruiseSpeed() const;
     void setCruiseSpeed(int speed);
     void stopCar();
+    
+    //ZMQ
+    bool checkStopSign(const std::vector<Detection>& detections);
+    void publishMessage(const std::string& msg);
+    void sendCurrentMode();
 
 private:
     void open_motor_i2c_bus();
@@ -82,6 +89,10 @@ private:
     int _isTurnOn;
 
     int cruise_speed_;
+
+    //zmq
+    zmq::context_t zmq_context_;
+    zmq::socket_t zmq_publisher_;
 };
 
 #endif  // JETCAR_HPP

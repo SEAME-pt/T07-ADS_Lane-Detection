@@ -3,6 +3,8 @@
 #include <zmq.hpp>
 #include <sstream>
 #include <gpiod.h>
+#include "LaneDetector.hpp"
+#include "Controller.hpp"
 
 
 
@@ -25,3 +27,4 @@ void    indicationLightsLeft(zmq::socket_t& pub);
 void    indicationLightsRight(zmq::socket_t& pub);
 
 void    emergencyOnLights(zmq::socket_t& pub);
+

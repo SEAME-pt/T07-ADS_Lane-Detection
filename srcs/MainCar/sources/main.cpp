@@ -40,7 +40,6 @@ void publishSensorLoop(SpeedSensor& speedSensor, JetSnailsCar& delorean) {
 int main(int argc, char *argv[]) {
     signal(SIGINT, signalHandler);
 
-
     std::string can_device = (argc > 1) ? argv[1] : "can0";
     CANBus canBus(can_device, 500000);
     JetSnailsCar delorean;
@@ -56,24 +55,22 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    ControllerSubscriber controllerSubscriber("tcp://localhost:5556");
-    controllerSubscriber.startListening();
+    // Agora o subscriber do Controller usa o mesmo PUB da 5555
+    ControllerSubscriber controllerSubscriber("tcp://localhost:5556", publisher_sensors);
+    controllerSubscriber.startForwarding();
 
     vehicleSensors vehicle_sensors(publisher_sensors);
     vehicleInformation vehicle_info(publisher_sensors);
 
     delorean.vehicle->_getPublisher().subscribeToAllChanges(vehicle_sensors);
 
-    // Inicia ambas as threads
     std::thread readerThread(sensorReadingLoop, std::ref(speedSensor));
     std::thread publisherThread(publishSensorLoop, std::ref(speedSensor), std::ref(delorean));
 
-    // Espera até interrupção
     while (running) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
-    // Finaliza threads
     if (readerThread.joinable()) readerThread.join();
     if (publisherThread.joinable()) publisherThread.join();
 

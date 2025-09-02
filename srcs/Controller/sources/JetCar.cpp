@@ -3,9 +3,20 @@
 // Implementação da classe JetCar
 
 JetCar::JetCar(int motorAddr, int servoAddr)
-    : _motorAddr(motorAddr), _servoAddr(servoAddr), _fdMotor(-1), _fdServo(-1),
-      _maxAngle(30), _servoLeftPwm(170), _servoRightPwm(430), _servoCenterPwm(300),
-      _steeringChannel(0), _currentAngle(0) {
+    : _motorAddr(motorAddr), _servoAddr(servoAddr),
+      _fdMotor(-1), _fdServo(-1),
+      _maxAngle(30), _servoLeftPwm(170), _servoRightPwm(430),
+      _servoCenterPwm(300), _steeringChannel(0), _currentAngle(0),
+      zmq_context_(1),
+      zmq_publisher_(zmq_context_, zmq::socket_type::pub) // só inicializa
+{
+    try {
+        zmq_publisher_.bind("tcp://*:5556"); 
+        std::cout << "[JetCar] Publisher ZMQ iniciado em tcp://*:5556\n";
+    } catch (const zmq::error_t& e) {
+        std::cerr << "[JetCar] Erro ao fazer bind do ZMQ: " << e.what() << std::endl;
+        throw;
+    }
 
     _currentMode = MODE_JOYSTICK;
     cruise_speed_= V_REF_PWM;
@@ -213,7 +224,7 @@ void JetCar::changeCurrentMode() {
         set_servo_angle(0);
         // std::cout << "Modo joystick ativado!" << std::endl;
     }
-    std::cout << "Modo atual: " << (_currentMode == MODE_JOYSTICK ? "Joystick" : "Autônomo") << std::endl;
+    sendCurrentMode();
 }
 
 int JetCar::turnOff() {
@@ -223,7 +234,6 @@ int JetCar::turnOff() {
     }
     return 1;
 }
-
 
 
 void JetCar::increaseSpeed(int current_speed, int scale) {
@@ -267,4 +277,12 @@ void JetCar::stopCar() {
         setMotorPwm(channel, 4095);
     }
     set_servo_angle(0);
+}
+
+void JetCar::publishMessage(const std::string& msg) {
+    zmq_publisher_.send(zmq::buffer(msg), zmq::send_flags::none);
+}
+
+void JetCar::sendCurrentMode() {
+    publishMessage("autopilot " + std::string( _currentMode == MODE_AUTONOMOUS ? "true" : "false"));
 }

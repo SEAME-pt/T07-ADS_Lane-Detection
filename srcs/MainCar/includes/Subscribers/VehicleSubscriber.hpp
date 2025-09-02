@@ -25,6 +25,7 @@ private:
         memcpy(zmqMessage.data(), message.str().c_str(), message.str().size());
 
         std::lock_guard<std::mutex> lock(sendMutex);  // <--- protege o socket
+        std::cout << "Publishing: " << message.str() << std::endl;
         publisher.send(zmqMessage, zmq::send_flags::dontwait);
     }
 

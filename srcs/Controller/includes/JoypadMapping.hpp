@@ -40,6 +40,9 @@ public:
 private:
     JetCar* jetCar;
 
+    zmq::context_t zmq_context_;
+    zmq::socket_t zmq_publisher_;
+
     std::unordered_map<int, ButtonActions> buttonMappings;
     std::unordered_map<int, std::function<void(int)>> axisMappings;
 };

@@ -3,71 +3,46 @@
 
 #include <zmq.hpp>
 #include <string>
-#include <unordered_map>
 #include <iostream>
-#include <mutex>
+#include <thread>
 
 class ControllerSubscriber {
 public:
-    explicit ControllerSubscriber(const std::string& address)
-        : context(1), subscriber(context, zmq::socket_type::sub) {
-        subscriber.connect(address);
-        subscriber.setsockopt(ZMQ_SUBSCRIBE, "", 0); // Usando setsockopt de maneira correta
+    ControllerSubscriber(const std::string& subAddress, zmq::socket_t& publisher)
+        : context(1),
+          subscriber(context, zmq::socket_type::sub),
+          publisher_(publisher)
+    {
+        subscriber.connect(subAddress);
+        subscriber.setsockopt(ZMQ_SUBSCRIBE, "", 0);
     }
 
-    void startListening() {
+    void startForwarding() {
         std::thread listener([this]() {
             while (true) {
                 zmq::message_t message;
-                
-                // Verificando o retorno de recv
-                zmq::recv_result_t result = subscriber.recv(message, zmq::recv_flags::none);
-                [[maybe_unused]] bool success = result.has_value(); // Verifica se o valor foi recebido corretamente
+                auto result = subscriber.recv(message, zmq::recv_flags::none);
 
-                if (!success) {
+                if (!result) {
                     std::cerr << "Erro ao receber mensagem." << std::endl;
                     continue;
                 }
 
-                std::string receivedMessage(static_cast<char*>(message.data()), message.size());
+                std::string received(static_cast<char*>(message.data()), message.size());
+                std::cout << "[ControllerSubscriber] Repassando no mesmo PUB (5555): " << received << std::endl;
 
-                // Atualiza o estado dos valores do controller
-                processControllerMessage(receivedMessage);
+                // repassa no publisher já existente (5555)
+                publisher_.send(zmq::buffer(received), zmq::send_flags::none);
             }
         });
 
         listener.detach();
     }
 
-    // Obtém o estado de um controle específico (ex: "horn")
-    std::string getControlState(const std::string& key) {
-        std::lock_guard<std::mutex> lock(dataMutex);
-        return controllerData[key];
-    }
-
 private:
     zmq::context_t context;
     zmq::socket_t subscriber;
-    std::unordered_map<std::string, std::string> controllerData;
-    std::mutex dataMutex; // Para evitar condições de corrida
-
-    void processControllerMessage(const std::string& message) {
-        auto delimiterPos = message.find(' ');
-        if (delimiterPos != std::string::npos) {
-            std::string key = message.substr(0, delimiterPos);
-            std::string value = message.substr(delimiterPos + 1);
-
-            {
-                // thread-safe
-                std::lock_guard<std::mutex> lock(dataMutex);
-                controllerData[key] = value;
-            }
-
-            std::cout << "Atualizado: " << key << " = " << value << std::endl;
-        } else {
-            std::cerr << "Formato de mensagem inválido: " << message << std::endl;
-        }
-    }
+    zmq::socket_t& publisher_; // referência ao publisher principal
 };
 
 #endif // CONTROLLER_SUBSCRIBER_HPP
