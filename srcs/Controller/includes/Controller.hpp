@@ -36,6 +36,7 @@ public:
     void autonomous(float ey, float yaw);
     void setLaneDetector(std::unique_ptr<LaneDetector> detector);
     void setObjectDetector(std::unique_ptr<ObjectDetector> detector);
+    void sendDetectedSign(const std::vector<Detection>& detections);
     bool initialize();
 
     cv::VideoCapture cap_;

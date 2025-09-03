@@ -166,7 +166,7 @@ void MPCController::update(float ey, float yaw, float v) {
     }
 
     delta_prev_ = delta_;
-	std::cout << v_ << "\t" << ey << "\t" << yaw << "\t" << curvature << "\t" << delta_ff << "\t" << u(0) << "\t" << Q_(0,0) << "\t" << Q_(1,1) << std::endl;
+	// std::cout << v_ << "\t" << ey << "\t" << yaw << "\t" << curvature << "\t" << delta_ff << "\t" << u(0) << "\t" << Q_(0,0) << "\t" << Q_(1,1) << std::endl;
     delta_ = std::clamp(delta_ff + u(0), -delta_max, delta_max);
 
 }

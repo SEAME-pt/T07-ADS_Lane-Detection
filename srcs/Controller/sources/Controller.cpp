@@ -1,5 +1,6 @@
 #include "Controller.hpp"
 #include "SpeedSubscriber.hpp"
+#include "ObjectDetector.hpp"
 #include "MPC.hpp"
 #include <iostream>
 #include <fstream>
@@ -46,21 +47,21 @@ Controller::Controller() : joystick(nullptr), jetCar(0x60, 0x40), mapping(&jetCa
     // std::string pipeline = "appsrc ! videoconvert ! x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
     //                       "rtph264pay ! udpsink host=239.255.0.1 port=5000 sync=false multi-cast=true";
 
-    std::string pipeline =
-        "appsrc ! videoconvert ! video/x-raw,format=I420 ! "  // Force 4:2:0
-        "x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
-        "rtph264pay config-interval=1 pt=96 ! "
-        "udpsink host=239.255.0.1 port=5000 auto-multicast=true loop=1";
+    // std::string pipeline =
+    //     "appsrc ! videoconvert ! video/x-raw,format=I420 ! "  // Force 4:2:0
+    //     "x264enc tune=zerolatency bitrate=500 speed-preset=superfast ! "
+    //     "rtph264pay config-interval=1 pt=96 ! "
+    //     "udpsink host=239.255.0.1 port=5000 auto-multicast=true loop=1";
 
 
 
 
-	video_writer.open(pipeline, cv::CAP_GSTREAMER, 0, 30.0, cv::Size(640, 360), true);
-    if (!video_writer.isOpened()) {
-        throw std::runtime_error("Failed to open VideoWriter for streaming!");
-    }
-    std::cout << "Streaming started at udp://0.0.0.0:5000" << std::endl;
-    std::cout << '<gst-launch-1.0 -v udpsrc udpsrc address=239.255.0.1 port=5000 caps="application/x-rtp, payload=96, encoding-name=H264" ! rtph264depay ! decodebin ! videoconvert ! autovideosink sync=false< std::endl;' << std::endl;
+	// video_writer.open(pipeline, cv::CAP_GSTREAMER, 0, 30.0, cv::Size(640, 360), true);
+    // if (!video_writer.isOpened()) {
+    //     throw std::runtime_error("Failed to open VideoWriter for streaming!");
+    // }
+    // std::cout << "Streaming started at udp://0.0.0.0:5000" << std::endl;
+    // std::cout << '<gst-launch-1.0 -v udpsrc udpsrc address=239.255.0.1 port=5000 caps="application/x-rtp, payload=96, encoding-name=H264" ! rtph264depay ! decodebin ! videoconvert ! autovideosink sync=false< std::endl;' << std::endl;
 
     // Initialize CSV file
     // csv_file_.open("lane_detection_log.csv", std::ios::out | std::ios::app);
@@ -190,7 +191,7 @@ void Controller::listen() {
             static int cruise_delta_ = 0;
 			if (std::abs(yaw) < 0.1 && std::abs(ey) < 0.04) {
 				cruise_reset_ = true;
-                if (count_steps_ % 5 == 0)
+                if (count_steps_ == 10)
                     cruise_delta_++; // small speed boost on straight roads
 			} else {
 				cruise_delta_ = 0.0f;
@@ -214,7 +215,7 @@ void Controller::listen() {
 		} else {
 			visualize_mask_ = true;
 		}
-        if (count_steps_ % 5 == 0) count_steps_ = 0;
+        if (count_steps_ > 10) count_steps_ = 0;
         count_steps_++;
 
         cv::Rect roi(frame.cols * 0.6, 0, frame.cols * 0.4, frame.rows);
@@ -230,10 +231,10 @@ void Controller::listen() {
         }
         if (!joystick) break;
 
-        // Display mode on output_frame bottom right corner
-        std::string modeText = (jetCar.getCurrentMode() == MODE_JOYSTICK) ? "Joystick Mode" : "Autonomous Mode";
-        cv::putText(output_frame, modeText, cv::Point(330, 340), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
-        video_writer.write(output_frame);
+        // // Display mode on output_frame bottom right corner
+        // std::string modeText = (jetCar.getCurrentMode() == MODE_JOYSTICK) ? "Joystick Mode" : "Autonomous Mode";
+        // cv::putText(output_frame, modeText, cv::Point(330, 340), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 255), 1);
+        // video_writer.write(output_frame);
 
         // SDL_Delay(10);  // Small delay to avoid overloading CPU
 
@@ -243,9 +244,9 @@ void Controller::listen() {
 
 		// std::cout << "[" << __func__ << "] "
 		// 		<< "Loop duration: " << duration_ms << " ms \r" << std::flush;
-		if (duration_ms < 99) {
-        	std::this_thread::sleep_for(std::chrono::milliseconds(100 - duration_ms));
-    	}
+		// if (duration_ms < 99) {
+        // 	std::this_thread::sleep_for(std::chrono::milliseconds(100 - duration_ms));
+    	// }
 
 		// // Optional: Print actual duration (will be ~100+ ms)
 		// auto loop_total_end = std::chrono::steady_clock::now();
@@ -309,7 +310,7 @@ void Controller::autonomous(float ey, float yaw) {
 		// std::cout << "[" << __func__ << "] Speed is " << speed <<  "! Too low, LKAS OFF" << std::endl;
 		return;
 	}
-
+    
 	float delta = 1.0f * mpc_.getSteeringAngle();
 	float a = mpc_.getAcceleration();
 
@@ -317,12 +318,12 @@ void Controller::autonomous(float ey, float yaw) {
 	jetCar.set_servo_angle(static_cast<int>(steeringDEG));  // Converted to degrees
 
     tracker.mark();
-	std::string servo_text = "Servo: " + std::to_string(delta * 180.0 / CV_PI) + " deg";
-	std::string delta_text = "Delta: " + std::to_string(delta) + " rad";
-	std::string speed_text = "Speed: " + std::to_string(speed) + " m/s";
-	cv::putText(output_frame, servo_text, cv::Point(10, 270), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
-	cv::putText(output_frame, delta_text, cv::Point(10, 300), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
-	cv::putText(output_frame, speed_text, cv::Point(10, 330), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
+	// std::string servo_text = "Servo: " + std::to_string(delta * 180.0 / CV_PI) + " deg";
+	// std::string delta_text = "Delta: " + std::to_string(delta) + " rad";
+	// std::string speed_text = "Speed: " + std::to_string(speed) + " m/s";
+	// cv::putText(output_frame, servo_text, cv::Point(10, 270), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
+	// cv::putText(output_frame, delta_text, cv::Point(10, 300), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
+	// cv::putText(output_frame, speed_text, cv::Point(10, 330), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 
 }
 
@@ -333,3 +334,10 @@ void Controller::setLaneDetector(std::unique_ptr<LaneDetector> detector) {
 void Controller::setObjectDetector(std::unique_ptr<ObjectDetector> detector) {
 	objectDetector = std::move(detector);
 }
+
+//function to send to cluster the detected sign
+void Controller::sendDetectedSign(const std::vector<Detection>& detections) {
+    for (const auto& det : detections) {
+        jetCar.publishMessage("trafficSign " + det.class_name);
+    }
+}   
