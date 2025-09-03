@@ -7,7 +7,7 @@
 
 class MPCController {
 public:
-	MPCController(float wheelbase, float dt, int horizon);
+	MPCController(float wheelbase, float dt, int horizon, float v_cruise);
 	// Update state and compute optimal control
 	void update(float ey, float yaw, float v);
 	// Control outputs
