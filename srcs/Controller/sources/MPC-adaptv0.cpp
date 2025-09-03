@@ -1,4 +1,4 @@
-// Version: v12 (2025-09-03) ADAPTATIVE MPC
+// Version: v11 (2025-08-28) FEED-FORWARD CONTROL ADDED
 #include "MPC.hpp"
 #include <Eigen/Dense>
 #include <cmath>
@@ -19,17 +19,22 @@ MPCController::MPCController(float wheelbase, float dt, int horizon)
 	k_ff_(static_cast<float>(K_FF)),
 	lookahead_(static_cast<float>(LOOKAHEAD))
 {
+	// Q_ << Q_EY, 0.0f,
+	// 	  0.0f, Q_YAW; // ey: 20, yaw: 5
+    // Qf_ << QF_EY, 0.0f,
+	// 	   0.0f, QF_YAW; // ey: 100, yaw: 25
+
 	R_ = R; // Balanced control effort
-	max_delta_ = DELTA_MAX; // 0.5 rad
+    max_delta_ = DELTA_MAX; // 0.5 rad
 	min_delta_ = -DELTA_MAX; // -0.5 rad
-	R_delta_rate_ = R_DELTA_RATE; // 10.0
+    R_delta_rate_ = R_DELTA_RATE; // 10.0
 
 	k_delta_ = 0.25f; // Unused (speed-dependent delta)
 
-	state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
-	v_ = 0.0f; // Initial speed
+    state_ = Eigen::Vector2f::Zero(); // [ey, yaw]
+    v_ = 0.0f; // Initial speed
 	delta_ = 0.0f; // Initial steering
-	delta_prev_ = 0.0f; // For rate penalty
+    delta_prev_ = 0.0f; // For rate penalty
 
 	// unused for now
 	a_ = 0.0f; // Initial acceleration
@@ -46,46 +51,23 @@ float MPCController::estimateCurvature(float yaw) const
 void MPCController::adaptative(float yaw, float v) {
 	// Unused for now
 	(void)v;
-    // --- Hysteresis for curve detection ---
-    static bool in_curve = false;
 
-    float yaw_abs = std::abs(yaw);
+	float qYaw = Q_YAW;
+	if (std::abs(yaw) < 0.3f) {
+		qYaw = Q_YAW * 0.8f;  // Reduce weight for small yaws
+	} else if (std::abs(yaw) > 0.2f && std::abs(yaw) < 0.4f) {
+		qYaw = Q_YAW;  // Increase weight for large yaws
+	} else if (std::abs(yaw) > 0.4f && std::abs(yaw) < 0.5f){
+		qYaw = Q_YAW * 1.2f;  // Increase weight for large yawselse {
+	} else {
+		qYaw = 10.0f;  // Normal weight
+	}
 
-    // Hysteresis logic
-    if (!in_curve && yaw_abs > YAW_HYST_HIGH) {
-        in_curve = true;
-    } else if (in_curve && yaw_abs < YAW_HYST_LOW) {
-        in_curve = false;
-    }
-
-    // Determine desired weights
-    float qEyTarget = qEyStraight;
-    float qYawTarget = qYawStraight;
-
-    if (in_curve) {
-        // More aggressive if curve gets even steeper
-        if (yaw_abs > YAW_STEEP) {
-            qEyTarget = qEyCurve * 1.2f;
-            qYawTarget = qYawCurve * 1.4f;
-        } else {
-            // Moderate curve
-            qEyTarget = qEyCurve;
-            qYawTarget = qYawCurve;
-        }
-    }
-
-    // --- Soft interpolation (low-pass filter) ---
-    qEyFilt_  = (1.0f - alpha) * qEyFilt_  + alpha * qEyTarget;
-    qYawFilt_ = (1.0f - alpha) * qYawFilt_ + alpha * qYawTarget;
-
-    // --- Set Q and Qf matrices ---
-    Q_ << qEyFilt_, 0.0f,
-          0.0f,     qYawFilt_;
-
-    Qf_ << qEyFilt_ * 5.0f, 0.0f,
-           0.0f,     qYawFilt_ * 5.0f;
-}
-
+	// Example: Adjust Q_EY based on speed (higher speed -> lower weight)
+	Q_ << Q_EY, 0.0f,
+		  0.0f, qYaw; // ey: 20, yaw: 5 0.2 is the smallest yaw expected
+    Qf_ << Q_EY * 5.0, 0.0f,
+		   0.0f, qYaw * 5.0; // ey: 100, yaw: 25
 
 }
 
@@ -93,13 +75,15 @@ void MPCController::update(float ey, float yaw, float v) {
     // Clip invalid velocity
     if (v < 0.0f || v > V_MAX) {
         v = V_MIN;
-        std::cout << "[" << __func__ << "] Warning: Invalid v, clipped to V_MIN=" << V_MIN << std::endl;
+        std::cout << "[" << __func__ << "] Warning: Invalid v clipped to V_MIN=" << V_MIN << std::endl;
     }
 
     state_ << ey, yaw;
     v_ = std::max(0.1f, v);
 
 	adaptative(yaw, v_);
+
+
 
     float delta_max = max_delta_; // 0.5 rad
 
