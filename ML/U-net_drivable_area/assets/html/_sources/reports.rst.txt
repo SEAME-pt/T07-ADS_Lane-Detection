@@ -1,0 +1,20 @@
+.. Relatórios
+.. ==========
+
+
+.. - `Relatório de Testes <_static/report.html>`_
+.. - `Cobertura de Código <_static/htmlcov/index.html>`_
+
+Reports
+=======
+
+This section provides the main reports generated during the development of the project.  
+The **Test Report** contains the results of the automated tests executed with *pytest*,  
+while the **Coverage Report** shows the code coverage analysis generated using *pytest* with the coverage plugin.  
+
+
+.. toctree::
+   :maxdepth: 4
+
+   test
+   coverage

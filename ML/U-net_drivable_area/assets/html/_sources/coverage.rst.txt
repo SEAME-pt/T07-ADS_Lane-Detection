@@ -1,0 +1,10 @@
+Coverage
+========
+
+This page shows the **code coverage report** generated with **pytest-cov**.  
+The report indicates the percentage of the codebase exercised by the tests,  
+highlighting which parts of the project are well tested and which areas may require additional test cases.  
+
+A higher coverage value generally reflects greater confidence in the reliability of the implementation.
+
+- `Coverage Report <_static/htmlcov/index.html>`_

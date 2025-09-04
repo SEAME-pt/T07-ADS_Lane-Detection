@@ -1,0 +1,455 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>train module &mdash; Drivable Area Detection  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Reports" href="reports.html" />
+    <link rel="prev" title="model module" href="model.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Drivable Area Detection
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dataset.html">dataset module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model.html">model module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">train module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#train.DiceLoss"><code class="docutils literal notranslate"><span class="pre">DiceLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#train.DiceLoss.smooth"><code class="docutils literal notranslate"><span class="pre">DiceLoss.smooth</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#train.DiceLoss.forward"><code class="docutils literal notranslate"><span class="pre">DiceLoss.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#train.FocalLoss"><code class="docutils literal notranslate"><span class="pre">FocalLoss</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#train.FocalLoss.alpha"><code class="docutils literal notranslate"><span class="pre">FocalLoss.alpha</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#train.FocalLoss.gamma"><code class="docutils literal notranslate"><span class="pre">FocalLoss.gamma</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#train.FocalLoss.reduction"><code class="docutils literal notranslate"><span class="pre">FocalLoss.reduction</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#train.FocalLoss.forward"><code class="docutils literal notranslate"><span class="pre">FocalLoss.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#train.FocalLoss_w"><code class="docutils literal notranslate"><span class="pre">FocalLoss_w</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#train.FocalLoss_w.gamma"><code class="docutils literal notranslate"><span class="pre">FocalLoss_w.gamma</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#train.FocalLoss_w.alpha"><code class="docutils literal notranslate"><span class="pre">FocalLoss_w.alpha</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#train.FocalLoss_w.reduction"><code class="docutils literal notranslate"><span class="pre">FocalLoss_w.reduction</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#train.FocalLoss_w.forward"><code class="docutils literal notranslate"><span class="pre">FocalLoss_w.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#train.check_accuracy"><code class="docutils literal notranslate"><span class="pre">check_accuracy()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#train.check_masks"><code class="docutils literal notranslate"><span class="pre">check_masks()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#train.load_checkpoint"><code class="docutils literal notranslate"><span class="pre">load_checkpoint()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#train.main"><code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#train.save_predictions_as_imgs"><code class="docutils literal notranslate"><span class="pre">save_predictions_as_imgs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#train.train_fn"><code class="docutils literal notranslate"><span class="pre">train_fn()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reports.html">Reports</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Drivable Area Detection</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">Modules</a></li>
+      <li class="breadcrumb-item active">train module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/train.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-train">
+<span id="train-module"></span><h1>train module<a class="headerlink" href="#module-train" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="train.DiceLoss">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">train.</span></span><span class="sig-name descname"><span class="pre">DiceLoss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">smooth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#DiceLoss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.DiceLoss" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Dice Loss for multiclass segmentation.</p>
+<p>Measures the overlap between predicted and ground truth segmentation maps using the Dice coefficient.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>smooth</strong> (<em>float</em><em>, </em><em>optional</em>) – Smoothing factor to avoid division by zero. Defaults to 1e-8.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="train.DiceLoss.smooth">
+<span class="sig-name descname"><span class="pre">smooth</span></span><a class="headerlink" href="#train.DiceLoss.smooth" title="Link to this definition"></a></dt>
+<dd><p>Smoothing factor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="train.DiceLoss.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">targets</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#DiceLoss.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.DiceLoss.forward" title="Link to this definition"></a></dt>
+<dd><p>Forward pass for Dice Loss.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> (<em>torch.Tensor</em>) – Model predictions with shape [batch_size, num_classes, height, width].</p></li>
+<li><p><strong>targets</strong> (<em>torch.Tensor</em>) – Ground truth labels with shape [batch_size, height, width], values in {0, 1, 2}.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Computed Dice loss (1 - Dice coefficient).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="train.FocalLoss">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">train.</span></span><span class="sig-name descname"><span class="pre">FocalLoss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#FocalLoss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.FocalLoss" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Focal Loss for multiclass segmentation.</p>
+<p>Focuses on hard-to-classify examples with a fixed alpha weight for foreground classes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>alpha</strong> (<em>float</em><em>, </em><em>optional</em>) – Weight for foreground classes (values &gt; 0). Defaults to 0.95.</p></li>
+<li><p><strong>gamma</strong> (<em>float</em><em>, </em><em>optional</em>) – Focusing parameter to emphasize hard examples. Defaults to 2.0.</p></li>
+<li><p><strong>reduction</strong> (<em>str</em><em>, </em><em>optional</em>) – Reduction method (‘mean’ or ‘sum’). Defaults to ‘mean’.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="train.FocalLoss.alpha">
+<span class="sig-name descname"><span class="pre">alpha</span></span><a class="headerlink" href="#train.FocalLoss.alpha" title="Link to this definition"></a></dt>
+<dd><p>Weight for foreground classes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="train.FocalLoss.gamma">
+<span class="sig-name descname"><span class="pre">gamma</span></span><a class="headerlink" href="#train.FocalLoss.gamma" title="Link to this definition"></a></dt>
+<dd><p>Focusing parameter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="train.FocalLoss.reduction">
+<span class="sig-name descname"><span class="pre">reduction</span></span><a class="headerlink" href="#train.FocalLoss.reduction" title="Link to this definition"></a></dt>
+<dd><p>Reduction method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="train.FocalLoss.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">targets</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#FocalLoss.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.FocalLoss.forward" title="Link to this definition"></a></dt>
+<dd><p>Forward pass for Focal Loss.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> (<em>torch.Tensor</em>) – Model predictions with shape [batch_size, num_classes, height, width].</p></li>
+<li><p><strong>targets</strong> (<em>torch.Tensor</em>) – Ground truth labels with shape [batch_size, height, width], values in {0, 1, 2}.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Computed focal loss.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="train.FocalLoss_w">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">train.</span></span><span class="sig-name descname"><span class="pre">FocalLoss_w</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reduction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mean'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#FocalLoss_w"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.FocalLoss_w" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Focal Loss with class weights for multiclass segmentation.</p>
+<p>Adjusts the loss to focus on hard-to-classify examples and balance class importance using weights.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>gamma</strong> (<em>float</em><em>, </em><em>optional</em>) – Focusing parameter to emphasize hard examples. Defaults to 2.0.</p></li>
+<li><p><strong>alpha</strong> (<em>torch.Tensor</em><em>, </em><em>optional</em>) – Class weights for balancing (shape [num_classes]). Defaults to None.</p></li>
+<li><p><strong>reduction</strong> (<em>str</em><em>, </em><em>optional</em>) – Reduction method (‘mean’ or ‘sum’). Defaults to ‘mean’.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="train.FocalLoss_w.gamma">
+<span class="sig-name descname"><span class="pre">gamma</span></span><a class="headerlink" href="#train.FocalLoss_w.gamma" title="Link to this definition"></a></dt>
+<dd><p>Focusing parameter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="train.FocalLoss_w.alpha">
+<span class="sig-name descname"><span class="pre">alpha</span></span><a class="headerlink" href="#train.FocalLoss_w.alpha" title="Link to this definition"></a></dt>
+<dd><p>Class weights.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="train.FocalLoss_w.reduction">
+<span class="sig-name descname"><span class="pre">reduction</span></span><a class="headerlink" href="#train.FocalLoss_w.reduction" title="Link to this definition"></a></dt>
+<dd><p>Reduction method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="train.FocalLoss_w.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">targets</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#FocalLoss_w.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.FocalLoss_w.forward" title="Link to this definition"></a></dt>
+<dd><p>Forward pass for Focal Loss with weights.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> (<em>torch.Tensor</em>) – Model predictions with shape [batch_size, num_classes, height, width].</p></li>
+<li><p><strong>targets</strong> (<em>torch.Tensor</em>) – Ground truth labels with shape [batch_size, height, width], values in {0, 1, 2}.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Computed focal loss.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="train.check_accuracy">
+<span class="sig-prename descclassname"><span class="pre">train.</span></span><span class="sig-name descname"><span class="pre">check_accuracy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss_fn_focal</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss_fn_dice</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#check_accuracy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.check_accuracy" title="Link to this definition"></a></dt>
+<dd><p>Evaluates the model on the validation dataset.</p>
+<p>Computes the validation loss (combined Focal and Dice) and mean IoU for the given dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loader</strong> (<em>torch.utils.data.DataLoader</em>) – DataLoader for the validation dataset.</p></li>
+<li><p><strong>model</strong> (<em>torch.nn.Module</em>) – The U-Net model to evaluate.</p></li>
+<li><p><strong>loss_fn_focal</strong> (<em>nn.Module</em>) – Focal loss function.</p></li>
+<li><p><strong>loss_fn_dice</strong> (<em>nn.Module</em>) – Dice loss function.</p></li>
+<li><p><strong>device</strong> (<em>str</em>) – Device to run the model.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>A tuple containing:</dt><dd><ul class="simple">
+<li><p>mean_loss (float): Mean validation loss.</p></li>
+<li><p>mean_iou (float): Mean IoU (Jaccard Index).</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="train.check_masks">
+<span class="sig-prename descclassname"><span class="pre">train.</span></span><span class="sig-name descname"><span class="pre">check_masks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'train'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#check_masks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.check_masks" title="Link to this definition"></a></dt>
+<dd><p>Checks for missing image-mask pairs in the dataset.</p>
+<p>Verifies that each image has a corresponding mask and vice versa, reporting any mismatches.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image_dir</strong> (<em>str</em>) – Directory containing input images (expected to be .jpg files).</p></li>
+<li><p><strong>mask_dir</strong> (<em>str</em>) – Directory containing ground truth masks (expected to be _mask.png files).</p></li>
+<li><p><strong>dataset_type</strong> (<em>str</em><em>, </em><em>optional</em>) – Type of dataset (‘train’ or ‘val’). Defaults to ‘train’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of error messages for mismatched image-mask pairs.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="train.load_checkpoint">
+<span class="sig-prename descclassname"><span class="pre">train.</span></span><span class="sig-name descname"><span class="pre">load_checkpoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">checkpoint</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#load_checkpoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.load_checkpoint" title="Link to this definition"></a></dt>
+<dd><p>Loads a saved model checkpoint.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>checkpoint</strong> (<em>dict</em>) – Checkpoint dictionary containing model state.</p></li>
+<li><p><strong>model</strong> (<em>torch.nn.Module</em>) – The U-Net model to load the state into.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="train.main">
+<span class="sig-prename descclassname"><span class="pre">train.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.main" title="Link to this definition"></a></dt>
+<dd><p>Main training function.</p>
+<p>Orchestrates the training process, including dataset loading, model training, validation, early stopping,
+and checkpoint saving.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="train.save_predictions_as_imgs">
+<span class="sig-prename descclassname"><span class="pre">train.</span></span><span class="sig-name descname"><span class="pre">save_predictions_as_imgs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">folder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'saved_images/'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cuda'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#save_predictions_as_imgs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.save_predictions_as_imgs" title="Link to this definition"></a></dt>
+<dd><p>Saves model predictions as images alongside input images and ground truth masks.</p>
+<p>Generates side-by-side images of the input, ground truth mask, and predicted mask for visualization.
+Images are saved in the specified folder with filenames indicating the epoch and batch index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loader</strong> (<em>torch.utils.data.DataLoader</em>) – DataLoader for the validation dataset.</p></li>
+<li><p><strong>model</strong> (<em>torch.nn.Module</em>) – The U-Net model to evaluate.</p></li>
+<li><p><strong>epoch</strong> (<em>int</em>) – Current epoch number.</p></li>
+<li><p><strong>folder</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory to save images. Defaults to ‘saved_images/’.</p></li>
+<li><p><strong>device</strong> (<em>str</em><em>, </em><em>optional</em>) – Device to run the model. Defaults to ‘cuda’.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="train.train_fn">
+<span class="sig-prename descclassname"><span class="pre">train.</span></span><span class="sig-name descname"><span class="pre">train_fn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss_fn_focal</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss_fn_dice</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaler</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/train.html#train_fn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#train.train_fn" title="Link to this definition"></a></dt>
+<dd><p>Trains the model for one epoch.</p>
+<p>Performs a single training epoch, computing combined Focal and Dice losses, and updating model parameters.
+Supports mixed precision training when running on CUDA.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loader</strong> (<em>torch.utils.data.DataLoader</em>) – DataLoader for the training dataset.</p></li>
+<li><p><strong>model</strong> (<em>torch.nn.Module</em>) – The U-Net model to train.</p></li>
+<li><p><strong>optimizer</strong> (<em>torch.optim.Optimizer</em>) – Optimizer for updating model parameters.</p></li>
+<li><p><strong>loss_fn_focal</strong> (<em>nn.Module</em>) – Focal loss function.</p></li>
+<li><p><strong>loss_fn_dice</strong> (<em>nn.Module</em>) – Dice loss function.</p></li>
+<li><p><strong>scaler</strong> (<em>torch.cuda.amp.GradScaler</em>) – Gradient scaler for mixed precision training.</p></li>
+<li><p><strong>epoch</strong> (<em>int</em>) – Current epoch number.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>A tuple containing:</dt><dd><ul class="simple">
+<li><p>mean_loss (float): Mean training loss for the epoch.</p></li>
+<li><p>mean_iou (float): Mean IoU (Jaccard Index) for the epoch.</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="model.html" class="btn btn-neutral float-left" title="model module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="reports.html" class="btn btn-neutral float-right" title="Reports" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SEAME Porto-Portugal Team07.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

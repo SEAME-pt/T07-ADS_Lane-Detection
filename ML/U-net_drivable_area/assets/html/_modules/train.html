@@ -1,0 +1,552 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>train &mdash; Drivable Area Detection  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Drivable Area Detection
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reports.html">Reports</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Drivable Area Detection</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">train</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for train</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.optim</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">optim</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.cuda.amp</span><span class="w"> </span><span class="kn">import</span> <span class="n">GradScaler</span><span class="p">,</span> <span class="n">autocast</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torchmetrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">JaccardIndex</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">model</span><span class="w"> </span><span class="kn">import</span> <span class="n">UNET</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiClassLaneDataset</span><span class="p">,</span> <span class="n">train_transforms</span><span class="p">,</span> <span class="n">val_transforms</span>
+
+<span class="c1"># Configurations</span>
+<span class="sd">&quot;&quot;&quot;Global configurations for training the lane detection model.</span>
+
+<span class="sd">Attributes:</span>
+<span class="sd">    device (torch.device): Device to run the model (&#39;cuda&#39; if available, else &#39;cpu&#39;).</span>
+<span class="sd">    batch_size (int): Number of samples per batch. Defaults to 8.</span>
+<span class="sd">    num_epochs (int): Number of training epochs. Defaults to 1.</span>
+<span class="sd">    learning_rate (float): Learning rate for the optimizer. Defaults to 1e-3.</span>
+<span class="sd">    save_dir (str): Directory to save model checkpoints. Defaults to &#39;checkpoints&#39;.</span>
+<span class="sd">    saved_images_dir (str): Directory to save prediction images. Defaults to &#39;saved_images&#39;.</span>
+<span class="sd">    LOAD_MODEL (bool): Whether to load a pre-trained model. Defaults to False.</span>
+<span class="sd">    patience (int): Number of epochs to wait for improvement before early stopping. Defaults to 5.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;cuda&#39;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s1">&#39;cpu&#39;</span><span class="p">)</span>
+<span class="n">batch_size</span> <span class="o">=</span> <span class="mi">8</span>
+<span class="n">num_epochs</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">learning_rate</span> <span class="o">=</span> <span class="mf">1e-3</span>
+<span class="n">save_dir</span> <span class="o">=</span> <span class="s1">&#39;checkpoints&#39;</span>
+<span class="n">saved_images_dir</span> <span class="o">=</span> <span class="s1">&#39;saved_images&#39;</span>
+<span class="n">LOAD_MODEL</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">patience</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># For early stopping</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">save_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">saved_images_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Logging configuration</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">filename</span><span class="o">=</span><span class="s1">&#39;training_log.log&#39;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> 
+                    <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">%(asctime)s</span><span class="s1"> - </span><span class="si">%(message)s</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">())</span>
+
+<div class="viewcode-block" id="check_masks">
+<a class="viewcode-back" href="../train.html#train.check_masks">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_masks</span><span class="p">(</span><span class="n">image_dir</span><span class="p">,</span> <span class="n">mask_dir</span><span class="p">,</span> <span class="n">dataset_type</span><span class="o">=</span><span class="s2">&quot;train&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Checks for missing image-mask pairs in the dataset.</span>
+
+<span class="sd">    Verifies that each image has a corresponding mask and vice versa, reporting any mismatches.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        image_dir (str): Directory containing input images (expected to be .jpg files).</span>
+<span class="sd">        mask_dir (str): Directory containing ground truth masks (expected to be _mask.png files).</span>
+<span class="sd">        dataset_type (str, optional): Type of dataset (&#39;train&#39; or &#39;val&#39;). Defaults to &#39;train&#39;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list: List of error messages for mismatched image-mask pairs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">image_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">image_dir</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;.jpg&#39;</span><span class="p">)]</span>
+    <span class="n">mask_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">mask_dir</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;_mask.png&#39;</span><span class="p">)]</span>
+    <span class="n">image_basenames</span> <span class="o">=</span> <span class="p">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">f</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">image_files</span><span class="p">}</span>
+    <span class="n">mask_basenames</span> <span class="o">=</span> <span class="p">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_mask&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">))[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">mask_files</span><span class="p">}</span>
+    <span class="n">errors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">base_name</span> <span class="ow">in</span> <span class="n">image_basenames</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">base_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mask_basenames</span><span class="p">:</span>
+            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image without mask in </span><span class="si">{</span><span class="n">dataset_type</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">image_basenames</span><span class="p">[</span><span class="n">base_name</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">base_name</span> <span class="ow">in</span> <span class="n">mask_basenames</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">base_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">image_basenames</span><span class="p">:</span>
+            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mask without image in </span><span class="si">{</span><span class="n">dataset_type</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">mask_basenames</span><span class="p">[</span><span class="n">base_name</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">errors</span></div>
+
+
+<div class="viewcode-block" id="FocalLoss_w">
+<a class="viewcode-back" href="../train.html#train.FocalLoss_w">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FocalLoss_w</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Focal Loss with class weights for multiclass segmentation.</span>
+
+<span class="sd">    Adjusts the loss to focus on hard-to-classify examples and balance class importance using weights.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        gamma (float, optional): Focusing parameter to emphasize hard examples. Defaults to 2.0.</span>
+<span class="sd">        alpha (torch.Tensor, optional): Class weights for balancing (shape [num_classes]). Defaults to None.</span>
+<span class="sd">        reduction (str, optional): Reduction method (&#39;mean&#39; or &#39;sum&#39;). Defaults to &#39;mean&#39;.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        gamma (float): Focusing parameter.</span>
+<span class="sd">        alpha (torch.Tensor): Class weights.</span>
+<span class="sd">        reduction (str): Reduction method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">FocalLoss_w</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">=</span> <span class="n">gamma</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="n">reduction</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FocalLoss_w initialized with gamma=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gamma</span><span class="si">}</span><span class="s2">, alpha=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="FocalLoss_w.forward">
+<a class="viewcode-back" href="../train.html#train.FocalLoss_w.forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass for Focal Loss with weights.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            inputs (torch.Tensor): Model predictions with shape [batch_size, num_classes, height, width].</span>
+<span class="sd">            targets (torch.Tensor): Ground truth labels with shape [batch_size, height, width], values in {0, 1, 2}.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: Computed focal loss.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">CE_loss</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;none&#39;</span><span class="p">)</span>
+        <span class="n">pt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">CE_loss</span><span class="p">)</span>
+        <span class="n">focal_loss</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">pt</span><span class="p">)</span> <span class="o">**</span> <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">*</span> <span class="n">CE_loss</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">alpha_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">[</span><span class="n">targets</span><span class="p">]</span>
+            <span class="n">focal_loss</span> <span class="o">=</span> <span class="n">alpha_t</span> <span class="o">*</span> <span class="n">focal_loss</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">==</span> <span class="s1">&#39;mean&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">focal_loss</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">focal_loss</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span></div>
+</div>
+
+
+<div class="viewcode-block" id="FocalLoss">
+<a class="viewcode-back" href="../train.html#train.FocalLoss">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FocalLoss</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Focal Loss for multiclass segmentation.</span>
+
+<span class="sd">    Focuses on hard-to-classify examples with a fixed alpha weight for foreground classes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        alpha (float, optional): Weight for foreground classes (values &gt; 0). Defaults to 0.95.</span>
+<span class="sd">        gamma (float, optional): Focusing parameter to emphasize hard examples. Defaults to 2.0.</span>
+<span class="sd">        reduction (str, optional): Reduction method (&#39;mean&#39; or &#39;sum&#39;). Defaults to &#39;mean&#39;.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        alpha (float): Weight for foreground classes.</span>
+<span class="sd">        gamma (float): Focusing parameter.</span>
+<span class="sd">        reduction (str): Reduction method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">FocalLoss</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">=</span> <span class="n">gamma</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="n">reduction</span>
+
+<div class="viewcode-block" id="FocalLoss.forward">
+<a class="viewcode-back" href="../train.html#train.FocalLoss.forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass for Focal Loss.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            inputs (torch.Tensor): Model predictions with shape [batch_size, num_classes, height, width].</span>
+<span class="sd">            targets (torch.Tensor): Ground truth labels with shape [batch_size, height, width], values in {0, 1, 2}.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: Computed focal loss.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="nb">min</span><span class="o">=-</span><span class="mi">100</span><span class="p">,</span> <span class="nb">max</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+        <span class="n">ce_loss</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">(</span><span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;none&#39;</span><span class="p">)(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
+        <span class="n">p_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">p_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">p_t</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">targets</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">long</span><span class="p">())</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">focal_weight</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_t</span><span class="p">)</span> <span class="o">**</span> <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span>
+        <span class="n">alpha_weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="p">(</span><span class="n">targets</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">targets</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="n">focal_loss</span> <span class="o">=</span> <span class="n">alpha_weight</span> <span class="o">*</span> <span class="n">focal_weight</span> <span class="o">*</span> <span class="n">ce_loss</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">==</span> <span class="s1">&#39;mean&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">focal_loss</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">reduction</span> <span class="o">==</span> <span class="s1">&#39;sum&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">focal_loss</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">focal_loss</span></div>
+</div>
+
+
+<div class="viewcode-block" id="DiceLoss">
+<a class="viewcode-back" href="../train.html#train.DiceLoss">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DiceLoss</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Dice Loss for multiclass segmentation.</span>
+
+<span class="sd">    Measures the overlap between predicted and ground truth segmentation maps using the Dice coefficient.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        smooth (float, optional): Smoothing factor to avoid division by zero. Defaults to 1e-8.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        smooth (float): Smoothing factor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">smooth</span><span class="o">=</span><span class="mf">1e-8</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DiceLoss</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">smooth</span> <span class="o">=</span> <span class="n">smooth</span>
+
+<div class="viewcode-block" id="DiceLoss.forward">
+<a class="viewcode-back" href="../train.html#train.DiceLoss.forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Forward pass for Dice Loss.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            inputs (torch.Tensor): Model predictions with shape [batch_size, num_classes, height, width].</span>
+<span class="sd">            targets (torch.Tensor): Ground truth labels with shape [batch_size, height, width], values in {0, 1, 2}.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            torch.Tensor: Computed Dice loss (1 - Dice coefficient).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">targets_one_hot</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">targets</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="n">inputs</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">targets_one_hot</span> <span class="o">=</span> <span class="n">targets_one_hot</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">intersection</span> <span class="o">=</span> <span class="p">(</span><span class="n">inputs</span> <span class="o">*</span> <span class="n">targets_one_hot</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">dice</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.</span> <span class="o">*</span> <span class="n">intersection</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">inputs</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">+</span> <span class="n">targets_one_hot</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">smooth</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">dice</span></div>
+</div>
+
+
+<div class="viewcode-block" id="save_predictions_as_imgs">
+<a class="viewcode-back" href="../train.html#train.save_predictions_as_imgs">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_predictions_as_imgs</span><span class="p">(</span><span class="n">loader</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">epoch</span><span class="p">,</span> <span class="n">folder</span><span class="o">=</span><span class="s2">&quot;saved_images/&quot;</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Saves model predictions as images alongside input images and ground truth masks.</span>
+
+<span class="sd">    Generates side-by-side images of the input, ground truth mask, and predicted mask for visualization.</span>
+<span class="sd">    Images are saved in the specified folder with filenames indicating the epoch and batch index.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        loader (torch.utils.data.DataLoader): DataLoader for the validation dataset.</span>
+<span class="sd">        model (torch.nn.Module): The U-Net model to evaluate.</span>
+<span class="sd">        epoch (int): Current epoch number.</span>
+<span class="sd">        folder (str, optional): Directory to save images. Defaults to &#39;saved_images/&#39;.</span>
+<span class="sd">        device (str, optional): Device to run the model. Defaults to &#39;cuda&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>      <span class="c1"># Class 0: background (black)</span>
+        <span class="p">[</span><span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>    <span class="c1"># Class 1: driveable (red)</span>
+        <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>    <span class="c1"># Class 2: lanes (green)</span>
+    <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">loader</span><span class="p">):</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">preds</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+            <span class="n">preds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">preds</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+            <span class="n">masks</span> <span class="o">=</span> <span class="n">masks</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">images</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">images</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="p">(</span><span class="n">img</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.14</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">])</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.41</span><span class="p">,</span> <span class="mf">0.39</span><span class="p">,</span> <span class="mf">0.42</span><span class="p">]))</span> <span class="o">*</span> <span class="mi">255</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+
+                <span class="n">mask_true</span> <span class="o">=</span> <span class="n">masks</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">mask_true_colored</span> <span class="o">=</span> <span class="n">colors</span><span class="p">[</span><span class="n">mask_true</span><span class="p">]</span>
+                <span class="n">mask_pred</span> <span class="o">=</span> <span class="n">preds</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">mask_pred_colored</span> <span class="o">=</span> <span class="n">colors</span><span class="p">[</span><span class="n">mask_pred</span><span class="p">]</span>
+
+                <span class="n">combined_width</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mi">3</span>
+                <span class="n">combined_img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">combined_width</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+                <span class="n">combined_img</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">:</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">img</span>
+                <span class="n">combined_img</span><span class="p">[:,</span> <span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span><span class="mi">2</span><span class="o">*</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">mask_true_colored</span>
+                <span class="n">combined_img</span><span class="p">[:,</span> <span class="mi">2</span><span class="o">*</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">mask_pred_colored</span>
+
+                <span class="n">combined_img_pil</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">combined_img</span><span class="p">)</span>
+                <span class="n">combined_img_pil</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;epoch_</span><span class="si">{</span><span class="n">epoch</span><span class="si">}</span><span class="s2">_combined_</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.png&quot;</span><span class="p">))</span>
+
+            <span class="k">break</span></div>
+
+
+<div class="viewcode-block" id="train_fn">
+<a class="viewcode-back" href="../train.html#train.train_fn">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">train_fn</span><span class="p">(</span><span class="n">loader</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">loss_fn_focal</span><span class="p">,</span> <span class="n">loss_fn_dice</span><span class="p">,</span> <span class="n">scaler</span><span class="p">,</span> <span class="n">epoch</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Trains the model for one epoch.</span>
+
+<span class="sd">    Performs a single training epoch, computing combined Focal and Dice losses, and updating model parameters.</span>
+<span class="sd">    Supports mixed precision training when running on CUDA.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        loader (torch.utils.data.DataLoader): DataLoader for the training dataset.</span>
+<span class="sd">        model (torch.nn.Module): The U-Net model to train.</span>
+<span class="sd">        optimizer (torch.optim.Optimizer): Optimizer for updating model parameters.</span>
+<span class="sd">        loss_fn_focal (nn.Module): Focal loss function.</span>
+<span class="sd">        loss_fn_dice (nn.Module): Dice loss function.</span>
+<span class="sd">        scaler (torch.cuda.amp.GradScaler): Gradient scaler for mixed precision training.</span>
+<span class="sd">        epoch (int): Current epoch number.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: A tuple containing:</span>
+<span class="sd">            - mean_loss (float): Mean training loss for the epoch.</span>
+<span class="sd">            - mean_iou (float): Mean IoU (Jaccard Index) for the epoch.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="n">loop</span> <span class="o">=</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">loader</span><span class="p">,</span> <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">/</span><span class="si">{</span><span class="n">num_epochs</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">total_loss</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">total_iou</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">jaccard</span> <span class="o">=</span> <span class="n">JaccardIndex</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="s1">&#39;multiclass&#39;</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">batch_idx</span><span class="p">,</span> <span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">loop</span><span class="p">):</span>
+        <span class="n">images</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="n">masks</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s1">&#39;cuda&#39;</span> <span class="ow">and</span> <span class="n">scaler</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">autocast</span><span class="p">():</span>
+                <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+                <span class="n">loss_focal</span> <span class="o">=</span> <span class="n">loss_fn_focal</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+                <span class="n">loss_dice</span> <span class="o">=</span> <span class="n">loss_fn_dice</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+                <span class="n">loss</span> <span class="o">=</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">loss_focal</span> <span class="o">+</span> <span class="mf">1.3</span> <span class="o">*</span> <span class="n">loss_dice</span>
+            <span class="n">scaler</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="n">scaler</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+            <span class="n">scaler</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+            <span class="n">loss_focal</span> <span class="o">=</span> <span class="n">loss_fn_focal</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+            <span class="n">loss_dice</span> <span class="o">=</span> <span class="n">loss_fn_dice</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">loss_focal</span> <span class="o">+</span> <span class="mf">1.3</span> <span class="o">*</span> <span class="n">loss_dice</span>
+            <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
+        <span class="n">total_loss</span> <span class="o">+=</span> <span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">total_iou</span> <span class="o">+=</span> <span class="n">jaccard</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">loop</span><span class="o">.</span><span class="n">set_postfix</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="n">total_loss</span> <span class="o">/</span> <span class="p">(</span><span class="n">batch_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">mIoU</span><span class="o">=</span><span class="n">total_iou</span> <span class="o">/</span> <span class="p">(</span><span class="n">batch_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">mean_loss</span> <span class="o">=</span> <span class="n">total_loss</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">loader</span><span class="p">)</span>
+    <span class="n">mean_iou</span> <span class="o">=</span> <span class="n">total_iou</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">loader</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2"> - Train Loss: </span><span class="si">{</span><span class="n">mean_loss</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, Train mIoU: </span><span class="si">{</span><span class="n">mean_iou</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mean_loss</span><span class="p">,</span> <span class="n">mean_iou</span></div>
+
+
+<div class="viewcode-block" id="check_accuracy">
+<a class="viewcode-back" href="../train.html#train.check_accuracy">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_accuracy</span><span class="p">(</span><span class="n">loader</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">loss_fn_focal</span><span class="p">,</span> <span class="n">loss_fn_dice</span><span class="p">,</span> <span class="n">device</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Evaluates the model on the validation dataset.</span>
+
+<span class="sd">    Computes the validation loss (combined Focal and Dice) and mean IoU for the given dataset.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        loader (torch.utils.data.DataLoader): DataLoader for the validation dataset.</span>
+<span class="sd">        model (torch.nn.Module): The U-Net model to evaluate.</span>
+<span class="sd">        loss_fn_focal (nn.Module): Focal loss function.</span>
+<span class="sd">        loss_fn_dice (nn.Module): Dice loss function.</span>
+<span class="sd">        device (str): Device to run the model.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: A tuple containing:</span>
+<span class="sd">            - mean_loss (float): Mean validation loss.</span>
+<span class="sd">            - mean_iou (float): Mean IoU (Jaccard Index).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="n">total_loss</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">total_iou</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">jaccard</span> <span class="o">=</span> <span class="n">JaccardIndex</span><span class="p">(</span><span class="n">task</span><span class="o">=</span><span class="s1">&#39;multiclass&#39;</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">images</span><span class="p">,</span> <span class="n">masks</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+            <span class="n">images</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">images</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="n">masks</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">images</span><span class="p">)</span>
+            <span class="n">loss_focal</span> <span class="o">=</span> <span class="n">loss_fn_focal</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+            <span class="n">loss_dice</span> <span class="o">=</span> <span class="n">loss_fn_dice</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+            <span class="n">loss</span> <span class="o">=</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">loss_focal</span> <span class="o">+</span> <span class="mf">1.3</span> <span class="o">*</span> <span class="n">loss_dice</span>
+
+            <span class="n">total_loss</span> <span class="o">+=</span> <span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+            <span class="n">total_iou</span> <span class="o">+=</span> <span class="n">jaccard</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+    <span class="n">mean_loss</span> <span class="o">=</span> <span class="n">total_loss</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">loader</span><span class="p">)</span>
+    <span class="n">mean_iou</span> <span class="o">=</span> <span class="n">total_iou</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">loader</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mean_loss</span><span class="p">,</span> <span class="n">mean_iou</span></div>
+
+
+<div class="viewcode-block" id="load_checkpoint">
+<a class="viewcode-back" href="../train.html#train.load_checkpoint">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_checkpoint</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">model</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads a saved model checkpoint.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        checkpoint (dict): Checkpoint dictionary containing model state.</span>
+<span class="sd">        model (torch.nn.Module): The U-Net model to load the state into.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;=&gt; Loading checkpoint&quot;</span><span class="p">)</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">[</span><span class="s2">&quot;state_dict&quot;</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../train.html#train.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Main training function.</span>
+
+<span class="sd">    Orchestrates the training process, including dataset loading, model training, validation, early stopping,</span>
+<span class="sd">    and checkpoint saving.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Verify dataset integrity</span>
+    <span class="n">train_errors</span> <span class="o">=</span> <span class="n">check_masks</span><span class="p">(</span><span class="s1">&#39;dataset/train&#39;</span><span class="p">,</span> <span class="s1">&#39;dataset/train_masks&#39;</span><span class="p">,</span> <span class="s1">&#39;train&#39;</span><span class="p">)</span>
+    <span class="n">val_errors</span> <span class="o">=</span> <span class="n">check_masks</span><span class="p">(</span><span class="s1">&#39;dataset/val&#39;</span><span class="p">,</span> <span class="s1">&#39;dataset/val_masks&#39;</span><span class="p">,</span> <span class="s1">&#39;val&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">train_errors</span> <span class="ow">or</span> <span class="n">val_errors</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Dataset errors:&quot;</span><span class="p">,</span> <span class="n">train_errors</span> <span class="o">+</span> <span class="n">val_errors</span><span class="p">)</span>
+        <span class="n">exit</span><span class="p">()</span>
+
+    <span class="c1"># Dataset and DataLoader</span>
+    <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">MultiClassLaneDataset</span><span class="p">(</span>
+        <span class="n">image_dir</span><span class="o">=</span><span class="s1">&#39;dataset/train&#39;</span><span class="p">,</span>
+        <span class="n">mask_dir</span><span class="o">=</span><span class="s1">&#39;dataset/train_masks&#39;</span><span class="p">,</span>
+        <span class="n">transform</span><span class="o">=</span><span class="n">train_transforms</span>
+    <span class="p">)</span>
+    
+    <span class="n">val_dataset</span> <span class="o">=</span> <span class="n">MultiClassLaneDataset</span><span class="p">(</span>
+        <span class="n">image_dir</span><span class="o">=</span><span class="s1">&#39;dataset/val&#39;</span><span class="p">,</span>
+        <span class="n">mask_dir</span><span class="o">=</span><span class="s1">&#39;dataset/val_masks&#39;</span><span class="p">,</span>
+        <span class="n">transform</span><span class="o">=</span><span class="n">val_transforms</span>
+    <span class="p">)</span>
+    
+    <span class="n">train_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">train_dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">pin_memory</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+    
+    <span class="n">val_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
+        <span class="n">val_dataset</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">pin_memory</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Model, loss functions, and optimizer</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">UNET</span><span class="p">(</span><span class="n">in_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">0.2118</span><span class="p">,</span> <span class="mf">0.2732</span><span class="p">,</span> <span class="mf">2.5150</span><span class="p">])</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">loss_fn_focal_w</span> <span class="o">=</span> <span class="n">FocalLoss_w</span><span class="p">(</span><span class="n">gamma</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">)</span>
+    <span class="n">loss_fn_focal</span> <span class="o">=</span> <span class="n">FocalLoss</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+    <span class="n">loss_fn_dice</span> <span class="o">=</span> <span class="n">DiceLoss</span><span class="p">()</span>
+    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">learning_rate</span><span class="p">)</span>
+    
+    <span class="c1"># Early stopping variables</span>
+    <span class="n">best_iou</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">patience_counter</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">LOAD_MODEL</span><span class="p">:</span>
+        <span class="n">load_checkpoint</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;model.pth&quot;</span><span class="p">),</span> <span class="n">model</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Model loaded successfully!&quot;</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">best_iou</span> <span class="o">=</span> <span class="n">check_accuracy</span><span class="p">(</span><span class="n">val_loader</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">loss_fn_focal_w</span><span class="p">,</span> <span class="n">loss_fn_dice</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+    
+    <span class="n">scaler</span> <span class="o">=</span> <span class="n">GradScaler</span><span class="p">()</span> <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s1">&#39;cuda&#39;</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_epochs</span><span class="p">):</span>
+        <span class="n">train_loss</span><span class="p">,</span> <span class="n">train_iou</span> <span class="o">=</span> <span class="n">train_fn</span><span class="p">(</span><span class="n">train_loader</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">loss_fn_focal_w</span><span class="p">,</span> <span class="n">loss_fn_dice</span><span class="p">,</span> <span class="n">scaler</span><span class="p">,</span> <span class="n">epoch</span><span class="p">)</span>
+        <span class="n">val_loss</span><span class="p">,</span> <span class="n">val_iou</span> <span class="o">=</span> <span class="n">check_accuracy</span><span class="p">(</span><span class="n">val_loader</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">loss_fn_focal_w</span><span class="p">,</span> <span class="n">loss_fn_dice</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2"> - Val Loss: </span><span class="si">{</span><span class="n">val_loss</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, Val mIoU: </span><span class="si">{</span><span class="n">val_iou</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Epoch </span><span class="si">{</span><span class="n">epoch</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2"> - Val Loss: </span><span class="si">{</span><span class="n">val_loss</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, Val mIoU: </span><span class="si">{</span><span class="n">val_iou</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">val_iou</span> <span class="o">&gt;</span> <span class="n">best_iou</span><span class="p">:</span>
+            <span class="n">best_iou</span> <span class="o">=</span> <span class="n">val_iou</span>
+            <span class="n">patience_counter</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">({</span>
+                <span class="s1">&#39;state_dict&#39;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+                <span class="s1">&#39;optimizer&#39;</span><span class="p">:</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+            <span class="p">},</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_dir</span><span class="p">,</span> <span class="s1">&#39;best_model.pth&#39;</span><span class="p">))</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Model saved (best mIoU: </span><span class="si">{</span><span class="n">best_iou</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        
+        <span class="n">save_predictions_as_imgs</span><span class="p">(</span><span class="n">val_loader</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">epoch</span><span class="p">,</span> <span class="n">folder</span><span class="o">=</span><span class="n">saved_images_dir</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SEAME Porto-Portugal Team07.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

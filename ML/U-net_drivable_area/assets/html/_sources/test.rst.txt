@@ -1,0 +1,12 @@
+Tests
+=====
+
+
+This page presents the results of the automated test suite.  
+The tests were implemented and executed using the **pytest** framework,  
+which allows for clear, maintainable, and efficient test cases.  
+
+The report provides insights into which components were verified and whether all expected functionalities behave as intended.
+
+
+- `Tests Report <_static/report.html>`_

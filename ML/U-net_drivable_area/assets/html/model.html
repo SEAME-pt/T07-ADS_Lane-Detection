@@ -1,0 +1,290 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>model module &mdash; Drivable Area Detection  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="train module" href="train.html" />
+    <link rel="prev" title="dataset module" href="dataset.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Drivable Area Detection
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">Modules</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dataset.html">dataset module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">model module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#model.DoubleConv"><code class="docutils literal notranslate"><span class="pre">DoubleConv</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#model.DoubleConv.conv"><code class="docutils literal notranslate"><span class="pre">DoubleConv.conv</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#model.DoubleConv.forward"><code class="docutils literal notranslate"><span class="pre">DoubleConv.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#model.UNET"><code class="docutils literal notranslate"><span class="pre">UNET</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#model.UNET.ups"><code class="docutils literal notranslate"><span class="pre">UNET.ups</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#model.UNET.downs"><code class="docutils literal notranslate"><span class="pre">UNET.downs</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#model.UNET.pool"><code class="docutils literal notranslate"><span class="pre">UNET.pool</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#model.UNET.bottleneck"><code class="docutils literal notranslate"><span class="pre">UNET.bottleneck</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#model.UNET.final_conv"><code class="docutils literal notranslate"><span class="pre">UNET.final_conv</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#model.UNET.forward"><code class="docutils literal notranslate"><span class="pre">UNET.forward()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#model.UNET.initialize_weights"><code class="docutils literal notranslate"><span class="pre">UNET.initialize_weights()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="train.html">train module</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reports.html">Reports</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Drivable Area Detection</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">Modules</a></li>
+      <li class="breadcrumb-item active">model module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/model.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-model">
+<span id="model-module"></span><h1>model module<a class="headerlink" href="#module-model" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="model.DoubleConv">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.</span></span><span class="sig-name descname"><span class="pre">DoubleConv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">in_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_channels</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dropout_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/model.html#DoubleConv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#model.DoubleConv" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>A double convolution block for the U-Net architecture.</p>
+<p>Applies two consecutive convolutional layers, each followed by batch normalization, ReLU activation,
+and a dropout layer to prevent overfitting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>in_channels</strong> (<em>int</em>) – Number of input channels.</p></li>
+<li><p><strong>out_channels</strong> (<em>int</em>) – Number of output channels.</p></li>
+<li><p><strong>dropout_rate</strong> (<em>float</em><em>, </em><em>optional</em>) – Dropout probability to prevent overfitting. Defaults to 0.1.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="model.DoubleConv.conv">
+<span class="sig-name descname"><span class="pre">conv</span></span><a class="headerlink" href="#model.DoubleConv.conv" title="Link to this definition"></a></dt>
+<dd><p>Sequential container of the double convolution layers, including
+Conv2d, BatchNorm2d, ReLU, and Dropout.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nn.Sequential</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.DoubleConv.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/model.html#DoubleConv.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#model.DoubleConv.forward" title="Link to this definition"></a></dt>
+<dd><p>Forward pass for the double convolution block.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor with shape [batch_size, in_channels, height, width].</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Output tensor with shape [batch_size, out_channels, height, width].</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="model.UNET">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">model.</span></span><span class="sig-name descname"><span class="pre">UNET</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">in_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[32,</span> <span class="pre">64,</span> <span class="pre">128,</span> <span class="pre">256]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/model.html#UNET"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#model.UNET" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>U-Net architecture for semantic segmentation.</p>
+<p>Implements a U-Net with an encoder-decoder structure, including skip connections, for multiclass
+segmentation tasks. The model consists of a downsampling path (encoder), a bottleneck, and an
+upsampling path (decoder), with a final convolution to produce the output segmentation map for
+three classes (background, driveable, lanes).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>in_channels</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of input channels (e.g., 3 for RGB images). Defaults to 3.</p></li>
+<li><p><strong>out_channels</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of output channels/classes (e.g., 3 for multiclass segmentation).
+Defaults to 3.</p></li>
+<li><p><strong>features</strong> (<em>list</em><em>, </em><em>optional</em>) – List of feature sizes for each level in the encoder and decoder.
+Defaults to [32, 64, 128, 256].</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="model.UNET.ups">
+<span class="sig-name descname"><span class="pre">ups</span></span><a class="headerlink" href="#model.UNET.ups" title="Link to this definition"></a></dt>
+<dd><p>List of upsampling layers (ConvTranspose2d and DoubleConv).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nn.ModuleList</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="model.UNET.downs">
+<span class="sig-name descname"><span class="pre">downs</span></span><a class="headerlink" href="#model.UNET.downs" title="Link to this definition"></a></dt>
+<dd><p>List of downsampling layers (DoubleConv).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nn.ModuleList</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="model.UNET.pool">
+<span class="sig-name descname"><span class="pre">pool</span></span><a class="headerlink" href="#model.UNET.pool" title="Link to this definition"></a></dt>
+<dd><p>Max pooling layer for downsampling.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nn.MaxPool2d</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="model.UNET.bottleneck">
+<span class="sig-name descname"><span class="pre">bottleneck</span></span><a class="headerlink" href="#model.UNET.bottleneck" title="Link to this definition"></a></dt>
+<dd><p>Bottleneck layer connecting encoder and decoder.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#model.DoubleConv" title="model.DoubleConv">DoubleConv</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="model.UNET.final_conv">
+<span class="sig-name descname"><span class="pre">final_conv</span></span><a class="headerlink" href="#model.UNET.final_conv" title="Link to this definition"></a></dt>
+<dd><p>Final convolution layer to produce the output segmentation map.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>nn.Conv2d</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.UNET.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/model.html#UNET.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#model.UNET.forward" title="Link to this definition"></a></dt>
+<dd><p>Forward pass for the U-Net model.</p>
+<p>Processes the input through the downsampling path, bottleneck, and upsampling path with skip
+connections, producing a segmentation map. Resizes tensors if necessary to match skip connection
+dimensions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>torch.Tensor</em>) – Input tensor with shape [batch_size, in_channels, height, width].</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Output segmentation map with shape [batch_size, out_channels, height, width].</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>torch.Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="model.UNET.initialize_weights">
+<span class="sig-name descname"><span class="pre">initialize_weights</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/model.html#UNET.initialize_weights"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#model.UNET.initialize_weights" title="Link to this definition"></a></dt>
+<dd><p>Initializes weights for Conv2d, ConvTranspose2d, and BatchNorm2d layers.</p>
+<p>Uses Kaiming uniform initialization for convolutional layers and constant initialization
+for batch normalization layers to improve training stability.</p>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Conv2d and ConvTranspose2d weights are initialized with Kaiming uniform (ReLU nonlinearity).</p></li>
+<li><p>BatchNorm2d weights are set to 1, and biases are set to 0.</p></li>
+</ul>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dataset.html" class="btn btn-neutral float-left" title="dataset module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="train.html" class="btn btn-neutral float-right" title="train module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, SEAME Porto-Portugal Team07.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

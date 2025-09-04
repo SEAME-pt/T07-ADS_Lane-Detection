@@ -1,0 +1,29 @@
+.. Drivable area detection documentation master file, created by
+   sphinx-quickstart on Wed Aug 20 17:37:16 2025.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Drivable area detection documentation
+=====================================
+
+.. Add your content using ``reStructuredText`` syntax. See the
+.. `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
+.. documentation for details.
+
+This project provides a deep learning-based solution for multiclass lane detection, designed for autonomous driving applications. It includes a U-Net model for semantic segmentation, custom dataset handling, and training utilities to detect background, driveable areas, and lane markings in images. Implemented by `Team07 <https://github.com/orgs/SEAME-pt/teams/team07>`_
+
+     For more details, explore the following sections:
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   modules
+   reports
+
+.. Relatórios
+.. ==========
+
+.. - `Relatório de testes <_static/report.html>`_
+.. - `Cobertura de código <_static/htmlcov/index.html>`_
