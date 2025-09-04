@@ -21,6 +21,7 @@ JetCar::JetCar(int motorAddr, int servoAddr)
     _currentMode = MODE_JOYSTICK;
     cruise_speed_= V_REF_PWM;
     _isTurnOn = 1;
+    _roadSpeedLimit = 0.3f; // Default speed limit 100 cm/s
 
     // Inicializar servo e motores
     open_servo_i2c_bus();
@@ -285,4 +286,12 @@ void JetCar::publishMessage(const std::string& msg) {
 
 void JetCar::sendCurrentMode() {
     publishMessage("autopilot " + std::string( _currentMode == MODE_AUTONOMOUS ? "true" : "false"));
+}
+
+void JetCar::setRoadSpeedLimit(float limit) {
+    _roadSpeedLimit = limit;
+}
+
+float JetCar::getRoadSpeedLimit() const {
+    return _roadSpeedLimit;
 }

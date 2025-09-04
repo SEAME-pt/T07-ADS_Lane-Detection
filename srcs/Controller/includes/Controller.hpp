@@ -68,6 +68,7 @@ private:
     int stopCounter = 0;  // conta quantos frames seguidos detectou STOP
     const int STOP_THRESHOLD = 5;  // precisa de 5 frames seguidos pra acionar
     bool checkStopSign(const std::vector<Detection>& detections);
+    void maintainAutonomousSpeed(float targetSpeed);
 
 	int cruise_speed_;
     int count_steps_ = 0;

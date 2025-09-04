@@ -20,7 +20,7 @@ const double DT = 0.1;		  // Time step (s)
 // Car velovity limits
 const double	V_MAX = 2.5;		// Maximal velocity (m/s)
 const double	V_MIN = 0.1;		// Minimal velocity for MPC update (m/s)
-const double	V_REF_PWM = 25;	// Reference velocity (%) v = V_REF_PWM * V_MAX / V_MAX_PWM
+const double	V_REF_PWM = 22;	// Reference velocity (%) v = V_REF_PWM * V_MAX / V_MAX_PWM
 // Car steering limits
 const double	DELTA_MAX = 0.5;		// Max steering angle (rad, ~30 deg)
 const double	DELTA_RATE_MAX = 0.1;	// Max steering rate (rad/step)

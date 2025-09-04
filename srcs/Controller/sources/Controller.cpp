@@ -10,10 +10,9 @@
 
 std::deque<cv::Rect> stopHistory;
 const int HISTORY_SIZE = 8;
-const int MIN_CONFIRM = 3;  // STOP needs to appear in at least 6 of the last 10 frames
+const int MIN_CONFIRM = 3;  // STOP needs to appear in at least 4 of the last 8 frames
 
 Controller::Controller() : joystick(nullptr), jetCar(0x60, 0x40), mapping(&jetCar), mpc_(L, DT, N) {
-
 
 	// Initialize SDL for joystick input
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0) {
@@ -22,7 +21,7 @@ Controller::Controller() : joystick(nullptr), jetCar(0x60, 0x40), mapping(&jetCa
 
 	// visualize_mask_ = true;
     // Initialize speedController
-    speedPIDController = new SpeedPIDController();
+    // speedPIDController = new SpeedPIDController();
 
     int joystickCount = SDL_NumJoysticks();
     std::cout << "Number of joysticks connected: " << joystickCount << std::endl;
@@ -188,29 +187,32 @@ void Controller::listen() {
             float ey, yaw;
             laneDetector->processFrame(frame, ey, yaw, output_frame, visualize_mask_);
             autonomous(ey, yaw);
-            static int cruise_delta_ = 0;
-			if (std::abs(yaw) < 0.1 && std::abs(ey) < 0.04) {
-				cruise_reset_ = true;
-                if (count_steps_ == 10)
-                    cruise_delta_++; // small speed boost on straight roads
-			} else {
-				cruise_delta_ = 0.0f;
-				if (cruise_reset_) {
-						std::cout << "[" << __func__ << "] "
-								<< "Curve detected! Resetting cruise control." << std::endl;
-						if (std::abs(yaw) > 0.36f){
-							std::cout << "[" << __func__ << "] "
-									<< "Sharp curve detected! Briefly stopping to reset cruise control." << std::endl;
-							jetCar.stopCar();
-							sleep(0.1); // 0.1s pause to reset motor
-						}
-						cruise_reset_ = false;
-						std::cout << "[" << __func__ << "] "
-								<< "Resuming cruise speed at " << jetCar.getCruiseSpeed() << " cm/s" << std::endl;
-					}
-			}
-			cruise_delta_ = std::min(cruise_delta_, static_cast<int>(jetCar.getCruiseSpeed() * 0.3f)); // limit max boost to 5 cm/s
-			jetCar.set_motor_speed(static_cast<int>(jetCar.getCruiseSpeed() + cruise_delta_));  // Convert m/s to cm/s
+           
+            // static int cruise_delta_ = 0;
+			// if (std::abs(yaw) < 0.1 && std::abs(ey) < 0.04) {
+			// 	cruise_reset_ = true;
+            //     if (count_steps_ == 10)
+            //         cruise_delta_++; // small speed boost on straight roads
+			// } else {
+			// 	cruise_delta_ = 0.0f;
+			// 	if (cruise_reset_) {
+			// 			std::cout << "[" << __func__ << "] "
+			// 					<< "Curve detected! Resetting cruise control." << std::endl;
+			// 			if (std::abs(yaw) > 0.36f){
+			// 				std::cout << "[" << __func__ << "] "
+			// 						<< "Sharp curve detected! Briefly stopping to reset cruise control." << std::endl;
+			// 				jetCar.stopCar();
+			// 				sleep(0.1); // 0.1s pause to reset motor
+			// 			}
+			// 			cruise_reset_ = false;
+			// 			std::cout << "[" << __func__ << "] "
+			// 					<< "Resuming cruise speed at " << jetCar.getCruiseSpeed() << " cm/s" << std::endl;
+			// 		}
+			// }
+			// cruise_delta_ = std::min(cruise_delta_, static_cast<int>(jetCar.getCruiseSpeed() * 0.3f)); // limit max boost to 5 cm/s
+			// jetCar.set_motor_speed(static_cast<int>(jetCar.getCruiseSpeed() + cruise_delta_));  // Convert m/s to cm/s
+            // //  jetCar.set_motor_speed(static_cast<int>(jetCar.getCruiseSpeed()));  // Convert m/s to cm/s
+
             visualize_mask_ = false;
 		} else {
 			visualize_mask_ = true;
@@ -220,7 +222,8 @@ void Controller::listen() {
 
         cv::Rect roi(frame.cols * 0.6, 0, frame.cols * 0.4, frame.rows);
         std::vector<Detection> detections = objectDetector->infer(frame, roi);
-        if (checkStopSign(detections)) {
+        sendDetectedSign(detections);
+        if (checkStopSign(detections) && jetCar.getCurrentMode() == MODE_AUTONOMOUS) {
             jetCar.stopCar();
             jetCar.setCurrentMode(MODE_JOYSTICK);
         }
@@ -266,6 +269,15 @@ bool Controller::checkStopSign(const std::vector<Detection>& detections) {
             currentBox = det.bbox;
             break;
         }
+       else if (det.class_name == "speed50" || det.class_name == "danger" && det.confidence > 0.6f) {
+            jetCar.setRoadSpeedLimit(0.3f);
+            std::cout << "[SPEED LIMIT] 50 km/h detected!" << std::endl;
+            break; // prioridade: pega o primeiro detectado
+        } else if (det.class_name == "speed80" && det.confidence > 0.6f) {
+            jetCar.setRoadSpeedLimit(0.6f);
+            std::cout << "[SPEED LIMIT] 80 km/h detected!" << std::endl;
+            break;
+        }
     }
 
     if (found) stopHistory.push_back(currentBox);
@@ -297,7 +309,7 @@ bool Controller::checkStopSign(const std::vector<Detection>& detections) {
 }
 
 void Controller::autonomous(float ey, float yaw) {
-    tracker.mark();
+    //tracker.mark();
 
 	float speed = currentSpeed.load(std::memory_order_relaxed);  // Get current speed from SpeedSubscriber
 	if (speed > 1000 || speed < -1000) {
@@ -316,8 +328,10 @@ void Controller::autonomous(float ey, float yaw) {
 
 	float steeringDEG = static_cast<int>(std::max(-DELTA_MAX, std::min(DELTA_MAX, static_cast<double>(delta))) * 180 / CV_PI);  // Convert radians to % PWM
 	jetCar.set_servo_angle(static_cast<int>(steeringDEG));  // Converted to degrees
+     maintainAutonomousSpeed(jetCar.getRoadSpeedLimit());
 
-    tracker.mark();
+    // maintainAutonomousSpeed(jetCar.getRoadSpeedLimit());
+    // tracker.mark();
 	// std::string servo_text = "Servo: " + std::to_string(delta * 180.0 / CV_PI) + " deg";
 	// std::string delta_text = "Delta: " + std::to_string(delta) + " rad";
 	// std::string speed_text = "Speed: " + std::to_string(speed) + " m/s";
@@ -337,7 +351,36 @@ void Controller::setObjectDetector(std::unique_ptr<ObjectDetector> detector) {
 
 //function to send to cluster the detected sign
 void Controller::sendDetectedSign(const std::vector<Detection>& detections) {
-    for (const auto& det : detections) {
-        jetCar.publishMessage("trafficSign " + det.class_name);
+
+    if (detections.empty()) {
+        jetCar.publishMessage("trafficSign None");
+    } else {
+        for (const auto& det : detections) {
+            jetCar.publishMessage("trafficSign " + det.class_name);
+        }
     }
-}   
+} 
+
+void Controller::maintainAutonomousSpeed(float targetSpeed) {
+    std::cout << "[SPEED CONTROL] Maintaining speed: " << targetSpeed << std::endl;
+
+    float current = currentSpeed.load(std::memory_order_relaxed);
+
+    // Erro simples
+    float error = targetSpeed - current;
+
+    // Controle bem básico: proporcional direto
+    float Kp = 50.0f; // ganho arbitrário, pode ajustar
+    float control = Kp * error;
+
+    // Converte pra PWM/motor
+    int newSpeed = static_cast<int>(jetCar.getCruiseSpeed() + control);
+
+    // Limita valores extremos
+    newSpeed = std::max(0, std::min(newSpeed, 1000));
+
+    std::cout << "[SPEED CONTROL] New speed set to: " << newSpeed << std::endl;
+
+    jetCar.set_motor_speed(newSpeed);
+}
+

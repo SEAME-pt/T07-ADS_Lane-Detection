@@ -58,7 +58,10 @@ public:
     int getCruiseSpeed() const;
     void setCruiseSpeed(int speed);
     void stopCar();
-    
+
+    float getRoadSpeedLimit() const;
+    void setRoadSpeedLimit(float limit);
+
     //ZMQ
     bool checkStopSign(const std::vector<Detection>& detections);
     void publishMessage(const std::string& msg);
@@ -87,6 +90,7 @@ private:
 
     int _currentMode;
     int _isTurnOn;
+    float _roadSpeedLimit;
 
     int cruise_speed_;
 
